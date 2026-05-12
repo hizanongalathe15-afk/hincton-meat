@@ -95,11 +95,11 @@ exports.UserModel = {
         // Perform cascade delete with all related data
         await database_1.prisma.$transaction(async (tx) => {
             // Delete user addresses
-            await tx.userAddress.deleteMany({ where: { userId: id } });
+            await tx.address.deleteMany({ where: { userId: id } });
             // Delete payment methods
             await tx.paymentMethod.deleteMany({ where: { userId: id } });
-            // Delete notification settings
-            await tx.notificationSetting.deleteMany({ where: { userId: id } });
+            // Delete user settings
+            await tx.userSettings.deleteMany({ where: { userId: id } });
             // Delete user sessions
             await tx.userSession.deleteMany({ where: { userId: id } });
             // Delete user profile
@@ -113,13 +113,22 @@ exports.UserModel = {
                 await tx.cart.delete({ where: { id: userCart.id } });
             }
             // Delete wishlist items
-            await tx.wishlistItem.deleteMany({ where: { userId: id } });
+            const userWishlist = await tx.wishlist.findUnique({ where: { userId: id } });
+            if (userWishlist) {
+                await tx.wishlistItem.deleteMany({ where: { wishlistId: userWishlist.id } });
+                await tx.wishlist.delete({ where: { id: userWishlist.id } });
+            }
             // Delete affiliate data
             await tx.affiliate.deleteMany({ where: { userId: id } });
             // Delete subscriptions
             await tx.subscription.deleteMany({ where: { userId: id } });
             // Delete orders (set to null instead of deleting for audit)
-            await tx.order.updateMany({ where: { userId: id } }, { data: { userId: null } });
+            // Mark orders as deleted for audit instead of actually deleting them.
+            // updateMany requires both `where` and `data`.
+            await tx.order.updateMany({
+                where: { userId: id },
+                data: { deletedAt: new Date() }
+            });
             // Finally delete the user
             await tx.user.delete({
                 where: { id }
