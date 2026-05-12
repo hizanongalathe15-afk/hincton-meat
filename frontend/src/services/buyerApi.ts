@@ -1,0 +1,514 @@
+import axios from 'axios'
+import { getApiErrorMessage } from './api'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+
+// Create axios instance
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+const getGuestSessionId = () => {
+  const key = 'hincton:guest-session-id'
+  const existing = localStorage.getItem(key)
+  if (existing) return existing
+
+  const generated =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `guest-${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+  localStorage.setItem(key, generated)
+  return generated
+}
+
+// Add auth interceptor
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  } else {
+    config.headers['X-Guest-Session-Id'] = getGuestSessionId()
+  }
+  return config
+})
+
+// Products API
+export const productsApi = {
+  getProducts: async (params?: {
+    page?: number
+    limit?: number
+    search?: string
+    category?: string
+    minPrice?: number
+      maxPrice?: number
+      sortBy?: string
+      sortOrder?: 'asc' | 'desc'
+      featured?: boolean
+    }) => {
+    const response = await apiClient.get('/products', { params })
+    return response.data
+  },
+
+  getProduct: async (id: string) => {
+    const response = await apiClient.get(`/products/${id}`)
+    return response.data
+  },
+
+  getFeaturedProducts: async () => {
+    const response = await apiClient.get('/products/featured')
+    return response.data
+  },
+
+  getCategories: async () => {
+    const response = await apiClient.get('/categories')
+    return response.data
+  }
+}
+
+export const profileApi = {
+  getWebProfile: async () => {
+    const response = await apiClient.get('/content/web-profile')
+    return response.data
+  },
+}
+
+// Cart API
+export const cartApi = {
+  getCart: async () => {
+    const response = await apiClient.get('/cart')
+    return response.data
+  },
+
+  addToCart: async (data: {
+    productId: string
+    quantity: number
+    variantId?: string
+  }) => {
+    const response = await apiClient.post('/cart/add', data)
+    return response.data
+  },
+
+  updateCartItem: async (itemId: string, quantity: number) => {
+    const response = await apiClient.put(`/cart/item/${itemId}`, { quantity })
+    return response.data
+  },
+
+  removeFromCart: async (itemId: string) => {
+    const response = await apiClient.delete(`/cart/item/${itemId}`)
+    return response.data
+  },
+
+  clearCart: async () => {
+    const response = await apiClient.delete('/cart/clear')
+    return response.data
+  }
+}
+
+// Orders API
+export const ordersApi = {
+  getMyOrders: async () => {
+    const response = await apiClient.get('/orders/mine')
+    return response.data
+  },
+
+  getOrder: async (id: string) => {
+    const response = await apiClient.get(`/orders/${id}`)
+    return response.data
+  },
+
+  createOrder: async (data: any) => {
+    const response = await apiClient.post('/orders', data)
+    return response.data
+  }
+}
+
+// User API
+export const userApi = {
+  getProfile: async () => {
+    const response = await apiClient.get('/auth/profile')
+    return response.data
+  },
+
+  updateProfile: async (data: any) => {
+    const response = await apiClient.put('/auth/profile', data)
+    return response.data
+  },
+
+  updateAvatar: async (file: File) => {
+    const data = new FormData()
+    data.append('avatar', file)
+    const response = await apiClient.post('/auth/profile/avatar', data, { headers: { 'Content-Type': 'multipart/form-data' } })
+    return response.data
+  },
+
+  changePassword: async (data: {
+    currentPassword: string
+    newPassword: string
+  }) => {
+    const response = await apiClient.put('/auth/change-password', data)
+    return response.data
+  },
+
+  getAddresses: async () => {
+    const response = await apiClient.get('/auth/addresses')
+    return response.data
+  },
+
+  addAddress: async (data: {
+    street: string
+    city: string
+    postalCode: string
+    country: string
+    isDefault: boolean
+  }) => {
+    const response = await apiClient.post('/auth/addresses', data)
+    return response.data
+  },
+
+  updateAddress: async (id: string, data: {
+    street: string
+    city: string
+    postalCode: string
+    country: string
+    isDefault: boolean
+  }) => {
+    const response = await apiClient.put(`/auth/addresses/${id}`, data)
+    return response.data
+  },
+
+  deleteAddress: async (id: string) => {
+    const response = await apiClient.delete(`/auth/addresses/${id}`)
+    return response.data
+  },
+
+  setDefaultAddress: async (id: string) => {
+    const response = await apiClient.put(`/auth/addresses/${id}/default`)
+    return response.data
+  },
+
+  getPaymentMethods: async () => {
+    const response = await apiClient.get('/auth/payment-methods')
+    return response.data
+  },
+
+  addPaymentMethod: async (data: {
+    type: string
+    phoneNumber: string
+    accountName: string
+    isDefault: boolean
+  }) => {
+    const response = await apiClient.post('/auth/payment-methods', data)
+    return response.data
+  },
+
+  deletePaymentMethod: async (id: string) => {
+    const response = await apiClient.delete(`/auth/payment-methods/${id}`)
+    return response.data
+  },
+
+  setDefaultPaymentMethod: async (id: string) => {
+    const response = await apiClient.put(`/auth/payment-methods/${id}/default`)
+    return response.data
+  },
+
+  getNotificationSettings: async () => {
+    const response = await apiClient.get('/auth/notification-settings')
+    return response.data
+  },
+
+  updateNotificationSettings: async (data: {
+    email: boolean
+    sms: boolean
+    push: boolean
+    orderUpdates: boolean
+    promotions: boolean
+    newsletter: boolean
+  }) => {
+    const response = await apiClient.put('/auth/notification-settings', data)
+    return response.data
+  },
+
+  login: async (data: {
+    email: string
+    password: string
+  }) => {
+    const response = await apiClient.post('/auth/login', data)
+    return response.data
+  },
+
+  register: async (data: {
+    email: string
+    password: string
+    username?: string
+    firstName?: string
+    lastName?: string
+  }) => {
+    const response = await apiClient.post('/auth/register', data)
+    return response.data
+  }
+}
+
+// Wishlist API
+export const wishlistApi = {
+  getWishlist: async () => {
+    const response = await apiClient.get('/wishlist')
+    return response.data
+  },
+
+  addToWishlist: async (productId: string) => {
+    const response = await apiClient.post('/wishlist/add', { productId })
+    return response.data
+  },
+
+  removeFromWishlist: async (productId: string) => {
+    const response = await apiClient.delete(`/wishlist/${productId}`)
+    return response.data
+  }
+}
+
+// Reviews API
+export const reviewsApi = {
+  getProductReviews: async (productId: string, params?: {
+    page?: number
+    limit?: number
+  }) => {
+    const response = await apiClient.get(`/products/${productId}/reviews`, { params })
+    return response.data
+  },
+
+  createReview: async (data: {
+    productId: string
+    orderId?: string
+    rating: number
+    title: string
+    content: string
+    images?: string[]
+  }) => {
+    const response = await apiClient.post('/reviews', data)
+    return response.data
+  },
+
+  getMyReviews: async () => {
+    const response = await apiClient.get('/reviews/my')
+    return response.data
+  },
+
+  getProductsToReview: async () => {
+    const response = await apiClient.get('/reviews/to-review')
+    return response.data
+  },
+
+  updateReview: async (reviewId: string, data: {
+    rating: number
+    title: string
+    content: string
+    images?: string[]
+  }) => {
+    const response = await apiClient.put(`/reviews/${reviewId}`, data)
+    return response.data
+  },
+
+  deleteReview: async (reviewId: string) => {
+    const response = await apiClient.delete(`/reviews/${reviewId}`)
+    return response.data
+  },
+
+  markHelpful: async (reviewId: string, helpful: boolean) => {
+    const response = await apiClient.post(`/reviews/${reviewId}/helpful`, { helpful })
+    return response.data
+  }
+}
+
+// Promotions API
+export const promotionsApi = {
+  getActivePromotions: async () => {
+    const response = await apiClient.get('/promotions/active')
+    return response.data
+  },
+
+  applyPromotion: async (data: {
+    code: string
+    orderTotal: number
+    userId?: string
+    orderId?: string
+  }) => {
+    const response = await apiClient.post('/promotions/apply', data)
+    return response.data
+  }
+}
+
+// Chat API
+export const chatApi = {
+  sendMessage: async (data: {
+    sessionId: string
+    message: string
+    from: 'admin' | 'user'
+  }) => {
+    const response = await apiClient.post('/chat/send', data)
+    return response.data
+  },
+
+  sendConversationMessage: async (data: {
+    conversationId: string
+    content: string
+    type: 'text' | 'system' | 'order_update'
+  }) => {
+    const response = await apiClient.post('/chat/conversations/message', data)
+    return response.data
+  },
+
+  getMessages: async (sessionId: string) => {
+    const response = await apiClient.get(`/chat/messages/${sessionId}`)
+    return response.data
+  },
+
+  getConversationMessages: async (conversationId: string) => {
+    const response = await apiClient.get(`/chat/conversations/${conversationId}/messages`)
+    return response.data
+  },
+
+  getMySessions: async () => {
+    const response = await apiClient.get('/chat/my-sessions')
+    return response.data
+  },
+
+  getConversations: async () => {
+    const response = await apiClient.get('/chat/conversations')
+    return response.data
+  },
+
+  markAsRead: async (sessionId: string) => {
+    const response = await apiClient.put(`/chat/mark-read/${sessionId}`)
+    return response.data
+  },
+
+  markConversationAsRead: async (conversationId: string) => {
+    const response = await apiClient.put(`/chat/conversations/${conversationId}/read`)
+    return response.data
+  },
+
+  deleteMessage: async (messageId: string) => {
+    const response = await apiClient.delete(`/chat/messages/${messageId}`)
+    return response.data
+  },
+
+  starMessage: async (messageId: string) => {
+    const response = await apiClient.put(`/chat/messages/${messageId}/star`)
+    return response.data
+  },
+
+  starConversation: async (conversationId: string) => {
+    const response = await apiClient.put(`/chat/conversations/${conversationId}/star`)
+    return response.data
+  },
+
+  deleteConversation: async (conversationId: string) => {
+    const response = await apiClient.delete(`/chat/conversations/${conversationId}`)
+    return response.data
+  }
+}
+
+export const walletApi = {
+  getBalance: async () => {
+    const response = await apiClient.get('/wallet/balance')
+    return response.data
+  },
+
+  getTransactions: async () => {
+    const response = await apiClient.get('/wallet/transactions')
+    return response.data
+  },
+
+  topup: async (data: {
+    amount: number
+    paymentMethodId: string
+    description: string
+  }) => {
+    const response = await apiClient.post('/wallet/topup', data)
+    return response.data
+  },
+
+  withdraw: async (data: {
+    amount: number
+    paymentMethodId: string
+    description: string
+  }) => {
+    const response = await apiClient.post('/wallet/withdraw', data)
+    return response.data
+  },
+
+  getPaymentMethods: async () => {
+    const response = await apiClient.get('/wallet/payment-methods')
+    return response.data
+  }
+}
+
+export const notificationsApi = {
+  getNotifications: async () => {
+    const response = await apiClient.get('/notifications')
+    return response.data
+  },
+
+  getUnreadCount: async () => {
+    const response = await apiClient.get('/notifications/unread-count')
+    return response.data
+  },
+
+  markAsRead: async (notificationId: string) => {
+    const response = await apiClient.put(`/notifications/${notificationId}/read`)
+    return response.data
+  },
+
+  markAllAsRead: async () => {
+    const response = await apiClient.put('/notifications/mark-all-read')
+    return response.data
+  },
+
+  deleteNotification: async (notificationId: string) => {
+    const response = await apiClient.delete(`/notifications/${notificationId}`)
+    return response.data
+  }
+}
+
+// Returns API
+export const returnsApi = {
+  createReturn: async (data: {
+    orderId: string
+    orderItemId?: string
+    productId?: string
+    variantId?: string
+    reason?: string
+    reasonDetails?: string
+    quantity?: number
+  }) => {
+    const response = await apiClient.post('/returns', data)
+    return response.data
+  },
+
+  getMyReturns: async () => {
+    const response = await apiClient.get('/returns/mine')
+    return response.data
+  }
+}
+
+// Payments API (M-Pesa)
+export const paymentsApi = {
+  initiateMpesaPayment: async (data: {
+    phoneNumber: string
+    amount: number
+    orderId?: string
+  }) => {
+    try {
+      const response = await apiClient.post('/mpesa/initiate', data)
+      return response.data
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Failed to initiate M-PESA payment.'))
+    }
+  }
+}
+
+export default apiClient

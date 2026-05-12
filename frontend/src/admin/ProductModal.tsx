@@ -1,0 +1,506 @@
+import { useState, useEffect } from 'react'
+import { X, Upload, Trash2, Plus, Save } from 'lucide-react'
+
+import { contentApi } from '../services/adminApi'
+import { formatPrice } from '../utils/currency'
+
+interface ProductModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onSave: (product: ProductFormData) => void
+  product?: any
+  mode: 'add' | 'edit'
+}
+
+interface ProductFormData {
+  id?: string
+  name: string
+  description: string
+  categoryId: string
+  price: number
+  comparePrice?: number
+  stockQuantity: number
+  sku: string
+  weight: number
+  unit: string
+  isPublished: boolean
+  tags: string[]
+  images: File[]
+  existingImages?: string[]
+}
+
+const ProductModal: React.FC<ProductModalProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  product,
+  mode
+}) => {
+  const [formData, setFormData] = useState<ProductFormData>({
+    name: '',
+    description: '',
+    categoryId: '',
+    price: 0,
+    comparePrice: undefined,
+    stockQuantity: 0,
+    sku: '',
+    weight: 500,
+    unit: 'g',
+    isPublished: true,
+    tags: [],
+    images: [],
+    existingImages: []
+  })
+  
+  const [categories, setCategories] = useState([])
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
+  const [loading, setLoading] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchCategories()
+      if (mode === 'edit' && product) {
+        setFormData({
+          id: product.id,
+          name: product.name || '',
+          description: product.description || '',
+          categoryId: product.categoryId || '',
+          price: Number(product.price) || 0,
+          comparePrice: product.comparePrice ? Number(product.comparePrice) : undefined,
+          stockQuantity: product.stockQuantity || 0,
+          sku: product.sku || '',
+          weight: product.weight || 500,
+          unit: product.weightUnit || product.unit || 'g',
+          isPublished: product.isPublished ?? true,
+          tags: product.tags || [],
+          images: [],
+          existingImages: product.productImages?.map((img: any) => img.url) || []
+        })
+        setImagePreviews(product.productImages?.map((img: any) => img.url) || [])
+      } else {
+        resetForm()
+      }
+    }
+  }, [isOpen, mode, product])
+
+  const fetchCategories = async () => {
+    try {
+      const data = await contentApi.getCategories()
+      setCategories(data.categories || [])
+    } catch (error) {
+      console.error('Failed to fetch categories:', error)
+    }
+  }
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      categoryId: '',
+      price: 0,
+      comparePrice: undefined,
+      stockQuantity: 0,
+      sku: '',
+      weight: 500,
+      unit: 'g',
+      isPublished: true,
+      tags: [],
+      images: [],
+      existingImages: []
+    })
+    setImagePreviews([])
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+    }))
+  }
+
+  const handleImageUpload = (files: FileList | null) => {
+    if (!files) return
+    
+    const newImages = Array.from(files)
+    const newPreviews = newImages.map(file => URL.createObjectURL(file))
+    
+    setFormData(prev => ({
+      ...prev,
+      images: [...prev.images, ...newImages]
+    }))
+    
+    setImagePreviews(prev => [...prev, ...newPreviews])
+  }
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true)
+    } else if (e.type === 'dragleave') {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleImageUpload(e.dataTransfer.files)
+    }
+  }
+
+  const removeImage = (index: number, isExisting: boolean = false) => {
+    if (isExisting) {
+      const newExistingImages = formData.existingImages?.filter((_, i) => i !== index) || []
+      const newPreviews = imagePreviews.filter((_, i) => i !== index)
+      setFormData(prev => ({ ...prev, existingImages: newExistingImages }))
+      setImagePreviews(newPreviews)
+    } else {
+      const existingCount = formData.existingImages?.length || 0
+      const imageIndex = existingCount + index
+      const newImages = formData.images.filter((_, i) => i !== index)
+      const newPreviews = imagePreviews.filter((_, i) => i !== imageIndex)
+      
+      // Revoke object URLs to prevent memory leaks
+      imagePreviews.slice(existingCount).forEach((url, i) => {
+        if (i >= index) URL.revokeObjectURL(url)
+      })
+      
+      setFormData(prev => ({ ...prev, images: newImages }))
+      setImagePreviews(newPreviews)
+    }
+  }
+
+  const generateSku = () => {
+    const name = formData.name.replace(/\s+/g, '').toUpperCase().slice(0, 8)
+    const categoryMatch = categories.find((cat: any) => cat.id === formData.categoryId) as any
+    const categoryName = String(categoryMatch?.name || 'CAT')
+    const category = categoryName.toUpperCase().slice(0, 4)
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase()
+    const sku = `${category}-${name}-${random}`
+    setFormData(prev => ({ ...prev, sku }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    
+    try {
+      await onSave(formData)
+      onClose()
+      resetForm()
+    } catch (error) {
+      console.error('Failed to save product:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-gray-900">
+            {mode === 'add' ? 'Add New Product' : 'Edit Product'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Basic Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Product Name *
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                placeholder="Enter product name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                SKU *
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  name="sku"
+                  value={formData.sku}
+                  onChange={handleInputChange}
+                  required
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  placeholder="Auto-generated or manual"
+                />
+                <button
+                  type="button"
+                  onClick={generateSku}
+                  className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                >
+                  Generate
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Description
+            </label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              placeholder="Enter product description"
+            />
+          </div>
+
+          {/* Category and Pricing */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Category *
+              </label>
+              <select
+                name="categoryId"
+                value={formData.categoryId}
+                onChange={handleInputChange}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              >
+                <option value="">Select category</option>
+                {categories.map((category: any) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Price (KSH) *
+              </label>
+              <input
+                type="number"
+                name="price"
+                value={formData.price}
+                onChange={handleInputChange}
+                required
+                min="0"
+                step="0.01"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                placeholder="0.00"
+              />
+              {formData.price > 0 && (
+                <p className="text-sm text-gray-600 mt-1">{formatPrice(formData.price)}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Before Price / Compare Price (KSH)
+              </label>
+              <input
+                type="number"
+                name="comparePrice"
+                value={formData.comparePrice || ''}
+                onChange={handleInputChange}
+                min="0"
+                step="0.01"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                placeholder="Optional crossed-out price"
+              />
+              {formData.comparePrice && (
+                <p className="text-sm text-gray-600 mt-1">{formatPrice(formData.comparePrice)}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Stock and Weight */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Stock Quantity *
+              </label>
+              <input
+                type="number"
+                name="stockQuantity"
+                value={formData.stockQuantity}
+                onChange={handleInputChange}
+                required
+                min="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                placeholder="0"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Weight *
+              </label>
+              <input
+                type="number"
+                name="weight"
+                value={formData.weight}
+                onChange={handleInputChange}
+                required
+                min="0"
+                step="0.1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                placeholder="500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Unit *
+              </label>
+              <select
+                name="unit"
+                value={formData.unit}
+                onChange={handleInputChange}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              >
+                <option value="g">Grams (g)</option>
+                <option value="kg">Kilograms (kg)</option>
+                <option value="lbs">Pounds (lbs)</option>
+                <option value="pcs">Pieces (pcs)</option>
+              </select>
+            </div>
+
+            <div className="flex items-center">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="isPublished"
+                  checked={formData.isPublished}
+                  onChange={handleInputChange}
+                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Published</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Image Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Product Images
+            </label>
+            
+            {/* Image Preview Grid */}
+            {imagePreviews.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                {imagePreviews.map((preview, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={preview}
+                      alt={`Preview ${index + 1}`}
+                      className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index, index < (formData.existingImages?.length || 0))}
+                      className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Upload Area */}
+            <div
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                dragActive ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-gray-400'
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 mb-2">
+                Drag and drop images here, or click to select
+              </p>
+              <p className="text-sm text-gray-500 mb-4">
+                PNG, JPG, GIF up to 10MB each
+              </p>
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={(e) => handleImageUpload(e.target.files)}
+                className="hidden"
+                id="image-upload"
+              />
+              <label
+                htmlFor="image-upload"
+                className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 cursor-pointer"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Images
+              </label>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  {mode === 'add' ? 'Add Product' : 'Update Product'}
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+export default ProductModal

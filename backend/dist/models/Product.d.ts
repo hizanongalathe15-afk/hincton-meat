@@ -1,0 +1,364 @@
+export interface IProduct {
+    id: string;
+    name: string;
+    slug: string;
+    description?: string;
+    shortDescription?: string;
+    price: number | string;
+    comparePrice?: number | string;
+    costPrice?: number | string;
+    wholesalePrice?: number | string;
+    sku: string;
+    barcode?: string;
+    mpn?: string;
+    gtin?: string;
+    stockQuantity: number;
+    lowStockThreshold: number;
+    stockStatus: string;
+    weight?: number;
+    length?: number;
+    width?: number;
+    height?: number;
+    brand?: string;
+    vendorId?: string;
+    categoryId?: string;
+    averageRating: number;
+    totalReviews: number;
+    totalSold: number;
+    isPublished: boolean;
+    isFeatured: boolean;
+    isNew: boolean;
+    isOnSale: boolean;
+    isDigital: boolean;
+    isPreorder: boolean;
+    preorderDate?: Date;
+    seoTitle?: string;
+    seoDescription?: string;
+    metaKeywords?: string;
+    canonicalUrl?: string;
+    createdAt: Date;
+    updatedAt: Date;
+    publishedAt?: Date;
+    deletedAt?: Date;
+    productImages?: {
+        id: string;
+        url: string;
+        alt?: string;
+        sortOrder: number;
+        isPrimary: boolean;
+    }[];
+    category?: {
+        id: string;
+        name: string;
+        slug: string;
+    };
+    vendor?: {
+        id: string;
+        businessName: string;
+    };
+}
+export declare const ProductModel: {
+    findById: (id: string) => Promise<IProduct | null>;
+    findAll: (filters?: {
+        categoryId?: string;
+        isFeatured?: boolean;
+        isPublished?: boolean;
+        vendorId?: string;
+    }) => Promise<IProduct[]>;
+    create: (productData: Omit<IProduct, "id" | "createdAt" | "updatedAt">) => Promise<IProduct>;
+    update: (id: string, productData: Partial<IProduct>) => Promise<IProduct>;
+    delete: (id: string) => Promise<void>;
+    getProductStats: (params?: {
+        startDate?: Date;
+        endDate?: Date;
+    }) => Promise<{
+        totalProducts: number;
+    }>;
+    getTopSellingProducts: (limit?: number) => Promise<{
+        products: IProduct[];
+    }>;
+    getLowStockProducts: (limit?: number) => Promise<{
+        products: IProduct[];
+    }>;
+    search: (params: {
+        query?: string;
+        categoryId?: string;
+        minPrice?: number;
+        maxPrice?: number;
+        brand?: string;
+        sortBy?: string;
+        sortOrder?: "asc" | "desc";
+        page?: number;
+        limit?: number;
+    }) => Promise<{
+        products: {
+            price: number;
+            comparePrice: number;
+            costPrice: number;
+            wholesalePrice: number;
+            category: {
+                id: string;
+                name: string;
+                createdAt: Date;
+                updatedAt: Date;
+                deletedAt: Date | null;
+                slug: string;
+                description: string | null;
+                isFeatured: boolean;
+                seoTitle: string | null;
+                seoDescription: string | null;
+                image: string | null;
+                bannerImage: string | null;
+                icon: string | null;
+                parentId: string | null;
+                sortOrder: number;
+                isActive: boolean;
+            };
+            vendor: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                deletedAt: Date | null;
+                coverImage: string | null;
+                website: string | null;
+                userId: string;
+                description: string | null;
+                rating: number;
+                reviewCount: number;
+                status: import(".prisma/client").$Enums.VendorStatus;
+                logo: string | null;
+                approvedAt: Date | null;
+                commissionRate: import("@prisma/client/runtime/library").Decimal;
+                totalWithdrawn: import("@prisma/client/runtime/library").Decimal;
+                balance: import("@prisma/client/runtime/library").Decimal;
+                businessName: string;
+                businessEmail: string;
+                businessPhone: string | null;
+                taxId: string | null;
+                totalSales: import("@prisma/client/runtime/library").Decimal;
+                verifiedAt: Date | null;
+            };
+            productImages: {
+                url: string;
+                id: string;
+                createdAt: Date;
+                sortOrder: number;
+                productId: string;
+                alt: string | null;
+                isPrimary: boolean;
+            }[];
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            slug: string;
+            description: string | null;
+            shortDescription: string | null;
+            sku: string;
+            barcode: string | null;
+            mpn: string | null;
+            gtin: string | null;
+            stockQuantity: number;
+            lowStockThreshold: number;
+            stockStatus: string;
+            weightUnit: string | null;
+            weight: number | null;
+            length: number | null;
+            width: number | null;
+            height: number | null;
+            brand: string | null;
+            vendorId: string | null;
+            categoryId: string | null;
+            averageRating: number;
+            totalReviews: number;
+            totalSold: number;
+            isPublished: boolean;
+            isFeatured: boolean;
+            isNew: boolean;
+            isOnSale: boolean;
+            isDigital: boolean;
+            isPreorder: boolean;
+            preorderDate: Date | null;
+            seoTitle: string | null;
+            seoDescription: string | null;
+            metaKeywords: string | null;
+            canonicalUrl: string | null;
+            publishedAt: Date | null;
+        }[];
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+    }>;
+    getSearchSuggestions: (query: string, limit?: number) => Promise<{
+        id: string;
+        name: string;
+        brand: string;
+        sku: string;
+        image: string;
+        type: string;
+    }[]>;
+    getPopularSearches: (limit?: number) => Promise<{
+        term: string;
+        count: number;
+    }[]>;
+    getAutocompleteSuggestions: (query: string, limit?: number) => Promise<{
+        id: string;
+        name: string;
+        brand: string;
+        image: string;
+        type: string;
+    }[]>;
+    getBrandSuggestions: (query: string, limit?: number) => Promise<{
+        name: string;
+        type: string;
+    }[]>;
+    advancedSearch: (params: {
+        query?: string;
+        categories?: string[];
+        brands?: string[];
+        tags?: string[];
+        minPrice?: number;
+        maxPrice?: number;
+        minRating?: number;
+        maxRating?: number;
+        inStock?: boolean;
+        freeShipping?: boolean;
+        onSale?: boolean;
+        sortBy?: string;
+        sortOrder?: "asc" | "desc";
+        page?: number;
+        limit?: number;
+    }) => Promise<{
+        products: {
+            price: number;
+            comparePrice: number;
+            costPrice: number;
+            wholesalePrice: number;
+            category: {
+                id: string;
+                name: string;
+                createdAt: Date;
+                updatedAt: Date;
+                deletedAt: Date | null;
+                slug: string;
+                description: string | null;
+                isFeatured: boolean;
+                seoTitle: string | null;
+                seoDescription: string | null;
+                image: string | null;
+                bannerImage: string | null;
+                icon: string | null;
+                parentId: string | null;
+                sortOrder: number;
+                isActive: boolean;
+            };
+            vendor: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                deletedAt: Date | null;
+                coverImage: string | null;
+                website: string | null;
+                userId: string;
+                description: string | null;
+                rating: number;
+                reviewCount: number;
+                status: import(".prisma/client").$Enums.VendorStatus;
+                logo: string | null;
+                approvedAt: Date | null;
+                commissionRate: import("@prisma/client/runtime/library").Decimal;
+                totalWithdrawn: import("@prisma/client/runtime/library").Decimal;
+                balance: import("@prisma/client/runtime/library").Decimal;
+                businessName: string;
+                businessEmail: string;
+                businessPhone: string | null;
+                taxId: string | null;
+                totalSales: import("@prisma/client/runtime/library").Decimal;
+                verifiedAt: Date | null;
+            };
+            productImages: {
+                url: string;
+                id: string;
+                createdAt: Date;
+                sortOrder: number;
+                productId: string;
+                alt: string | null;
+                isPrimary: boolean;
+            }[];
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            slug: string;
+            description: string | null;
+            shortDescription: string | null;
+            sku: string;
+            barcode: string | null;
+            mpn: string | null;
+            gtin: string | null;
+            stockQuantity: number;
+            lowStockThreshold: number;
+            stockStatus: string;
+            weightUnit: string | null;
+            weight: number | null;
+            length: number | null;
+            width: number | null;
+            height: number | null;
+            brand: string | null;
+            vendorId: string | null;
+            categoryId: string | null;
+            averageRating: number;
+            totalReviews: number;
+            totalSold: number;
+            isPublished: boolean;
+            isFeatured: boolean;
+            isNew: boolean;
+            isOnSale: boolean;
+            isDigital: boolean;
+            isPreorder: boolean;
+            preorderDate: Date | null;
+            seoTitle: string | null;
+            seoDescription: string | null;
+            metaKeywords: string | null;
+            canonicalUrl: string | null;
+            publishedAt: Date | null;
+        }[];
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+        searchTime: number;
+        facets: {
+            categories: {
+                id: string;
+                count: number;
+            }[];
+            brands: {
+                name: string;
+                count: number;
+            }[];
+            priceRanges: {
+                min: number;
+                max: number;
+                count: number;
+            }[];
+        };
+    }>;
+    getCategoryFacets: (where: any) => Promise<{
+        id: string;
+        count: number;
+    }[]>;
+    getBrandFacets: (where: any) => Promise<{
+        name: string;
+        count: number;
+    }[]>;
+    getPriceRangeFacets: (where: any) => Promise<{
+        min: number;
+        max: number;
+        count: number;
+    }[]>;
+};
+//# sourceMappingURL=Product.d.ts.map

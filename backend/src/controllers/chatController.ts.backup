@@ -1,0 +1,393 @@
+import { Request, Response, NextFunction } from 'express'
+import { asyncHandler, AppError, NotFoundError, ValidationError } from '../middleware'
+import { prisma } from '../database'
+
+export const getConversations = asyncHandler(async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id
+  
+  if (!userId) {
+    throw new AppError('User authentication required', 401, 'UNAUTHORIZED')
+  }
+
+  const conversations = await prisma.conversation.findMany({
+    where: {
+      participants: {
+        some: { userId }
+      }
+    },
+    include: {
+      participants: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  firstName: true,
+                  lastName: true,
+                  avatar: true
+                }
+              }
+            }
+          }
+        }
+      },
+      messages: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        include: {
+          sender: {
+            select: {
+              id: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  firstName: true,
+                  lastName: true,
+                  avatar: true
+                }
+              }
+            }
+          }
+        }
+      },
+      },
+      orderBy: { updatedAt: 'desc' }
+
+  // Format conversations for frontend
+  const formattedConversations = conversations.map(conv => {
+    const otherParticipant = conv.participants.find(p => p.userId !== userId)
+    const lastMessage = conv.messages[0]
+    
+    return {
+      id: conv.id,
+      participantId: otherParticipant?.userId || '',
+      participantName: otherParticipant?.user.profile?.fullName || 
+                       otherParticipant?.user.profile?.firstName + ' ' + otherParticipant?.user.profile?.lastName ||
+                       otherParticipant?.user.email,
+      participantAvatar: otherParticipant?.user.profile?.avatar,
+      participantType: otherParticipant?.user.roles?.includes('ADMIN') ? 'admin' : 'support',
+      lastMessage: lastMessage?.content || '',
+      lastMessageTime: lastMessage?.createdAt || conv.createdAt,
+      unreadCount: 0, // TODO: Implement unread count logic
+      isStarred: false, // TODO: Implement starred conversations
+      messages: []
+    }
+  })
+
+  res.json({
+    success: true,
+    conversations: formattedConversations
+  })
+})
+
+export const getConversationMessages = asyncHandler(async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id
+  const { conversationId } = req.params
+  
+  if (!userId) {
+    throw new AppError('User authentication required', 401, 'UNAUTHORIZED')
+  }
+
+  // Verify user is part of conversation
+  const conversation = await prisma.conversation.findFirst({
+    where: {
+      id: conversationId,
+      participants: {
+        some: { userId }
+      }
+    }
+  })
+
+  if (!conversation) {
+    throw new NotFoundError('Conversation', conversationId)
+  }
+
+  const messages = await prisma.message.findMany({
+    where: { conversationId },
+    include: {
+      sender: {
+        select: {
+          id: true,
+          profile: {
+            select: {
+              fullName: true,
+              firstName: true,
+              lastName: true,
+              avatar: true
+            }
+          }
+        }
+      }
+    },
+    orderBy: { createdAt: 'asc' }
+  })
+
+  const formattedMessages = messages.map(msg => ({
+    id: msg.id,
+    senderId: msg.senderId,
+    senderName: msg.sender.profile?.fullName || 
+                 msg.sender.profile?.firstName + ' ' + msg.sender.profile?.lastName ||
+                 'Unknown',
+    senderAvatar: msg.sender.profile?.avatar,
+    receiverId: '', // TODO: Track receiver ID
+    content: msg.content,
+    timestamp: msg.createdAt,
+    isRead: msg.isRead,
+    isStarred: false, // TODO: Implement starred messages
+    type: msg.type || 'text',
+    orderId: msg.orderId,
+    orderNumber: '' // TODO: Get order number
+  }))
+
+  res.json({
+    success: true,
+    messages: formattedMessages
+  })
+})
+
+export const sendConversationMessage = asyncHandler(async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id
+  const { conversationId, content, type } = req.body
+  
+  if (!userId) {
+    throw new AppError('User authentication required', 401, 'UNAUTHORIZED')
+  }
+
+  if (!content || !content.trim()) {
+    throw new ValidationError('Message content is required')
+  }
+
+  // Verify user is part of conversation
+  const conversation = await prisma.conversation.findFirst({
+    where: {
+      id: conversationId,
+      participants: {
+        some: { userId }
+      }
+    }
+  })
+
+  if (!conversation) {
+    throw new NotFoundError('Conversation', conversationId)
+  }
+
+  const message = await prisma.message.create({
+    data: {
+      conversationId,
+      senderId: userId,
+      content: content.trim(),
+      type: type || 'text'
+    },
+    include: {
+      sender: {
+        select: {
+          id: true,
+          profile: {
+            select: {
+              fullName: true,
+              firstName: true,
+              lastName: true,
+              avatar: true
+            }
+          }
+        }
+      }
+    }
+  })
+
+  // Update conversation timestamp
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: { updatedAt: new Date() }
+  })
+
+  res.status(201).json({
+    success: true,
+    message: {
+      id: message.id,
+      senderId: message.senderId,
+      senderName: message.sender.profile?.fullName || 
+                   message.sender.profile?.firstName + ' ' + message.sender.profile?.lastName ||
+                   'Unknown',
+      senderAvatar: message.sender.profile?.avatar,
+      receiverId: '',
+      content: message.content,
+      timestamp: message.createdAt,
+      isRead: message.isRead,
+      isStarred: false,
+      type: message.type,
+      orderId: message.orderId,
+      orderNumber: ''
+    }
+  })
+})
+
+export const markConversationAsRead = asyncHandler(async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id
+  const { conversationId } = req.params
+  
+  if (!userId) {
+    throw new AppError('User authentication required', 401, 'UNAUTHORIZED')
+  }
+
+  // Verify user is part of conversation
+  const conversation = await prisma.conversation.findFirst({
+    where: {
+      id: conversationId,
+      participants: {
+        some: { userId }
+      }
+    }
+  })
+
+  if (!conversation) {
+    throw new NotFoundError('Conversation', conversationId)
+  }
+
+  // Mark all messages in conversation as read for this user
+  await prisma.message.updateMany({
+    where: {
+      conversationId,
+      senderId: { not: userId }, // Only mark messages from others as read
+      isRead: false
+    },
+    data: { isRead: true }
+  })
+
+  res.json({
+    success: true,
+    message: 'Conversation marked as read'
+  })
+})
+
+export const starMessage = asyncHandler(async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id
+  const { messageId } = req.params
+  
+  if (!userId) {
+    throw new AppError('User authentication required', 401, 'UNAUTHORIZED')
+  }
+
+  // Verify message exists and user has access
+  const message = await prisma.message.findFirst({
+    where: {
+      id: messageId,
+      conversation: {
+        participants: {
+          some: { userId }
+        }
+      }
+    }
+  })
+
+  if (!message) {
+    throw new NotFoundError('Message', messageId)
+  }
+
+  // Toggle star status (you might need a separate table for starred messages)
+  // For now, we'll just return success
+  res.json({
+    success: true,
+    message: 'Message starred status updated'
+  })
+})
+
+export const deleteMessage = asyncHandler(async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id
+  const { messageId } = req.params
+  
+  if (!userId) {
+    throw new AppError('User authentication required', 401, 'UNAUTHORIZED')
+  }
+
+  // Verify message exists and user is the sender
+  const message = await prisma.message.findFirst({
+    where: {
+      id: messageId,
+      senderId: userId
+    }
+  })
+
+  if (!message) {
+    throw new NotFoundError('Message', messageId)
+  }
+
+  await prisma.message.delete({
+    where: { id: messageId }
+  })
+
+  res.json({
+    success: true,
+    message: 'Message deleted successfully'
+  })
+})
+
+export const starConversation = asyncHandler(async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id
+  const { conversationId } = req.params
+  
+  if (!userId) {
+    throw new AppError('User authentication required', 401, 'UNAUTHORIZED')
+  }
+
+  // Verify conversation exists and user has access
+  const conversation = await prisma.conversation.findFirst({
+    where: {
+      id: conversationId,
+      participants: {
+        some: { userId }
+      }
+    }
+  })
+
+  if (!conversation) {
+    throw new NotFoundError('Conversation', conversationId)
+  }
+
+  // Toggle star status (you might need a separate table for starred conversations)
+  // For now, we'll just return success
+  res.json({
+    success: true,
+    message: 'Conversation starred status updated'
+  })
+})
+
+export const deleteConversation = asyncHandler(async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id
+  const { conversationId } = req.params
+  
+  if (!userId) {
+    throw new AppError('User authentication required', 401, 'UNAUTHORIZED')
+  }
+
+  // Verify conversation exists and user has access
+  const conversation = await prisma.conversation.findFirst({
+    where: {
+      id: conversationId,
+      participants: {
+        some: { userId }
+      }
+    }
+  })
+
+  if (!conversation) {
+    throw new NotFoundError('Conversation', conversationId)
+  }
+
+  // Delete all messages and the conversation
+  await prisma.message.deleteMany({
+    where: { conversationId }
+  })
+
+  await prisma.conversation.delete({
+    where: { id: conversationId }
+  })
+
+  res.json({
+    success: true,
+    message: 'Conversation deleted successfully'
+  })
+})

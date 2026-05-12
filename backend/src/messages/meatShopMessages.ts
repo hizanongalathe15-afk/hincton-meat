@@ -1,0 +1,197 @@
+export type MeatShopMessageType = 'success' | 'error' | 'warning' | 'info' | 'loading' | 'pending'
+
+export interface MeatShopMessageDefinition {
+  code: string
+  type: MeatShopMessageType
+  category: string
+  text: string
+}
+
+type MessageTemplateValue = string | number | undefined | null
+
+const format = (text: string, values: Record<string, MessageTemplateValue> = {}) =>
+  text.replace(/\{(\w+)\}/g, (_, key) => {
+    const value = values[key]
+    return value === undefined || value === null ? '' : String(value)
+  })
+
+export const meatShopMessages = {
+  auth: {
+    loginSuccess: { code: 'AUTH_LOGIN_SUCCESS', type: 'success', category: 'auth', text: 'Login successful. Redirecting...' },
+    accountCreated: { code: 'AUTH_ACCOUNT_CREATED', type: 'success', category: 'auth', text: 'Account created successfully. Please verify your email.' },
+    welcomeBack: { code: 'AUTH_WELCOME_BACK', type: 'success', category: 'auth', text: 'Welcome back, {name}.' },
+    invalidCredentials: { code: 'AUTH_INVALID_CREDENTIALS', type: 'error', category: 'auth', text: 'Invalid email or password.' },
+    passwordMinLength: { code: 'AUTH_PASSWORD_MIN_LENGTH', type: 'error', category: 'auth', text: 'Password must be at least 8 characters.' },
+    invalidEmail: { code: 'AUTH_INVALID_EMAIL', type: 'error', category: 'auth', text: 'Email address is not valid.' },
+    passwordsDoNotMatch: { code: 'AUTH_PASSWORDS_DO_NOT_MATCH', type: 'error', category: 'auth', text: 'Passwords do not match.' },
+    emailRegistered: { code: 'AUTH_EMAIL_REGISTERED', type: 'error', category: 'auth', text: 'This email is already registered.' },
+    accountLocked: { code: 'AUTH_ACCOUNT_LOCKED', type: 'error', category: 'auth', text: 'Account locked. Too many failed attempts. Try again in 15 minutes.' },
+    verifyEmail: { code: 'AUTH_VERIFY_EMAIL', type: 'warning', category: 'auth', text: 'Please verify your email before logging in.' },
+    capsLockOn: { code: 'AUTH_CAPS_LOCK_ON', type: 'warning', category: 'auth', text: 'Caps Lock is on.' },
+    passwordExpiresSoon: { code: 'AUTH_PASSWORD_EXPIRES_SOON', type: 'warning', category: 'auth', text: 'Password expires in {days} days.' },
+    inactiveLoginAgain: { code: 'AUTH_INACTIVE_LOGIN_AGAIN', type: 'warning', category: 'auth', text: 'You have been inactive. Please log in again.' },
+    passwordResetSent: { code: 'AUTH_PASSWORD_RESET_SENT', type: 'success', category: 'auth', text: 'Password reset link sent to your email.' },
+    passwordChanged: { code: 'AUTH_PASSWORD_CHANGED', type: 'success', category: 'auth', text: 'Password changed successfully.' },
+    emailVerified: { code: 'AUTH_EMAIL_VERIFIED', type: 'success', category: 'auth', text: 'Email verified. You can now log in.' },
+    resetTokenExpired: { code: 'AUTH_RESET_TOKEN_EXPIRED', type: 'error', category: 'auth', text: 'Password reset token has expired.' },
+    newPasswordSame: { code: 'AUTH_NEW_PASSWORD_SAME', type: 'error', category: 'auth', text: 'New password cannot be the same as old password.' },
+    passwordStrength: { code: 'AUTH_PASSWORD_STRENGTH', type: 'error', category: 'auth', text: 'Password must contain at least 1 uppercase letter, 1 number, and 1 special character.' },
+    resetLinkUsed: { code: 'AUTH_RESET_LINK_USED', type: 'error', category: 'auth', text: 'This reset link has already been used.' },
+  },
+  cart: {
+    itemAddedNamed: { code: 'CART_ITEM_ADDED_NAMED', type: 'success', category: 'cart', text: 'Added {quantity} {name} to cart.' },
+    itemAdded: { code: 'CART_ITEM_ADDED', type: 'success', category: 'cart', text: 'Item added to cart.' },
+    updated: { code: 'CART_UPDATED', type: 'success', category: 'cart', text: 'Cart updated successfully.' },
+    itemRemoved: { code: 'CART_ITEM_REMOVED', type: 'success', category: 'cart', text: 'Item removed from cart.' },
+    cleared: { code: 'CART_CLEARED', type: 'success', category: 'cart', text: 'Cart cleared successfully.' },
+    outOfStock: { code: 'CART_OUT_OF_STOCK', type: 'error', category: 'cart', text: 'This item is out of stock.' },
+    stockRemaining: { code: 'CART_STOCK_REMAINING', type: 'error', category: 'cart', text: 'Only {quantity} remaining in stock.' },
+    minOrder: { code: 'CART_MIN_ORDER', type: 'error', category: 'cart', text: 'Minimum order is {quantity} for this item.' },
+    maxOrder: { code: 'CART_MAX_ORDER', type: 'error', category: 'cart', text: 'Maximum {quantity} per order for this item.' },
+    restored: { code: 'CART_RESTORED', type: 'info', category: 'cart', text: 'You have items saved in your cart from last time.' },
+    itemOnSale: { code: 'CART_ITEM_ON_SALE', type: 'info', category: 'cart', text: 'This item is on sale. Save {percent}% today.' },
+    addForFreeDelivery: { code: 'CART_ADD_FOR_FREE_DELIVERY', type: 'info', category: 'cart', text: 'Add {amount} more for free delivery.' },
+  },
+  payment: {
+    stkSent: { code: 'PAYMENT_MPESA_STK_SENT', type: 'success', category: 'payment', text: 'STK Push sent to {phone}.' },
+    paymentSuccessful: { code: 'PAYMENT_SUCCESSFUL', type: 'success', category: 'payment', text: 'Payment successful. Order confirmed.' },
+    paymentReceived: { code: 'PAYMENT_RECEIVED', type: 'success', category: 'payment', text: 'Payment received. Order {orderNumber} confirmed.' },
+    transactionId: { code: 'PAYMENT_TRANSACTION_ID', type: 'success', category: 'payment', text: 'Transaction ID: {transactionId}.' },
+    waitingConfirmation: { code: 'PAYMENT_WAITING_CONFIRMATION', type: 'pending', category: 'payment', text: 'Waiting for payment confirmation...' },
+    enterMpesaPin: { code: 'PAYMENT_ENTER_MPESA_PIN', type: 'pending', category: 'payment', text: 'Check your phone and enter your M-PESA PIN.' },
+    processingPayment: { code: 'PAYMENT_PROCESSING', type: 'pending', category: 'payment', text: 'Processing payment. Please do not close this page.' },
+    mpesaCancelled: { code: 'PAYMENT_MPESA_CANCELLED', type: 'error', category: 'payment', text: 'Payment cancelled by user.' },
+    mpesaInsufficientFunds: { code: 'PAYMENT_MPESA_INSUFFICIENT_FUNDS', type: 'error', category: 'payment', text: 'Insufficient funds in M-PESA account.' },
+    mpesaWrongPin: { code: 'PAYMENT_MPESA_WRONG_PIN', type: 'error', category: 'payment', text: 'Wrong PIN entered. Transaction declined.' },
+    mpesaUnavailable: { code: 'PAYMENT_MPESA_UNAVAILABLE', type: 'error', category: 'payment', text: 'M-PESA service is temporarily unavailable. Try again.' },
+    mpesaTimeout: { code: 'PAYMENT_MPESA_TIMEOUT', type: 'error', category: 'payment', text: 'Transaction timeout. Please retry.' },
+    invalidMpesaPhone: { code: 'PAYMENT_INVALID_MPESA_PHONE', type: 'error', category: 'payment', text: 'Invalid phone number format. Use 0712345678.' },
+    mpesaPhoneNotRegistered: { code: 'PAYMENT_MPESA_PHONE_NOT_REGISTERED', type: 'error', category: 'payment', text: 'This phone number is not registered for M-PESA.' },
+    dailyLimitExceeded: { code: 'PAYMENT_DAILY_LIMIT_EXCEEDED', type: 'error', category: 'payment', text: 'Daily transaction limit exceeded.' },
+    mpesaPinBlocked: { code: 'PAYMENT_MPESA_PIN_BLOCKED', type: 'error', category: 'payment', text: 'M-PESA PIN blocked. Reset it at any M-PESA agent.' },
+    phonePopup: { code: 'PAYMENT_PHONE_POPUP', type: 'info', category: 'payment', text: 'You will receive a pop-up on your phone.' },
+    openMpesaApp: { code: 'PAYMENT_OPEN_MPESA_APP', type: 'info', category: 'payment', text: 'Open the M-PESA app or use the SIM toolkit.' },
+    mpesaPinInstruction: { code: 'PAYMENT_MPESA_PIN_INSTRUCTION', type: 'info', category: 'payment', text: 'Enter your M-PESA PIN to complete payment.' },
+    cardDeclined: { code: 'PAYMENT_CARD_DECLINED', type: 'error', category: 'payment', text: 'Card declined by bank.' },
+    invalidCardNumber: { code: 'PAYMENT_INVALID_CARD_NUMBER', type: 'error', category: 'payment', text: 'Invalid card number.' },
+    cardExpired: { code: 'PAYMENT_CARD_EXPIRED', type: 'error', category: 'payment', text: 'Card expired.' },
+    incorrectCvv: { code: 'PAYMENT_INCORRECT_CVV', type: 'error', category: 'payment', text: 'CVV is incorrect.' },
+    insufficientFunds: { code: 'PAYMENT_INSUFFICIENT_FUNDS', type: 'error', category: 'payment', text: 'Insufficient funds.' },
+    transactionLimit: { code: 'PAYMENT_TRANSACTION_LIMIT', type: 'error', category: 'payment', text: 'Transaction exceeded your daily limit.' },
+    cardNotSupported: { code: 'PAYMENT_CARD_NOT_SUPPORTED', type: 'error', category: 'payment', text: 'Card not supported. Use Visa or Mastercard.' },
+    cardAuthorized: { code: 'PAYMENT_CARD_AUTHORIZED', type: 'success', category: 'payment', text: 'Card authorized. Processing order...' },
+    paymentVerified: { code: 'PAYMENT_VERIFIED', type: 'success', category: 'payment', text: 'Payment verified. Order confirmed.' },
+  },
+  order: {
+    pending: { code: 'ORDER_PENDING', type: 'pending', category: 'order', text: 'Your order is pending payment confirmation.' },
+    processing: { code: 'ORDER_PROCESSING', type: 'success', category: 'order', text: 'Payment confirmed. Preparing your order.' },
+    packed: { code: 'ORDER_PACKED', type: 'success', category: 'order', text: 'Your order is packed and ready for pickup or delivery.' },
+    outForDelivery: { code: 'ORDER_OUT_FOR_DELIVERY', type: 'info', category: 'order', text: 'Driver {driverName} is on the way. ETA: {eta} minutes.' },
+    delivered: { code: 'ORDER_DELIVERED', type: 'success', category: 'order', text: 'Delivered. Enjoy your premium meat.' },
+    failed: { code: 'ORDER_FAILED', type: 'error', category: 'order', text: 'Delivery failed. We will contact you to reschedule.' },
+    refunded: { code: 'ORDER_REFUNDED', type: 'success', category: 'order', text: 'Refund processed. Amount will reflect in 1-3 days.' },
+    created: { code: 'ORDER_CREATED', type: 'success', category: 'order', text: 'Order {orderNumber} created successfully.' },
+    statusUpdated: { code: 'ORDER_STATUS_UPDATED', type: 'success', category: 'order', text: 'Order status updated successfully.' },
+    driverDistance: { code: 'ORDER_DRIVER_DISTANCE', type: 'info', category: 'order', text: 'Driver is {distance} away ({minutes} minutes).' },
+    driverAtLocation: { code: 'ORDER_DRIVER_AT_LOCATION', type: 'info', category: 'order', text: 'Driver is at your location.' },
+    arrived: { code: 'ORDER_ARRIVED', type: 'info', category: 'order', text: 'Your order has arrived.' },
+    driverDelayed: { code: 'ORDER_DRIVER_DELAYED', type: 'warning', category: 'order', text: 'Driver is delayed due to traffic. New ETA: {eta} min.' },
+    failedAttempt: { code: 'ORDER_FAILED_ATTEMPT', type: 'warning', category: 'order', text: 'Failed delivery attempt. Check your phone.' },
+    incorrectAddress: { code: 'ORDER_INCORRECT_ADDRESS', type: 'warning', category: 'order', text: 'Incorrect address. Please update your delivery location.' },
+  },
+  validation: {
+    phoneRequired: { code: 'VALIDATION_PHONE_REQUIRED', type: 'error', category: 'validation', text: 'Phone number is required.' },
+    kenyanPhone: { code: 'VALIDATION_KENYAN_PHONE', type: 'error', category: 'validation', text: 'Enter a valid Kenyan phone number, for example 0712345678.' },
+    houseRequired: { code: 'VALIDATION_HOUSE_REQUIRED', type: 'error', category: 'validation', text: 'House number or building name required.' },
+    areaRequired: { code: 'VALIDATION_AREA_REQUIRED', type: 'error', category: 'validation', text: 'Estate or area is required.' },
+    cityRequired: { code: 'VALIDATION_CITY_REQUIRED', type: 'error', category: 'validation', text: 'Select delivery city, for example Nairobi, Mombasa, or Kisumu.' },
+    pinLocation: { code: 'VALIDATION_PIN_LOCATION', type: 'error', category: 'validation', text: 'Pin location on map for exact delivery.' },
+    apartmentInstructions: { code: 'VALIDATION_APARTMENT_INSTRUCTIONS', type: 'error', category: 'validation', text: 'Special delivery instructions required for apartment.' },
+    addressSaved: { code: 'VALIDATION_ADDRESS_SAVED', type: 'success', category: 'validation', text: 'Address saved.' },
+    locationVerified: { code: 'VALIDATION_LOCATION_VERIFIED', type: 'success', category: 'validation', text: 'Delivery location verified.' },
+    acceptTerms: { code: 'VALIDATION_ACCEPT_TERMS', type: 'error', category: 'validation', text: 'Please accept terms and conditions.' },
+    deliverySlot: { code: 'VALIDATION_DELIVERY_SLOT', type: 'error', category: 'validation', text: 'Select a delivery time slot.' },
+    deliveryMinimum: { code: 'VALIDATION_DELIVERY_MINIMUM', type: 'error', category: 'validation', text: 'Minimum order is KES 500 for delivery.' },
+    deliveryUnavailable: { code: 'VALIDATION_DELIVERY_UNAVAILABLE', type: 'error', category: 'validation', text: 'Delivery not available to this location.' },
+    paymentMethod: { code: 'VALIDATION_PAYMENT_METHOD', type: 'error', category: 'validation', text: 'Select a payment method.' },
+    deliveryFeeDistance: { code: 'VALIDATION_DELIVERY_FEE_DISTANCE', type: 'warning', category: 'validation', text: 'Delivery fee will be calculated based on distance.' },
+    freeDelivery: { code: 'VALIDATION_FREE_DELIVERY', type: 'warning', category: 'validation', text: 'Free delivery for orders over KES 2000.' },
+  },
+  system: {
+    loadingProducts: { code: 'SYSTEM_LOADING_PRODUCTS', type: 'loading', category: 'system', text: 'Loading products...' },
+    processingRequest: { code: 'SYSTEM_PROCESSING_REQUEST', type: 'loading', category: 'system', text: 'Processing your request...' },
+    pleaseWait: { code: 'SYSTEM_PLEASE_WAIT', type: 'loading', category: 'system', text: 'Please wait...' },
+    wishlistAdded: { code: 'SYSTEM_WISHLIST_ADDED', type: 'success', category: 'system', text: 'Product added to wishlist.' },
+    reviewSubmitted: { code: 'SYSTEM_REVIEW_SUBMITTED', type: 'success', category: 'system', text: 'Review submitted.' },
+    preferencesSaved: { code: 'SYSTEM_PREFERENCES_SAVED', type: 'success', category: 'system', text: 'Your preferences saved.' },
+    networkError: { code: 'SYSTEM_NETWORK_ERROR', type: 'error', category: 'system', text: 'Network error. Check your connection.' },
+    serverBusy: { code: 'SYSTEM_SERVER_BUSY', type: 'error', category: 'system', text: 'Server busy. Please try again.' },
+    sessionExpired: { code: 'SYSTEM_SESSION_EXPIRED', type: 'error', category: 'system', text: 'Session expired. Log in again.' },
+    unknownError: { code: 'SYSTEM_UNKNOWN_ERROR', type: 'error', category: 'system', text: 'Something went wrong. Our team is notified.' },
+    closedToday: { code: 'SYSTEM_CLOSED_TODAY', type: 'info', category: 'system', text: 'We are closed today. Order for delivery tomorrow.' },
+    peakTime: { code: 'SYSTEM_PEAK_TIME', type: 'info', category: 'system', text: 'Peak time. Delivery might take longer than usual.' },
+  },
+  stock: {
+    lowStock: { code: 'STOCK_LOW', type: 'warning', category: 'stock', text: 'Only {quantity} left. Order soon.' },
+    sellingFast: { code: 'STOCK_SELLING_FAST', type: 'warning', category: 'stock', text: 'Selling fast. {count} people have this in cart.' },
+    outOfStock: { code: 'STOCK_OUT', type: 'error', category: 'stock', text: 'Out of stock. Get notified when available.' },
+    unavailable: { code: 'STOCK_UNAVAILABLE', type: 'error', category: 'stock', text: 'This item is no longer available.' },
+    backInStock: { code: 'STOCK_BACK_IN', type: 'success', category: 'stock', text: 'Back in stock. Add to cart now.' },
+  },
+  promotion: {
+    firstOrder: { code: 'PROMO_FIRST_ORDER', type: 'info', category: 'promotion', text: 'Free delivery on your first order. Use code: MEATFIRST.' },
+    bigOrder: { code: 'PROMO_BIG_ORDER', type: 'info', category: 'promotion', text: 'Save 20% on orders over KES 3000 with code: BIGMEAT.' },
+    loyaltyReward: { code: 'PROMO_LOYALTY_REWARD', type: 'info', category: 'promotion', text: 'Loyalty reward: Get 100 points = KES 50 off.' },
+    birthdayMonth: { code: 'PROMO_BIRTHDAY_MONTH', type: 'info', category: 'promotion', text: 'Birthday month: Double points on all orders.' },
+    flashSale: { code: 'PROMO_FLASH_SALE', type: 'warning', category: 'promotion', text: 'Flash sale ends in {time}.' },
+    buyTwoGetExtra: { code: 'PROMO_BUY_TWO_GET_EXTRA', type: 'warning', category: 'promotion', text: 'Limited time offer: Buy 2kg get 500g free.' },
+    christmas: { code: 'PROMO_CHRISTMAS', type: 'info', category: 'promotion', text: 'Christmas special: Free marinade with every order.' },
+  },
+  support: {
+    chatHelp: { code: 'SUPPORT_CHAT_HELP', type: 'info', category: 'support', text: 'Chat with us for instant help.' },
+    responseTime: { code: 'SUPPORT_RESPONSE_TIME', type: 'info', category: 'support', text: 'Response time: Usually under 2 minutes.' },
+    agentTyping: { code: 'SUPPORT_AGENT_TYPING', type: 'info', category: 'support', text: 'Agent is typing...' },
+    emailResponse: { code: 'SUPPORT_EMAIL_RESPONSE', type: 'info', category: 'support', text: 'We will respond within 2 hours.' },
+    openHours: { code: 'SUPPORT_OPEN_HOURS', type: 'info', category: 'support', text: 'Open Monday-Saturday, 8AM-8PM.' },
+    urgentCall: { code: 'SUPPORT_URGENT_CALL', type: 'info', category: 'support', text: 'For urgent issues, call 0700 000 000.' },
+    returnSubmitted: { code: 'SUPPORT_RETURN_SUBMITTED', type: 'success', category: 'support', text: 'Return request submitted. We will pick up in 24hrs.' },
+    returnExpired: { code: 'SUPPORT_RETURN_EXPIRED', type: 'error', category: 'support', text: 'This item cannot be returned after 2 hours of delivery.' },
+    refundWindow: { code: 'SUPPORT_REFUND_WINDOW', type: 'info', category: 'support', text: 'Refund will be processed within 3-5 business days.' },
+  },
+  security: {
+    ssl: { code: 'SECURITY_SSL', type: 'warning', category: 'security', text: 'This site uses SSL encryption to protect your data.' },
+    mpesaPin: { code: 'SECURITY_MPESA_PIN', type: 'warning', category: 'security', text: 'Never share your M-PESA PIN with anyone.' },
+    suspiciousActivity: { code: 'SECURITY_SUSPICIOUS_ACTIVITY', type: 'warning', category: 'security', text: 'Suspicious activity detected. Verify your account.' },
+    loggedOutInactive: { code: 'SECURITY_LOGGED_OUT_INACTIVE', type: 'warning', category: 'security', text: 'For your security, we have logged you out due to inactivity.' },
+    twoFactorEnabled: { code: 'SECURITY_2FA_ENABLED', type: 'success', category: 'security', text: 'Two-factor authentication enabled.' },
+    deviceRecognized: { code: 'SECURITY_DEVICE_RECOGNIZED', type: 'success', category: 'security', text: 'Device recognized. No verification needed.' },
+  },
+  progress: {
+    cartReview: { code: 'PROGRESS_CART_REVIEW', type: 'info', category: 'progress', text: 'Step 1/4: Cart Review.' },
+    checkout: { code: 'PROGRESS_CHECKOUT', type: 'info', category: 'progress', text: 'Step 2/4: Checkout. You are here.' },
+    payment: { code: 'PROGRESS_PAYMENT', type: 'info', category: 'progress', text: 'Step 3/4: Payment.' },
+    confirmation: { code: 'PROGRESS_CONFIRMATION', type: 'info', category: 'progress', text: 'Step 4/4: Confirmation.' },
+    percent: { code: 'PROGRESS_PERCENT', type: 'info', category: 'progress', text: 'Progress: {percent}%.' },
+  },
+  channel: {
+    orderConfirmationSms: { code: 'CHANNEL_ORDER_CONFIRMATION_SMS', type: 'info', category: 'channel', text: 'HINCTON MEAT PRODUCTS: Order {orderNumber} confirmed. Amount: KES {amount}. Delivery: {deliveryEta}. Track: {trackUrl}' },
+    deliverySms: { code: 'CHANNEL_DELIVERY_SMS', type: 'info', category: 'channel', text: 'Driver ({driverName} {driverPhone}) has your order. ETA: {eta}. Live track: {trackUrl}. Reply HELP for support.' },
+    promotionalSms: { code: 'CHANNEL_PROMOTIONAL_SMS', type: 'info', category: 'channel', text: 'This weekend only. Free delivery plus 10% off on premium beef cuts. Use code: WEEKEND10. Shop now: {shopUrl}' },
+  },
+} as const
+
+export const resolveMessage = (
+  message: MeatShopMessageDefinition,
+  values: Record<string, MessageTemplateValue> = {},
+) => ({
+  code: message.code,
+  type: message.type,
+  category: message.category,
+  message: format(message.text, values),
+})
+
+export const messageText = (
+  message: MeatShopMessageDefinition,
+  values: Record<string, MessageTemplateValue> = {},
+) => resolveMessage(message, values).message
+

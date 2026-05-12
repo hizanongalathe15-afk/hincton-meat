@@ -1,0 +1,586 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { CreditCard, Smartphone, Truck, User, MapPin } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { formatPrice } from '../utils/currency';
+import { ordersApi, paymentsApi } from '../services/buyerApi';
+import { locationService } from '../services/locationService';
+import { getApiErrorMessage } from '../services/api';
+import { contentApi } from '../services/contentApi';
+import { useCart } from '../contexts/CartContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
+import PhoneNumberInput from '../components/ui/PhoneNumberInput';
+
+interface OrderItem {
+  id: string;
+  product: {
+    id: string;
+    name: string;
+    price: number;
+  };
+  quantity: number;
+  weight: number;
+  unit: string;
+}
+
+const CheckoutPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { items, clearCart } = useCart();
+  const { t } = useLanguage();
+  const { user } = useAuth();
+  const loading = false;
+  const [processing, setProcessing] = useState(false);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [commerceSettings, setCommerceSettings] = useState<any>(null);
+    const [paymentNotification, setPaymentNotification] = useState<{
+    variant: 'info' | 'success' | 'error'
+    title: string
+    message: string
+  } | null>(null);
+  
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    paymentMethod: 'mpesa' as 'mpesa' | 'card' | 'cash',
+    mpesaPhone: '',
+    cardNumber: '',
+    cardExpiry: '',
+    cardCvv: '',
+    notes: '',
+    latitude: '',
+    longitude: ''
+  });
+
+  useEffect(() => {
+    const transformedItems: OrderItem[] = items.map((item) => ({
+      id: item.id,
+      product: {
+        id: item.id,
+        name: item.name,
+        price: Number(item.price) || 0
+      },
+      quantity: item.quantity,
+      weight: Number.parseFloat(String(item.weight || '1')) || 1,
+      unit: String(item.weight || '').includes('g') ? 'g' : 'kg'
+    }))
+
+    setOrderItems(transformedItems)
+  }, [items])
+
+  useEffect(() => {
+    contentApi.getCommerceSettings()
+      .then((data: any) => setCommerceSettings(data.settings))
+      .catch(() => setCommerceSettings(null))
+  }, [])
+
+  // Auto-populate form with user data
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        firstName: user.name?.split(' ')[0] || '',
+        lastName: user.name?.split(' ')[1] || '',
+        email: user.email || '',
+        phone: user.profile?.mpesaPhone || '',
+        mpesaPhone: user.profile?.mpesaPhone || ''
+      }));
+    }
+  }, [user])
+
+  const subtotal = orderItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+  const deliveryFee = Number(commerceSettings?.shipping?.standardShippingFee ?? 200);
+  const total = subtotal + deliveryFee;
+  const cutoffHour = Number(commerceSettings?.shipping?.coldChainCutoffHour ?? 10)
+  const beforeCutoff = new Date().getHours() < cutoffHour
+  const cutoffLabel = `${String(cutoffHour).padStart(2, '0')}:00`
+  const deliveryPromise = beforeCutoff
+    ? `Order by ${cutoffLabel} AM -> delivered today before ${commerceSettings?.shipping?.sameDayDeliveryBy || '5:00 PM'}`
+    : `Orders placed now use the next available cold-chain slot`
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const useCurrentLocation = async () => {
+    try {
+      toast.loading('Getting precise delivery location...', { id: 'checkout-location' })
+      
+      // Get high accuracy location for delivery
+      const location = await locationService.getHighAccuracyLocation(2)
+      
+      // Get address from coordinates
+      let address = `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
+      try {
+        const geocodedAddress = await locationService.reverseGeocode(
+          location.latitude,
+          location.longitude
+        )
+        address = geocodedAddress.formattedAddress || address
+      } catch (geocodingError) {
+        console.warn('Geocoding failed for checkout:', geocodingError)
+      }
+      
+      // Update form with precise location
+      setFormData(prev => ({
+        ...prev,
+        latitude: location.latitude.toString(),
+        longitude: location.longitude.toString(),
+        address: prev.address || address
+      }))
+      
+      // Show success with accuracy info
+      const accuracyLevel = locationService.getLocationAccuracyLevel(location.accuracy)
+      toast.success(
+        `Delivery location set! Accuracy: ${accuracyLevel} (${Math.round(location.accuracy)}m)`,
+        { id: 'checkout-location' }
+      )
+      
+    } catch (error) {
+      console.error('Checkout location error:', error)
+      
+      if (error instanceof Error) {
+        if (error.message.includes('permission denied')) {
+          toast.error(
+            'Location permission denied. Please enable location for accurate delivery.',
+            { id: 'checkout-location' }
+          )
+        } else if (error.message.includes('unavailable')) {
+          toast.error(
+            'Location unavailable. Please check your GPS services.',
+            { id: 'checkout-location' }
+          )
+        } else {
+          toast.error(
+            'Could not get location. Please enter address manually.',
+            { id: 'checkout-location' }
+          )
+        }
+      } else {
+        toast.error('Location error. Please try again.', { id: 'checkout-location' })
+      }
+    }
+  }
+
+  const formatMpesaDisplayPhone = (phone: string) => {
+    const cleaned = phone.replace(/\D/g, '')
+    if (cleaned.startsWith('254')) return `0${cleaned.slice(3)}`
+    if (cleaned.startsWith('7')) return `0${cleaned}`
+    if (cleaned.startsWith('0')) return cleaned
+    return cleaned
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone) {
+      toast.error(t('checkout.fillAllRequiredFields'));
+      return;
+    }
+
+    if (orderItems.length === 0) {
+      toast.error(t('checkout.cartEmpty'));
+      navigate('/cart');
+      return;
+    }
+
+    if (formData.paymentMethod === 'mpesa' && !formData.mpesaPhone) {
+      toast.error(t('checkout.enterMpesaPhone'));
+      return;
+    }
+
+    if (formData.paymentMethod === 'card' && (!formData.cardNumber || !formData.cardExpiry || !formData.cardCvv)) {
+      toast.error(t('checkout.enterCompleteCardDetails'));
+      return;
+    }
+
+    if (formData.paymentMethod === 'mpesa') {
+      const displayPhone = formatMpesaDisplayPhone(formData.mpesaPhone)
+      setPaymentNotification({
+        variant: 'info',
+        title: 'M-PESA payment selected',
+        message: `After you place the order, M-PESA will send a prompt to ${displayPhone}. Enter your PIN to complete payment.`,
+      })
+    }
+
+    setProcessing(true);
+
+    try {
+      const orderResponse = await ordersApi.createOrder({
+        customer: {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+        },
+        shippingAddress: {
+          address: formData.address,
+          city: formData.city,
+          state: formData.state,
+          zipCode: formData.zipCode,
+          country: 'Kenya',
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+          phone: formData.phone,
+        },
+        paymentMethod: formData.paymentMethod,
+        mpesaPhone: formData.mpesaPhone,
+        notes: formData.notes,
+        items: orderItems.map((item) => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+        })),
+      });
+
+      if (formData.paymentMethod === 'mpesa') {
+        try {
+          const paymentResult = await paymentsApi.initiateMpesaPayment({
+            phoneNumber: formData.mpesaPhone,
+            amount: total,
+            orderId: orderResponse.order.id,
+          });
+
+          const displayPhone = formatMpesaDisplayPhone(formData.mpesaPhone)
+          setPaymentNotification({
+            variant: 'success',
+            title: paymentResult?.message || 'STK Push sent',
+            message: paymentResult?.message || `STK Push sent to ${displayPhone}. Check your phone and enter your M-PESA PIN to complete payment.`,
+          })
+          toast.success(paymentResult?.message || `STK Push sent to ${displayPhone}`)
+        } catch (paymentError) {
+          const errorMessage = getApiErrorMessage(paymentError, 'Order was created, but M-PESA payment could not start. Admin can follow up.')
+          console.error('MPESA initiation failed:', paymentError)
+          setPaymentNotification({
+            variant: 'error',
+            title: 'M-PESA payment failed',
+            message: errorMessage,
+          })
+          toast.error(errorMessage)
+        }
+      }
+      
+      clearCart(false);
+      toast.success(orderResponse?.message || 'Order placed successfully.');
+      navigate('/order-confirmation', { state: { order: orderResponse.order } });
+    } catch (error) {
+      console.error('Checkout failed:', error);
+      toast.error(getApiErrorMessage(error, 'Failed to place order. Please try again.'));
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">{t('checkout.title')}</h1>
+          <p className="mt-2 text-gray-600">{t('checkout.completeOrder')}</p>
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900">
+            {deliveryPromise} ({commerceSettings?.shipping?.insulatedBoxText || t('checkout.deliveredColdInsulatedBox')})
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Checkout Form */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Contact Information */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <User className="h-5 w-5 mr-2" />
+                {t('checkout.contactInfo')}
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('checkout.firstName')} *
+                  </label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('checkout.lastName')} *
+                  </label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('checkout.email')} *
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <PhoneNumberInput
+                  id="phone"
+                  label={`${t('checkout.phone')} *`}
+                  value={formData.phone}
+                  onChange={(value) => setFormData((current) => ({ ...current, phone: value }))}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Delivery Address */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <MapPin className="h-5 w-5 mr-2" />
+                {t('checkout.deliveryAddress')}
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('checkout.streetAddress')} *
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={useCurrentLocation}
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700"
+                  >
+                    <MapPin className="h-4 w-4" />
+                    {t('checkout.pinCurrentLocation')}
+                  </button>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('checkout.city')} *
+                  </label>
+                  <input
+                    type="text"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('checkout.stateProvince')} *
+                  </label>
+                  <input
+                    type="text"
+                    name="state"
+                    value={formData.state}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('checkout.zipPostalCode')} *
+                  </label>
+                  <input
+                    type="text"
+                    name="zipCode"
+                    value={formData.zipCode}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="md:col-span-2 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                  {formData.latitude && formData.longitude ? (
+                    <iframe
+                      title="Pinned delivery map"
+                      src={`https://www.google.com/maps?q=${formData.latitude},${formData.longitude}&z=15&output=embed`}
+                      className="h-64 w-full"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex h-32 items-center justify-center px-4 text-center text-sm text-gray-600">
+                      {t('checkout.pinYourLocation')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Method */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('checkout.paymentMethod')}</h2>
+              
+              <div className="space-y-3">
+                <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="mpesa"
+                    checked={formData.paymentMethod === 'mpesa'}
+                    onChange={handleInputChange}
+                    className="mr-3"
+                  />
+                  <Smartphone className="h-5 w-5 mr-2 text-green-600" />
+                  <span className="font-medium">{t('checkout.mpesa')}</span>
+                </label>
+                
+                <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="card"
+                    checked={formData.paymentMethod === 'card'}
+                    onChange={handleInputChange}
+                    className="mr-3"
+                  />
+                  <CreditCard className="h-5 w-5 mr-2 text-blue-600" />
+                  <span className="font-medium">{t('checkout.creditDebitCard')}</span>
+                </label>
+                
+                <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="cash"
+                    checked={formData.paymentMethod === 'cash'}
+                    onChange={handleInputChange}
+                    className="mr-3"
+                  />
+                  <Truck className="h-5 w-5 mr-2 text-gray-600" />
+                  <span className="font-medium">{t('checkout.cash')}</span>
+                </label>
+              </div>
+
+              {formData.paymentMethod === 'mpesa' && (
+                <div className="mt-5">
+                  <PhoneNumberInput
+                    id="mpesaPhone"
+                    label={`${t('checkout.mpesa')} ${t('checkout.phone')} *`}
+                    value={formData.mpesaPhone}
+                    onChange={(value) => setFormData((current) => ({ ...current, mpesaPhone: value }))}
+                    required
+                  />
+                </div>
+              )}
+
+            </div>
+          </div>
+
+          {/* Order Summary */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-4">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('checkout.orderSummary')}</h2>
+              {paymentNotification && (
+                <div className={`mb-4 rounded-lg border p-4 text-sm ${
+                  paymentNotification.variant === 'success'
+                    ? 'border-green-200 bg-green-50 text-green-900'
+                    : paymentNotification.variant === 'error'
+                    ? 'border-red-200 bg-red-50 text-red-900'
+                    : 'border-blue-200 bg-blue-50 text-blue-900'
+                }`}>
+                  <p className="font-semibold">{paymentNotification.title}</p>
+                  <p className="mt-1">{paymentNotification.message}</p>
+                </div>
+              )}
+
+              {/* Order Items */}
+              <div className="space-y-3 mb-6">
+                {orderItems.map((item) => (
+                  <div key={item.id} className="flex justify-between text-sm">
+                    <div>
+                      <p className="font-medium text-gray-900">{item.product.name}</p>
+                      <p className="text-gray-600">
+                        {item.quantity} × {item.weight} {item.unit}
+                      </p>
+                    </div>
+                    <span className="font-medium">
+                      {formatPrice(item.product.price * item.quantity)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Price Breakdown */}
+              <div className="space-y-3 mb-6 border-t pt-4">
+                <div className="flex justify-between text-gray-600">
+                  <span>{t('checkout.subtotal')}</span>
+                  <span>{formatPrice(subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>{t('checkout.deliveryFee')}</span>
+                  <span>{formatPrice(deliveryFee)}</span>
+                </div>
+                <div className="flex justify-between text-lg font-semibold text-gray-900 pt-3 border-t">
+                  <span>{t('checkout.total')}</span>
+                  <span>{formatPrice(total)}</span>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={processing}
+                className="w-full bg-red-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {processing ? t('checkout.processing') : t('checkout.placeOrder')}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/cart')}
+                className="w-full mt-3 text-gray-600 py-2 px-4 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                {t('checkout.backToCart')}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default CheckoutPage;
