@@ -17,6 +17,7 @@ import returnRoutes from './returns'
 import blogRoutes from './blog'
 import chatRoutes from './chat'
 import contentRoutes from './contentManagement'
+import publicContentRoutes from './publicContent'
 import adminDashboardRoutes from './adminDashboard'
 import adminRoutes from './admin'
 import deliveryRoutes from './deliveryRoutes'
@@ -37,49 +38,44 @@ import userSessionRoutes from './userSessions'
 
 const router = Router()
 
-// API versioning
-router.use('/api/v1', (req, res, next) => {
-  ;(req as any).apiVersion = 'v1'
-  next()
-
-})
-
-// Route groups
-router.use('/auth', authRoutes)
-router.use('/products', productRoutes)
-router.use('/orders', orderRoutes)
-router.use('/cart', cartRoutes)
-router.use('/wishlist', wishlistRoutes)
-router.use('/notifications', notificationRoutes)
-router.use('/analytics', analyticsRoutes)
-router.use('/subscriptions', subscriptionRoutes)
-router.use('/payments/mpesa', mpesaRoutes)
-router.use('/affiliates', affiliateRoutes)
-router.use('/promotions', promotionRoutes)
-router.use('/qr-codes', qrCodeRoutes)
-router.use('/returns', returnRoutes)
-router.use('/blog', blogRoutes)
-router.use('/chat', chatRoutes)
-router.use('/content', contentRoutes)
-router.use('/admin/dashboard', adminDashboardRoutes)
-router.use('/deliveries', deliveryRoutes)
-router.use('/messages', messageCatalogRoutes)
-// router.use('/messages', messageRoutes)
-// router.use('/help', helpRoutes)
+// Mount routes directly under /api (no /v1 prefix for backwards compatibility)
+router.use('/api/auth', authRoutes)
+router.use('/api/products', productRoutes)
+router.use('/api/orders', orderRoutes)
+router.use('/api/cart', cartRoutes)
+router.use('/api/wishlist', wishlistRoutes)
+router.use('/api/notifications', notificationRoutes)
+router.use('/api/analytics', analyticsRoutes)
+router.use('/api/subscriptions', subscriptionRoutes)
+router.use('/api/payments/mpesa', mpesaRoutes)
+router.use('/api/affiliates', affiliateRoutes)
+router.use('/api/promotions', promotionRoutes)
+router.use('/api/qr-codes', qrCodeRoutes)
+router.use('/api/returns', returnRoutes)
+router.use('/api/blog', blogRoutes)
+router.use('/api/chat', chatRoutes)
+router.use('/api/content', publicContentRoutes)
+router.use('/api/admin', adminRoutes)
+router.use('/api/admin/dashboard', adminDashboardRoutes)
+router.use('/api/admin/content', contentRoutes)
+router.use('/api/deliveries', deliveryRoutes)
+router.use('/api/messages', messageCatalogRoutes)
+// router.use('/api/messages', messageRoutes)
+// router.use('/api/help', helpRoutes)
 
 // New route groups
-router.use('/categories', categoryRoutes)
-router.use('/payments', paymentRoutes)
-router.use('/coupons', couponRoutes)
-router.use('/users', userRoutes)
-router.use('/search', searchRoutes)
-router.use('/files', fileUploadRoutes)
-router.use('/dashboard', dashboardRoutes)
-router.use('/reviews', reviewRoutes)
-router.use('/user-sessions', userSessionRoutes)
+router.use('/api/categories', categoryRoutes)
+router.use('/api/payments', paymentRoutes)
+router.use('/api/coupons', couponRoutes)
+router.use('/api/users', userRoutes)
+router.use('/api/search', searchRoutes)
+router.use('/api/files', fileUploadRoutes)
+router.use('/api/dashboard', dashboardRoutes)
+router.use('/api/reviews', reviewRoutes)
+router.use('/api/user-sessions', userSessionRoutes)
 
 // Health check
-router.get('/health', (req, res) => {
+router.get('/api/health', (req, res) => {
   res.json({
     success: true,
     message: 'API is running',
@@ -88,40 +84,39 @@ router.get('/health', (req, res) => {
   })
 })
 
-// API documentation
+// Root API documentation
 router.get('/', (req, res) => {
   res.json({
     success: true,
     message: 'Hincton Meat API',
     version: '1.0.0',
     endpoints: {
-      auth: '/api/v1/auth',
-      products: '/api/v1/products',
-      categories: '/api/v1/categories',
-      orders: '/api/v1/orders',
-      cart: '/api/v1/cart',
-      wishlist: '/api/v1/wishlist',
-      payments: '/api/v1/payments',
-      coupons: '/api/v1/coupons',
-      users: '/api/v1/users',
-      search: '/api/v1/search',
-      files: '/api/v1/files',
-      dashboard: '/api/v1/dashboard',
-      analytics: '/api/v1/analytics',
-      subscriptions: '/api/v1/subscriptions',
-      reviews: '/api/v1/reviews',
-      notifications: '/api/v1/notifications',
-      deliveries: '/api/v1/deliveries',
-      messages: '/api/v1/messages',
-      help: '/api/v1/help',
-      blog: '/api/v1/blog',
-      chat: '/api/v1/chat',
-      content: '/api/v1/content',
-      affiliates: '/api/v1/affiliates',
-      promotions: '/api/v1/promotions',
-      'qr-codes': '/api/v1/qr-codes',
-      returns: '/api/v1/returns',
-      health: '/api/v1/health'
+      auth: '/api/auth',
+      products: '/api/products',
+      categories: '/api/categories',
+      orders: '/api/orders',
+      cart: '/api/cart',
+      wishlist: '/api/wishlist',
+      payments: '/api/payments',
+      coupons: '/api/coupons',
+      users: '/api/users',
+      search: '/api/search',
+      files: '/api/files',
+      dashboard: '/api/dashboard',
+      analytics: '/api/analytics',
+      subscriptions: '/api/subscriptions',
+      reviews: '/api/reviews',
+      notifications: '/api/notifications',
+      deliveries: '/api/deliveries',
+      messages: '/api/messages',
+      blog: '/api/blog',
+      chat: '/api/chat',
+      content: '/api/content',
+      affiliates: '/api/affiliates',
+      promotions: '/api/promotions',
+      'qr-codes': '/api/qr-codes',
+      returns: '/api/returns',
+      health: '/api/health'
     }
   })
 })

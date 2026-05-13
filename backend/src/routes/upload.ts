@@ -1,120 +1,55 @@
 import express, { Request, Response } from 'express'
 import multer from 'multer'
-import { createClient } from '@supabase/supabase-js'
-import path from 'path'
-import fs from 'fs'
 import { authenticate, authorize } from '../middleware/auth'
+import { deleteImage, uploadImage } from '../config/cloudinary'
 
 const router = express.Router()
-const tempDir = path.resolve('uploads/temp')
-
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir, { recursive: true })
-}
-
-const supabase = createClient(
-  process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_ANON_KEY || ''
-)
-
-const bucketName = process.env.SUPABASE_BUCKET_NAME || 'hinton_bucket'
-const upload = multer({ dest: tempDir })
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => file.mimetype.startsWith('image/') ? cb(null, true) : cb(new Error('Only image files are allowed')),
+})
 
 type MulterRequest = Request & { file?: Express.Multer.File }
 
 router.post('/upload-product-image', authenticate, authorize('ADMIN'), upload.single('image'), async (req: MulterRequest, res: Response) => {
   try {
-    const { productId } = req.body
     const file = req.file
 
     if (!file) {
       return res.status(400).json({ error: 'No file uploaded' })
     }
 
-    if (!productId) {
-      return res.status(400).json({ error: 'Product ID is required' })
-    }
-
-    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
-      return res.status(500).json({ error: 'Supabase configuration is missing' })
-    }
-
-    const fileBuffer = fs.readFileSync(file.path)
-    const fileExt = path.extname(file.originalname)
-    const fileName = `products/${productId}/${Date.now()}${fileExt}`
-
-    const { data, error } = await supabase.storage
-      .from(bucketName)
-      .upload(fileName, fileBuffer, {
-        contentType: file.mimetype,
-        cacheControl: '3600'
-      })
-
-    if (error) {
-      throw error
-    }
-
-    const urlData = supabase.storage
-      .from(bucketName)
-      .getPublicUrl(fileName).data
-
-    fs.unlinkSync(file.path)
+    const uploaded = await uploadImage(file.buffer, 'hincton/products')
 
     res.json({
       success: true,
-      url: urlData.publicUrl,
-      message: 'Image uploaded successfully!'
+      url: uploaded.url,
+      publicId: uploaded.publicId,
+      message: 'Image uploaded successfully',
     })
   } catch (error: any) {
     console.error('Upload error:', error)
-    res.status(500).json({ error: error?.message || 'Upload failed' })
+    res.status(500).json({
+      error: error?.message || 'Upload failed',
+      message: 'Image storage is not configured. Configure Cloudinary for persistent uploads on Render.',
+    })
   }
 })
 
-router.get('/product-images/:productId', async (req, res) => {
-  try {
-    const { productId } = req.params
-
-    const { data, error } = await supabase.storage
-      .from(bucketName)
-      .list(`products/${productId}/`)
-
-    if (error) {
-      if (error.message?.includes('NotFound')) {
-        return res.json({ success: true, images: [] })
-      }
-      throw error
-    }
-
-    const images = data.map((file) => ({
-      name: file.name,
-      url: supabase.storage.from(bucketName).getPublicUrl(`products/${productId}/${file.name}`).data.publicUrl,
-      size: (file.metadata as any)?.size,
-      created_at: file.created_at
-    }))
-
-    res.json({ success: true, images })
-  } catch (error: any) {
-    console.error('Error fetching images:', error)
-    res.status(500).json({ error: error?.message || 'Failed to list images' })
-  }
+router.get('/product-images/:productId', async (_req, res) => {
+  res.json({ success: true, images: [] })
 })
 
 router.delete('/delete-product-image', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
-    const { imagePath } = req.body
+    const { publicId } = req.body
 
-    if (!imagePath) {
-      return res.status(400).json({ error: 'Image path is required' })
+    if (!publicId) {
+      return res.status(400).json({ error: 'publicId is required' })
     }
 
-    const { error } = await supabase.storage
-      .from(bucketName)
-      .remove([imagePath])
-
-    if (error) {
-      throw error
-    }
+    await deleteImage(publicId)
 
     res.json({ success: true, message: 'Image deleted successfully' })
   } catch (error: any) {

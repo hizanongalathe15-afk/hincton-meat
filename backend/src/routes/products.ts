@@ -77,11 +77,24 @@ const defaultSearchAliases: Record<string, string[]> = {
   dinner: ['sausages', 'mince', 'strips', 'fillet', 'chicken'],
 }
 
+const safeJsonParse = <T = any>(value: string | undefined, fallback: T): T => {
+  try {
+    return value ? JSON.parse(value) : fallback
+  } catch {
+    return fallback
+  }
+}
+
+const isDatabaseUnavailable = (error: unknown) => {
+  const code = (error as any)?.code
+  return code === 'P1001' || code === 'P2021' || code === 'P2022'
+}
+
 const expandSearchTerms = async (query: string) => {
   const terms = [query]
   try {
     const setting = await prisma.systemSetting.findUnique({ where: { key: 'search_aliases' } })
-    const aliases = (setting ? { ...defaultSearchAliases, ...JSON.parse(setting.value) } : defaultSearchAliases) as Record<string, string[]>
+    const aliases = (setting ? { ...defaultSearchAliases, ...safeJsonParse(setting.value, {}) } : defaultSearchAliases) as Record<string, string[]>
     const lower = query.toLowerCase()
     Object.entries(aliases).forEach(([key, values]) => {
       if (lower.includes(key)) terms.push(...values)
@@ -140,6 +153,9 @@ router.get('/featured', async (req, res) => {
     res.json({ products: products.map(serializeProduct) })
   } catch (error) {
     console.error('Get featured products error:', error)
+    if (isDatabaseUnavailable(error)) {
+      return res.json({ products: [] })
+    }
     res.status(500).json({ error: 'Internal server error' })
   }
 })
@@ -209,6 +225,19 @@ router.get('/', async (req, res) => {
     })
   } catch (error) {
     console.error('Get products error:', error)
+    if (isDatabaseUnavailable(error)) {
+      const pageNum = parsePageInt(req.query.page, 1)
+      const limitNum = parsePageInt(req.query.limit, 20)
+      return res.json({
+        products: [],
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: 0,
+          pages: 0,
+        },
+      })
+    }
     res.status(500).json({ error: 'Internal server error' })
   }
 })

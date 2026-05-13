@@ -6,7 +6,7 @@
     "backend"
   ],
   "scripts": {
-    "vercel-build": "npm --prefix frontend run build && npm --prefix backend run vercel-build"
+    "render-build": "npm --prefix frontend run build && npm --prefix backend run render-build"
   },
   "dependencies": {
     "serverless-http": "^3.0.0"

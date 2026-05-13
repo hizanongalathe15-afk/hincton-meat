@@ -5,9 +5,8 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './config/prisma'
 
-// Routes
 import authRoutes from './routes/auth';
 import productRoutes from './routes/products';
 import orderRoutes from './routes/orders';
@@ -34,14 +33,14 @@ import reviewRoutes from './routes/reviews';
 import userSessionRoutes from './routes/userSessions';
 import analyticsRoutes from './routes/analyticsRoutes';
 
-
-// Middleware
 import { authenticate, authorize, optionalAuthenticate } from './middleware/auth';
 
 dotenv.config();
 
 const app = express();
-const server = createServer(app);
+
+let io: Server | null = null;
+let server: any = null;
 
 const localOrigins = [
   'http://localhost:3000',
@@ -59,15 +58,22 @@ const configuredOrigins = [
   .map((origin) => origin?.trim())
   .filter(Boolean) as string[];
 
+const isKnownPreviewOrigin = (origin: string | undefined) => {
+  return (
+    typeof origin === 'string' &&
+    origin.includes('hincton-meat') &&
+    /^https:\/\/[a-z0-9-]+\.onrender\.com$/.test(origin)
+  );
+};
+
 const allowedOrigins = Array.from(new Set([...configuredOrigins, ...localOrigins]));
 
 const corsOptions: cors.CorsOptions = {
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || isKnownPreviewOrigin(origin)) {
       callback(null, true);
       return;
     }
-
     callback(new Error(`CORS blocked origin: ${origin}`));
   },
   credentials: true,
@@ -75,32 +81,29 @@ const corsOptions: cors.CorsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Guest-Session-Id'],
 };
 
-const io = new Server(server, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
-    credentials: true,
-  }
-});
+if (!process.env.VERCEL) {
+  server = createServer(app);
+  io = new Server(server, {
+    cors: {
+      origin: allowedOrigins,
+      methods: ["GET", "POST"],
+      credentials: true,
+    }
+  });
+}
 
-// Initialize Prisma
-const prisma = new PrismaClient();
-
-// Test database connection
 prisma.$connect()
   .then(() => console.log('Database connected successfully'))
   .catch((error) => console.error('Database connection failed:', error));
 
-// Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 1000 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
   skip: (req) => {
     return req.method === 'OPTIONS';
   }
 });
 
-// Middleware
 app.use(helmet());
 app.use(limiter);
 app.use(cors(corsOptions));
@@ -108,10 +111,8 @@ app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Static files
 app.use('/uploads', express.static('uploads'));
 
-// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', optionalAuthenticate, orderRoutes);
@@ -137,10 +138,18 @@ app.use('/api/admin/system', authenticate, authorize('ADMIN'), systemMetricsRout
 app.use('/api/ads', adRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
+const safeJsonParse = <T = any>(value: string | undefined, fallback: T): T => {
+  try {
+    return value ? JSON.parse(value) : fallback
+  } catch {
+    return fallback
+  }
+}
+
 app.get('/api/content/site-profile', async (_req, res) => {
   try {
     const setting = await prisma.systemSetting.findUnique({ where: { key: 'site_profile' } });
-    res.json({ profile: setting ? JSON.parse(setting.value) : null });
+    res.json({ profile: setting ? safeJsonParse(setting.value, null) : null });
   } catch (error) {
     console.error('Public site profile error:', error);
     res.status(500).json({ error: 'Failed to get site profile' });
@@ -172,7 +181,7 @@ app.get('/api/content/web-profile', async (_req, res) => {
     });
 
     res.json({
-      profile: setting ? JSON.parse(setting.value) : null,
+      profile: setting ? safeJsonParse(setting.value, null) : null,
       stats: {
         products,
         categories,
@@ -220,7 +229,7 @@ app.get('/api/content/commerce-settings', async (_req, res) => {
         lowStockAlerts: true,
       },
     };
-    res.json({ settings: setting ? { ...defaults, ...JSON.parse(setting.value) } : defaults });
+    res.json({ settings: setting ? { ...defaults, ...safeJsonParse(setting.value, {}) } : defaults });
   } catch (error) {
     console.error('Public commerce settings error:', error);
     res.status(500).json({ error: 'Failed to get commerce settings' });
@@ -240,29 +249,25 @@ app.get('/api/categories', async (_req, res) => {
   }
 });
 
-// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Socket.io for real-time delivery tracking
-io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
-
-  socket.on('join-order', (orderId) => {
-    socket.join(`order-${orderId}`);
+if (io) {
+  io.on('connection', (socket) => {
+    console.log('Client connected:', socket.id);
+    socket.on('join-order', (orderId) => {
+      socket.join(`order-${orderId}`);
+    });
+    socket.on('delivery-location-update', (data) => {
+      socket.to(`order-${data.orderId}`).emit('location-update', data);
+    });
+    socket.on('disconnect', () => {
+      console.log('Client disconnected:', socket.id);
+    });
   });
+}
 
-  socket.on('delivery-location-update', (data) => {
-    socket.to(`order-${data.orderId}`).emit('location-update', data);
-  });
-
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-  });
-});
-
-// Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);
   res.status(500).json({ 
@@ -271,12 +276,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-// 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// ONLY START THE SERVER IF NOT ON VERCEL
 if (!process.env.VERCEL) {
   const preferredPort = Number(process.env.PORT || 5000);
 

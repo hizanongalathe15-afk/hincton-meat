@@ -2,18 +2,14 @@ import express from 'express'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 import jwt, { Secret, SignOptions } from 'jsonwebtoken'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../config/prisma'
 import { z } from 'zod'
 import multer from 'multer'
-import fs from 'fs'
-import path from 'path'
 import { sendPasswordResetEmail } from '../utils/emailService'
 import { uploadImage } from '../config/cloudinary'
 import { meatShopMessages, messageText, resolveMessage } from '../messages/meatShopMessages'
 
 const router = express.Router()
-const prisma = new PrismaClient()
-fs.mkdirSync('uploads/profiles', { recursive: true })
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -687,16 +683,7 @@ router.post('/profile/avatar', upload.single('avatar'), async (req, res) => {
     if (!req.file) return res.status(400).json(apiMessage(meatShopMessages.system.unknownError))
 
     const decoded = jwt.verify(token, JWT_SECRET) as any
-    let avatarUrl: string
-
-    try {
-      avatarUrl = (await uploadImage(req.file.buffer, 'hincton/profiles')).url
-    } catch {
-      const filename = `avatar-${decoded.userId}-${Date.now()}${path.extname(req.file.originalname)}`
-      const localPath = path.join('uploads/profiles', filename)
-      fs.writeFileSync(localPath, req.file.buffer)
-      avatarUrl = `/${localPath.replace(/\\/g, '/')}`
-    }
+    const avatarUrl = (await uploadImage(req.file.buffer, 'hincton/profiles')).url
 
     const user = await prisma.user.update({
       where: { id: decoded.userId },

@@ -54,9 +54,10 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const adminEmail = user?.email || 'admin@meat.com'
   const adminName = user?.profile?.fullName || user?.name || adminEmail
   const adminAvatar = user?.avatar || user?.profile?.avatar
+  const API_HOST = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000'
   const resolveAssetUrl = (url?: string) => {
     if (!url) return ''
-    return url.startsWith('http') ? url : `http://localhost:5000${url}`
+    return url.startsWith('http') ? url : `${API_HOST}${url}`
   }
   
   const {

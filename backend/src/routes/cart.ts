@@ -67,6 +67,21 @@ const apiMessage = (message: Parameters<typeof resolveMessage>[0], values?: Para
   return { ...resolved, error: resolved.message }
 }
 
+const emptyCart = {
+  cart: {
+    items: [],
+    summary: {
+      totalItems: 0,
+      subtotal: 0,
+    },
+  },
+}
+
+const isDatabaseUnavailable = (error: unknown) => {
+  const code = (error as any)?.code
+  return code === 'P1001' || code === 'P2021' || code === 'P2022'
+}
+
 // GET /api/cart
 router.get('/', async (req, res) => {
   try {
@@ -129,6 +144,9 @@ router.get('/', async (req, res) => {
     })
   } catch (error) {
     console.error('Get cart error:', error)
+    if (isDatabaseUnavailable(error)) {
+      return res.json(emptyCart)
+    }
     res.status(500).json(apiMessage(meatShopMessages.system.serverBusy))
   }
 })

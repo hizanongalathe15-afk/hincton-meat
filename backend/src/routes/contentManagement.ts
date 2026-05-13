@@ -9,11 +9,23 @@ import path from 'path'
 import fs from 'fs'
 
 const router = express.Router()
-fs.mkdirSync('uploads/content', { recursive: true })
+const uploadBasePath = process.env.UPLOAD_DIR || (process.env.VERCEL ? '/tmp/uploads' : 'uploads')
+const contentUploadPath = path.join(uploadBasePath, 'content')
+const ensureDirectory = (dir: string) => {
+  try {
+    fs.mkdirSync(dir, { recursive: true })
+  } catch (error) {
+    console.warn(`Unable to create directory ${dir}:`, error)
+  }
+}
+ensureDirectory(contentUploadPath)
 
 const contentUpload = multer({
   storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, 'uploads/content/'),
+    destination: (_req, _file, cb) => {
+      ensureDirectory(contentUploadPath)
+      cb(null, contentUploadPath)
+    },
     filename: (_req, file, cb) => cb(null, `content-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`),
   }),
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -27,6 +39,14 @@ const requireAdmin = (req: any, res: any, next: any) => {
     return res.status(403).json({ error: 'Admin access required' })
   }
   next()
+}
+
+const parseJsonValue = <T = any>(value: string | undefined, fallback: T): T => {
+  try {
+    return value ? JSON.parse(value) : fallback
+  } catch {
+    return fallback
+  }
 }
 
 router.use(requireAdmin)
@@ -101,7 +121,7 @@ const siteProfileSchema = z.object({
 router.get('/site-profile', async (_req, res) => {
   try {
     const setting = await prisma.systemSetting.findUnique({ where: { key: 'site_profile' } })
-    const profile = setting ? { ...defaultSiteProfile, ...JSON.parse(setting.value) } : defaultSiteProfile
+    const profile = setting ? { ...defaultSiteProfile, ...parseJsonValue(setting.value, {}) } : defaultSiteProfile
     res.json({ profile })
   } catch (error) {
     console.error('Get site profile error:', error)
@@ -125,7 +145,7 @@ router.put('/site-profile', async (req, res) => {
       },
     })
 
-    res.json({ message: 'Site profile updated', profile: JSON.parse(setting.value) })
+    res.json({ message: 'Site profile updated', profile: parseJsonValue(setting.value, {}) })
   } catch (error) {
     console.error('Update site profile error:', error)
     res.status(500).json({ error: 'Failed to update site profile' })

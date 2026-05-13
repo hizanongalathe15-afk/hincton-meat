@@ -167,8 +167,9 @@ const SystemMetrics = () => {
   }
 
   const resolveAssetUrl = (url?: string) => {
+    const API_HOST = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000'
     if (!url) return ''
-    return url.startsWith('http') ? url : `http://localhost:5000${url}`
+    return url.startsWith('http') ? url : `${API_HOST}${url}`
   }
 
   if (loading) {

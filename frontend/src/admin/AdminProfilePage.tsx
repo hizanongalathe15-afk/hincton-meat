@@ -56,6 +56,7 @@ const AdminProfilePage = () => {
   const displayName = form.name || [form.firstName, form.lastName].filter(Boolean).join(' ') || user?.email || 'Admin'
   const avatarUrl = form.avatar || user?.avatar || user?.profile?.avatar
   const coverImage = form.coverImage || user?.profile?.coverImage
+  const API_HOST = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000'
   const roleLabel = useMemo(() => {
     const roles = (user as any)?.roles
     if (Array.isArray(roles) && roles.length > 0) return roles.join(', ').replace(/_/g, ' ')
@@ -112,7 +113,7 @@ const AdminProfilePage = () => {
         <div className="flex flex-col gap-5 px-6 pb-6 sm:flex-row sm:items-end">
           <div className="-mt-14 flex h-28 w-28 shrink-0 items-center justify-center rounded-full border-4 border-white bg-red-700 text-3xl font-bold text-white shadow-sm">
             {avatarUrl ? (
-              <img src={avatarUrl.startsWith('http') ? avatarUrl : `http://localhost:5000${avatarUrl}`} alt={displayName} className="h-full w-full rounded-full object-cover" />
+              <img src={avatarUrl.startsWith('http') ? avatarUrl : `${API_HOST}${avatarUrl}`} alt={displayName} className="h-full w-full rounded-full object-cover" />
             ) : (
               initialsFor(displayName)
             )}

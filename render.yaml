@@ -1,16 +1,38 @@
-services:
-  # Backend API Service
-  - type: web
-    name: premium-meat-shop-api
-    env: node
+databases:
+  - name: hincton-meat-db
     plan: starter
-    buildCommand: cd backend && npm install && npm run build
-    startCommand: cd backend && npm start
+    databaseName: hincton_meat
+    user: hincton_meat
+    postgresMajorVersion: "17"
+
+services:
+  - type: web
+    name: hincton-meat-api
+    runtime: node
+    plan: starter
+    rootDir: backend
+    buildCommand: npm install && npm run render-build
+    preDeployCommand: npm run db:push
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        sync: false # Will be set to Neon database URL
+        fromDatabase:
+          name: hincton-meat-db
+          property: connectionString
+      - key: DIRECT_URL
+        fromDatabase:
+          name: hincton-meat-db
+          property: connectionString
+      - key: FRONTEND_URL
+        value: https://hincton-meat-frontend.onrender.com
+      - key: BACKEND_URL
+        value: https://hincton-meat-api.onrender.com
+      - key: ALLOWED_ORIGINS
+        value: https://hincton-meat-frontend.onrender.com
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRE
@@ -30,17 +52,29 @@ services:
       - key: EMAIL_HOST
         sync: false
       - key: EMAIL_PORT
-        value: 587
+        value: "587"
       - key: EMAIL_USER
         sync: false
       - key: EMAIL_PASS
         sync: false
-    healthCheckPath: /api/health
-    autoDeploy: true
 
-  # Database (Neon PostgreSQL)
-  - type: pserv
-    name: premium-meat-shop-db
-    plan: free
-    databaseName: premium_meat_shop
-    user: postgres
+  - type: web
+    name: hincton-meat-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: frontend/dist
+    autoDeploy: true
+    envVars:
+      - key: VITE_API_URL
+        value: https://hincton-meat-api.onrender.com/api
+      - key: VITE_SOCKET_URL
+        value: https://hincton-meat-api.onrender.com
+      - key: VITE_MPESA_ENABLED
+        value: "true"
+      - key: VITE_NODE_ENV
+        value: production
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

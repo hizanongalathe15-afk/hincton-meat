@@ -7,7 +7,7 @@
     "start": "node dist/server.js",
     "dev": "nodemon --legacy-watch --watch src --ext ts,json --ignore dist --ignore node_modules --ignore uploads src/server.ts",
     "build": "tsc",
-    "vercel-build": "prisma generate && tsc",
+    "render-build": "prisma generate && tsc",
     "seed": "ts-node src/utils/seedData.ts",
     "seed:hincton": "ts-node src/utils/seedHinctonPricelist.ts",
     "seed:admins": "ts-node src/utils/seedAdmins.ts",
@@ -30,7 +30,6 @@
   "dependencies": {
     "@cloudinary/url-gen": "^1.19.0",
     "@prisma/client": "^5.22.0",
-    "@supabase/supabase-js": "^2.105.4",
     "@types/sharp": "^0.31.1",
     "@types/swagger-ui-express": "^4.1.8",
     "@types/uuid": "^10.0.0",
@@ -71,5 +70,8 @@
     "nodemon": "^3.0.2",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"
+  },
+  "prisma": {
+    "seed": "ts-node src/utils/seedData.ts"
   }
 }

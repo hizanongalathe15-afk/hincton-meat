@@ -26,6 +26,7 @@ const Navigation = () => {
   const profileDropdownRef = useRef<HTMLDivElement>(null)
   const isAdmin = String(user?.role || '').toLowerCase() === 'admin'
   const homePath = user ? (isAdmin ? '/admin/dashboard' : '/profile') : '/'
+  const API_HOST = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000'
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -144,7 +145,7 @@ const Navigation = () => {
                     <div className="h-9 w-9 overflow-hidden rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold text-gray-700">
                       {user.avatar || user.profile?.avatar ? (
                         <img
-                          src={(user.avatar || user.profile?.avatar)?.startsWith('http') ? (user.avatar || user.profile?.avatar) : `http://localhost:5000${user.avatar || user.profile?.avatar}`}
+                          src={(user.avatar || user.profile?.avatar)?.startsWith('http') ? (user.avatar || user.profile?.avatar) : `${API_HOST}${user.avatar || user.profile?.avatar}`}
                           alt={user.name || user.email || 'Profile'}
                           className="h-full w-full object-cover"
                         />
@@ -164,7 +165,7 @@ const Navigation = () => {
                           <div className="h-10 w-10 overflow-hidden rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold text-gray-700">
                             {user.avatar || user.profile?.avatar ? (
                               <img
-                                src={(user.avatar || user.profile?.avatar)?.startsWith('http') ? (user.avatar || user.profile?.avatar) : `http://localhost:5000${user.avatar || user.profile?.avatar}`}
+                                src={(user.avatar || user.profile?.avatar)?.startsWith('http') ? (user.avatar || user.profile?.avatar) : `${API_HOST}${user.avatar || user.profile?.avatar}`}
                                 alt={user.name || user.email || 'Profile'}
                                 className="h-full w-full object-cover"
                               />

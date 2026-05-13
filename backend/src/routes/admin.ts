@@ -198,11 +198,23 @@ router.get('/dashboard', async (req, res) => {
 })
 
 // Very small, schema-aligned subset to keep admin API compiling.
-fs.mkdirSync('uploads/products', { recursive: true })
+const uploadBasePath = process.env.UPLOAD_DIR || (process.env.VERCEL ? '/tmp/uploads' : 'uploads')
+const productUploadPath = path.join(uploadBasePath, 'products')
+const ensureDirectory = (dir: string) => {
+  try {
+    fs.mkdirSync(dir, { recursive: true })
+  } catch (error) {
+    console.warn(`Unable to create directory ${dir}:`, error)
+  }
+}
+ensureDirectory(productUploadPath)
 
 const productImageUpload = multer({
   storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, 'uploads/products/'),
+    destination: (_req, _file, cb) => {
+      ensureDirectory(productUploadPath)
+      cb(null, productUploadPath)
+    },
     filename: (_req, file, cb) => cb(null, `${file.fieldname}-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`),
   }),
   limits: { fileSize: 5 * 1024 * 1024 },

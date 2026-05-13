@@ -4,16 +4,28 @@ import { asyncHandler, AppError, NotFoundError, ValidationError } from '../middl
 import { validateBody } from '../middleware'
 import { categoryCreateSchema, categoryUpdateSchema } from '../middleware/validationSchemas'
 
+const isDatabaseUnavailable = (error: unknown) => {
+  const code = (error as any)?.code
+  return code === 'P1001' || code === 'P2021' || code === 'P2022'
+}
+
 export const getCategories = asyncHandler(async (req: Request, res: Response) => {
   const { page = 1, limit = 50, parentId, isActive, isFeatured } = req.query
-  
-  const result = await CategoryModel.findAll({
-    page: Number(page),
-    limit: Number(limit),
-    parentId: parentId as string,
-    isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
-    isFeatured: isFeatured === 'true' ? true : isFeatured === 'false' ? false : undefined
-  })
+
+  let result: { categories: any[]; total: number }
+  try {
+    result = await CategoryModel.findAll({
+      page: Number(page),
+      limit: Number(limit),
+      parentId: parentId as string,
+      isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+      isFeatured: isFeatured === 'true' ? true : isFeatured === 'false' ? false : undefined
+    })
+  } catch (error) {
+    if (!isDatabaseUnavailable(error)) throw error
+    console.error('Get categories database unavailable:', error)
+    result = { categories: [], total: 0 }
+  }
   
   res.json({
     success: true,
@@ -56,7 +68,13 @@ export const getCategoryBySlug = asyncHandler(async (req: Request, res: Response
 })
 
 export const getRootCategories = asyncHandler(async (req: Request, res: Response) => {
-  const categories = await CategoryModel.getRootCategories()
+  let categories: any[] = []
+  try {
+    categories = await CategoryModel.getRootCategories()
+  } catch (error) {
+    if (!isDatabaseUnavailable(error)) throw error
+    console.error('Get root categories database unavailable:', error)
+  }
   
   res.json({
     success: true,
@@ -66,7 +84,13 @@ export const getRootCategories = asyncHandler(async (req: Request, res: Response
 
 export const getFeaturedCategories = asyncHandler(async (req: Request, res: Response) => {
   const { limit = 6 } = req.query
-  const categories = await CategoryModel.getFeaturedCategories(Number(limit))
+  let categories: any[] = []
+  try {
+    categories = await CategoryModel.getFeaturedCategories(Number(limit))
+  } catch (error) {
+    if (!isDatabaseUnavailable(error)) throw error
+    console.error('Get featured categories database unavailable:', error)
+  }
   
   res.json({
     success: true,

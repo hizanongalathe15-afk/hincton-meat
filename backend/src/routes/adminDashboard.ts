@@ -9,7 +9,16 @@ import { uploadImage } from '../config/cloudinary'
 import { notifyOrderCustomer, notifyRecipients } from '../utils/notificationService'
 
 const router = express.Router()
-fs.mkdirSync('uploads/products', { recursive: true })
+const uploadBasePath = process.env.UPLOAD_DIR || (process.env.VERCEL ? '/tmp/uploads' : 'uploads')
+const productUploadPath = path.join(uploadBasePath, 'products')
+const ensureDirectory = (dir: string) => {
+  try {
+    fs.mkdirSync(dir, { recursive: true })
+  } catch (error) {
+    console.warn(`Unable to create directory ${dir}:`, error)
+  }
+}
+ensureDirectory(productUploadPath)
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -35,9 +44,14 @@ const storeUploadedImages = async (files: Express.Multer.File[], folder = 'hinct
       urls.push(uploaded.url)
     } catch (error) {
       const filename = `${file.fieldname}-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`
-      const localPath = path.join('uploads/products', filename)
-      fs.writeFileSync(localPath, file.buffer)
-      urls.push(`/${localPath.replace(/\\/g, '/')}`)
+      ensureDirectory(productUploadPath)
+      const localPath = path.join(productUploadPath, filename)
+      try {
+        fs.writeFileSync(localPath, file.buffer)
+        urls.push(`/${localPath.replace(/\\/g, '/')}`)
+      } catch (writeError) {
+        console.warn(`Unable to write fallback local image ${localPath}:`, writeError)
+      }
     }
   }
 
