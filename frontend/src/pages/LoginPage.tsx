@@ -88,6 +88,7 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
 
   const handleSocialLogin = (provider: string) => {
     const baseUrl = getApiHost()
+    if (!baseUrl) {
       toast.error(`${t('login.socialLoginNotConfigured').replace('{provider}', provider)}`)
       return
     }
