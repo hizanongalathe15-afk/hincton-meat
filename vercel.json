@@ -14,28 +14,11 @@
       "use": "@vercel/node"
     }
   ],
-  "routes": [
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/index.ts",
-      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
-    },
-    {
-      "src": "/uploads/(.*)",
-      "dest": "/backend/uploads/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/dist/index.html"
-    }
-  ],
+  
   
   "build": {
     "env": {
-      "VITE_API_URL": "https://premium-meat-shop.vercel.app/api"
+      "VITE_API_URL": "https://hincton-meat.vercel.app/api"
     }
   },
   
