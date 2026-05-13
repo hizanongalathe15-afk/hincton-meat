@@ -31,3 +31,5 @@ logs/
 # Temporary files
 *.tmp
 .cache/
+.vercel
+.env*.local

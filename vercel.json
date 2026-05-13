@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "name": "hincton-meat",
   "builds": [
     {
       "src": "frontend/package.json",
@@ -10,35 +9,18 @@
       }
     },
     {
-      "src": "backend/package.json",
+      "src": "api/index.ts",
       "use": "@vercel/node"
     }
   ],
-  
-  
-  "build": {
-    "env": {
-      "VITE_API_URL": "https://hincton-meat.vercel.app/api"
-    }
-  },
-  
-  "headers": [
+  "routes": [
     {
-      "source": "/api/(.*)",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization"
-        }
-      ]
+      "src": "/api/(.*)",
+      "dest": "/api/index.ts"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/dist/index.html"
     }
   ]
 }

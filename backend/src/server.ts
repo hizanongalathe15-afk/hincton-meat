@@ -94,9 +94,8 @@ prisma.$connect()
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 1000 requests per windowMs (increased from 100)
+  max: 1000, // limit each IP to 1000 requests per windowMs
   skip: (req) => {
-    // Skip rate limiting for CORS preflight requests
     return req.method === 'OPTIONS';
   }
 });
@@ -107,9 +106,6 @@ app.use(limiter);
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
-
-
-
 app.use(express.urlencoded({ extended: true }));
 
 // Static files
@@ -245,7 +241,6 @@ app.get('/api/categories', async (_req, res) => {
 });
 
 // Health check
-
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
@@ -281,37 +276,39 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-const preferredPort = Number(process.env.PORT || 5000);
+// ONLY START THE SERVER IF NOT ON VERCEL
+if (!process.env.VERCEL) {
+  const preferredPort = Number(process.env.PORT || 5000);
 
-function listenOnFreePort(fromPort: number) {
-  const attemptPort = Number.isFinite(fromPort) ? fromPort : 5000;
+  function listenOnFreePort(fromPort: number) {
+    const attemptPort = Number.isFinite(fromPort) ? fromPort : 5000;
 
-  const tryListen = (port: number): void => {
-    const handleError = (err: any) => {
-      if (err?.code === 'EADDRINUSE') {
-        console.warn(`Port ${port} is in use; trying ${port + 1}...`);
-        server.removeListener('listening', handleListening);
-        tryListen(port + 1);
-        return;
-      }
-      throw err;
+    const tryListen = (port: number): void => {
+      const handleError = (err: any) => {
+        if (err?.code === 'EADDRINUSE') {
+          console.warn(`Port ${port} is in use; trying ${port + 1}...`);
+          server.removeListener('listening', handleListening);
+          tryListen(port + 1);
+          return;
+        }
+        throw err;
+      };
+
+      const handleListening = () => {
+        server.removeListener('error', handleError);
+        console.log(`Server running on port ${port}`);
+        console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      };
+
+      server.once('error', handleError);
+      server.once('listening', handleListening);
+      server.listen(port);
     };
 
-    const handleListening = () => {
-      server.removeListener('error', handleError);
-      console.log(`Server running on port ${port}`);
-      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-    };
+    tryListen(attemptPort);
+  }
 
-    server.once('error', handleError);
-    server.once('listening', handleListening);
-    server.listen(port);
-  };
-
-  tryListen(attemptPort);
+  listenOnFreePort(preferredPort);
 }
-
-listenOnFreePort(preferredPort);
-
 
 export default app;

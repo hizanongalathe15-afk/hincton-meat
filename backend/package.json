@@ -7,6 +7,7 @@
     "start": "node dist/server.js",
     "dev": "nodemon --legacy-watch --watch src --ext ts,json --ignore dist --ignore node_modules --ignore uploads src/server.ts",
     "build": "tsc",
+    "vercel-build": "prisma generate && tsc",
     "seed": "ts-node src/utils/seedData.ts",
     "seed:hincton": "ts-node src/utils/seedHinctonPricelist.ts",
     "seed:admins": "ts-node src/utils/seedAdmins.ts",

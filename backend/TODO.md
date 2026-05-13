@@ -1,26 +1,129 @@
-# TODO (TypeScript compile fixes)
+Great question! Here's the **correct order** to deploy on Vercel:
 
-## Step 1: Contract alignment (arrays vs objects, missing methods)
-- [x] Fix `src/controllers/dashboardController.ts` to match return types (arrays vs objects) for dashboard endpoints.
-- [ ] Fix `src/controllers/paymentController.ts` to stop calling missing `PaymentModel.findAll` (implement `findAll` in model or switch to existing model methods).
-- [ ] Fix `src/controllers/searchController.ts` to match model return shapes/signatures.
-- [ ] Fix `src/controllers/userSessionController.ts` to match `UserSessionModel` actual method names (or implement missing wrapper methods).
+## 🎯 **Deploy Frontend FIRST, Then Backend**
 
-## Step 2: Prisma field/type mismatches
-- [ ] Fix `src/middleware/apiKey.ts` Prisma field usage to match `schema.prisma`.
-- [ ] Fix `src/middleware/rateLimiter.ts` retryAfter type (Date -> number).
-- [ ] Fix `src/middleware/errorHandler.ts` / `logger.ts` create payload fields (code/statusCode/details).
-- [ ] Fix `src/middleware/userActivityTracker.ts` calls to missing model methods.
+### Step 1: **Deploy Frontend to Vercel**
 
-## Step 3: Analytics + Coupon model/schema alignment
-- [ ] Fix `src/models/Analytics.ts` (duplicate identifiers, wrong where/orderBy/include fields).
-- [ ] Fix `src/models/Coupon.ts` Decimal handling and return typing.
+```bash
+# Go to frontend directory
+cd /home/enesis/CascadeProjects/Hincton\ Meat/frontend
 
-## Step 4: Routes referencing missing exports
-- [ ] Fix `src/routes/index.ts` (req.apiVersion typing).
-- [ ] Fix `src/routes/payments.ts` missing controller exports (either export or update router).
-- [ ] Fix `src/routes/reviews.ts` missing controller exports.
+# Deploy frontend
+vercel
 
-## Validation
-- [ ] Run `cd backend && npx tsc --noEmit` until 0 errors.
+# When prompted:
+# - Set up and deploy? → yes
+# - Scope? → your account
+# - Link to existing project? → no (create new)
+# - Project name? → hincton-meat-frontend
+# - Directory? → . (just enter)
 
+# For production
+vercel --prod
+```
+
+**After deploy, you'll get:**
+```
+✅ Production: https://hincton-meat-frontend.vercel.app
+```
+
+### Step 2: **Get your frontend URL**
+```bash
+# Copy this URL - you'll need it for CORS
+echo "https://hincton-meat-frontend.vercel.app"
+```
+
+### Step 3: **Update Backend CORS to Allow Frontend**
+
+In your `backend/src/server.ts`, update the allowed origins:
+
+```typescript
+const localOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  // ADD YOUR VERCEL FRONTEND URL:
+  'https://hincton-meat-frontend.vercel.app',
+  'https://hincton-meat-frontend.vercel.app',  // Production URL
+];
+```
+
+### Step 4: **Deploy Backend to Vercel**
+
+```bash
+# Go to backend directory
+cd /home/enesis/CascadeProjects/Hincton\ Meat/backend
+
+# Deploy backend
+vercel
+
+# When prompted:
+# - Set up and deploy? → yes
+# - Scope? → your account
+# - Link to existing project? → no (create new)
+# - Project name? → hincton-meat-backend
+# - Directory? → . (just enter)
+
+# For production
+vercel --prod
+```
+
+### Step 5: **Connect Frontend to Backend**
+
+In your **frontend** Vercel dashboard:
+1. Go to: https://vercel.com/dashboard
+2. Click on your `hincton-meat-frontend` project
+3. Click **"Settings"** → **"Environment Variables"**
+4. Add:
+   - Name: `VITE_API_URL`
+   - Value: `https://hincton-meat-backend.vercel.app/api`
+   - Environment: `Production` + `Preview` + `Development`
+5. Click **"Save"**
+
+### Step 6: **Redeploy Frontend** (to pick up the new env var)
+
+```bash
+cd /home/enesis/CascadeProjects/Hincton\ Meat/frontend
+vercel --prod --force
+```
+
+## 📊 **What You'll Have After Deploy**
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| **Frontend** | `https://hincton-meat-frontend.vercel.app` | React app |
+| **Backend API** | `https://hincton-meat-backend.vercel.app/api` | Node.js API |
+| **Health Check** | `https://hincton-meat-backend.vercel.app/health` | API status |
+
+## 🧪 **Test Everything**
+
+```bash
+# 1. Test backend is alive
+curl https://hincton-meat-backend.vercel.app/health
+
+# 2. Test backend products
+curl https://hincton-meat-backend.vercel.app/api/products
+
+# 3. Open frontend in browser
+open https://hincton-meat-frontend.vercel.app
+```
+
+## ⚠️ **Important Notes**
+
+| Do This | Why |
+|---------|-----|
+| Deploy frontend FIRST | So you know its URL for CORS |
+| Add frontend URL to backend CORS | Prevents CORS errors |
+| Set `VITE_API_URL` in frontend | Tells frontend where backend lives |
+| Redeploy frontend after setting env var | Makes the new URL available |
+
+## 🎯 **Quick One-Liner to Deploy Both**
+
+```bash
+# Deploy frontend
+cd frontend && vercel --prod && cd ..
+
+# Deploy backend  
+cd backend && vercel --prod && cd ..
+```
+
+**Want me to help you set up the CORS configuration for your backend so it accepts requests from your frontend?**
