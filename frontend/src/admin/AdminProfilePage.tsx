@@ -1,6 +1,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react'
 import { Camera, Mail, Save, ShieldCheck, User } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { getApiHost } from '../services/api'
 
 type ProfileForm = {
   name: string
@@ -56,7 +57,7 @@ const AdminProfilePage = () => {
   const displayName = form.name || [form.firstName, form.lastName].filter(Boolean).join(' ') || user?.email || 'Admin'
   const avatarUrl = form.avatar || user?.avatar || user?.profile?.avatar
   const coverImage = form.coverImage || user?.profile?.coverImage
-  const API_HOST = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000'
+  const API_HOST = getApiHost()
   const roleLabel = useMemo(() => {
     const roles = (user as any)?.roles
     if (Array.isArray(roles) && roles.length > 0) return roles.join(', ').replace(/_/g, ' ')

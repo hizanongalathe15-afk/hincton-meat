@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { systemApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
+import { getApiHost } from '../services/api'
 
 interface SystemMetrics {
   cpu: {
@@ -167,7 +168,7 @@ const SystemMetrics = () => {
   }
 
   const resolveAssetUrl = (url?: string) => {
-    const API_HOST = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000'
+    const API_HOST = getApiHost()
     if (!url) return ''
     return url.startsWith('http') ? url : `${API_HOST}${url}`
   }

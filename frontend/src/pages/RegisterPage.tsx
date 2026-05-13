@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
 import { HINCTON_BRAND } from '../utils/hinctonBrand'
 import { useLanguage } from '../contexts/LanguageContext'
+import { getApiHost } from '../services/api'
 
 const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ onNavigate }) => {
   const [formData, setFormData] = useState({
@@ -66,7 +67,7 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
   }
 
   const handleSocialLogin = (provider: string) => {
-    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000'
+    const baseUrl = getApiHost()
     if (!baseUrl) {
       toast.error(`${t('login.socialLoginNotConfigured').replace('{provider}', provider)}`)
       return

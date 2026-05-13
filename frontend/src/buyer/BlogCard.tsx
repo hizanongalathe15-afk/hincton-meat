@@ -10,6 +10,7 @@ import {
   Bookmark,
   Eye
 } from 'lucide-react'
+import { getApiHost } from '../services/api'
 
 interface BlogCardProps {
   post: {
@@ -43,7 +44,7 @@ const BlogCard = ({ post, onRead, onLike, onSave, onShare }: BlogCardProps) => {
   const [isLiked, setIsLiked] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
   const [showShareMenu, setShowShareMenu] = useState(false)
-  const API_HOST = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000'
+  const API_HOST = getApiHost()
 
   const handleLike = () => {
     setIsLiked(!isLiked)

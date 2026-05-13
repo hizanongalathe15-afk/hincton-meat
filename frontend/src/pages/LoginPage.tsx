@@ -7,6 +7,7 @@ import PhoneNumberInput from '../components/ui/PhoneNumberInput'
 import { HINCTON_BRAND } from '../utils/hinctonBrand'
 import { isValidE164PhoneNumber } from '../utils/phoneCountries'
 import { useLanguage } from '../contexts/LanguageContext'
+import { getApiHost } from '../services/api'
 
 const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ onNavigate }) => {
   const [formData, setFormData] = useState({ email: '', password: '', remember: false })
@@ -86,8 +87,7 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
   }
 
   const handleSocialLogin = (provider: string) => {
-    const baseUrl = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000'
-    if (!baseUrl) {
+    const baseUrl = getApiHost()
       toast.error(`${t('login.socialLoginNotConfigured').replace('{provider}', provider)}`)
       return
     }

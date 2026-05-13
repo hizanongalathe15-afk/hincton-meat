@@ -7,6 +7,7 @@ import { ordersApi, userApi, wishlistApi } from '../services/buyerApi';
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog';
 import ConfirmationDialog from '../components/ui/ConfirmationDialog';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getApiHost } from '../services/api';
 
 interface UserProfile {
   id: string;
@@ -61,7 +62,7 @@ const ProfilePage: React.FC = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { isOpen, options, handleConfirm, handleCancel } = useConfirmationDialog();
-  const API_HOST = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000'
+  const API_HOST = getApiHost()
 
   useEffect(() => {
     if (!user) {

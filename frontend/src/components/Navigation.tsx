@@ -9,6 +9,7 @@ import { useConfirmationDialog } from '../hooks/useConfirmationDialog'
 import ConfirmationDialog from '../components/ui/ConfirmationDialog'
 import { useLanguage } from '../contexts/LanguageContext'
 import LanguageSelector from './LanguageSelector'
+import { getApiHost } from '../services/api'
 
 const Navigation = () => {
 
@@ -26,7 +27,7 @@ const Navigation = () => {
   const profileDropdownRef = useRef<HTMLDivElement>(null)
   const isAdmin = String(user?.role || '').toLowerCase() === 'admin'
   const homePath = user ? (isAdmin ? '/admin/dashboard' : '/profile') : '/'
-  const API_HOST = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000'
+  const API_HOST = getApiHost()
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()

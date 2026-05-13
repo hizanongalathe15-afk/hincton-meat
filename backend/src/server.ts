@@ -282,6 +282,7 @@ app.use('*', (req, res) => {
 
 if (!process.env.VERCEL) {
   const preferredPort = Number(process.env.PORT || 5000);
+  const preferredHost = process.env.HOST || '0.0.0.0';
 
   function listenOnFreePort(fromPort: number) {
     const attemptPort = Number.isFinite(fromPort) ? fromPort : 5000;
@@ -299,13 +300,13 @@ if (!process.env.VERCEL) {
 
       const handleListening = () => {
         server.removeListener('error', handleError);
-        console.log(`Server running on port ${port}`);
+        console.log(`Server running on ${preferredHost}:${port}`);
         console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
       };
 
       server.once('error', handleError);
       server.once('listening', handleListening);
-      server.listen(port);
+      server.listen(port, preferredHost);
     };
 
     tryListen(attemptPort);

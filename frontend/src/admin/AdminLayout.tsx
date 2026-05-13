@@ -29,6 +29,7 @@ import { useConfirmationDialog } from '../hooks/useConfirmationDialog'
 import ConfirmationDialog from '../components/ui/ConfirmationDialog'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
+import { getApiHost } from '../services/api'
 import LanguageSelector from '../components/LanguageSelector'
 import { notificationsApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
@@ -54,7 +55,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const adminEmail = user?.email || 'admin@meat.com'
   const adminName = user?.profile?.fullName || user?.name || adminEmail
   const adminAvatar = user?.avatar || user?.profile?.avatar
-  const API_HOST = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000'
+  const API_HOST = getApiHost()
   const resolveAssetUrl = (url?: string) => {
     if (!url) return ''
     return url.startsWith('http') ? url : `${API_HOST}${url}`

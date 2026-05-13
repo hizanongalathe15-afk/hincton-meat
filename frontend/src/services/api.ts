@@ -1,6 +1,19 @@
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || '/api'
+export const VITE_API_URL = import.meta.env.VITE_API_URL || import.meta.env.NEXT_PUBLIC_API_URL
+export const API_URL = VITE_API_URL || '/api'
+
+export const getApiHost = (): string => {
+  if (typeof window === 'undefined') {
+    return VITE_API_URL || ''
+  }
+
+  if (VITE_API_URL) {
+    return VITE_API_URL.replace(/\/api\/?$/, '')
+  }
+
+  return window.location.origin
+}
 
 export const getApiErrorMessage = (error: any, fallback = 'Something went wrong. Please try again.') => {
   if (!error.response) {

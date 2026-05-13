@@ -7,6 +7,7 @@ import { ordersApi, userApi, wishlistApi } from '../services/buyerApi';
 import { locationService, ProfileUpdateData } from '../services/locationService';
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog';
 import ConfirmationDialog from '../components/ui/ConfirmationDialog';
+import { getApiHost } from '../services/api';
 
 interface UserProfile {
   id: string;
@@ -91,7 +92,7 @@ const EnhancedProfilePage: React.FC = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { isOpen, options, confirm, handleConfirm, handleCancel } = useConfirmationDialog();
-  const API_HOST = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000'
+  const API_HOST = getApiHost()
 
   // Address management state
   const [showAddAddress, setShowAddAddress] = useState(false);
