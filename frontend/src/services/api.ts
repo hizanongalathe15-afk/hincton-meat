@@ -9,6 +9,7 @@ export const normalizeApiUrl = (url?: string): string => {
 }
 
 export const API_URL = normalizeApiUrl(VITE_API_URL)
+export const API_TIMEOUT_MS = 15000
 
 export const getApiHost = (): string => {
   if (typeof window === 'undefined') {
@@ -33,6 +34,7 @@ export const getApiErrorMessage = (error: any, fallback = 'Something went wrong.
 
 export const api = axios.create({
   baseURL: API_URL,
+  timeout: API_TIMEOUT_MS,
   headers: {
     'Content-Type': 'application/json',
   },

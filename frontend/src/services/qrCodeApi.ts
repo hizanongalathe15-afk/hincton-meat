@@ -1,11 +1,12 @@
 import axios from 'axios'
-import { API_URL } from './api'
+import { API_TIMEOUT_MS, API_URL } from './api'
 
 const API_BASE_URL = API_URL
 
 // Create axios instance with auth
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: API_TIMEOUT_MS,
   headers: {
     'Content-Type': 'application/json',
   },

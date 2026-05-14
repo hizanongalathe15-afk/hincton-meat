@@ -25,8 +25,15 @@ const BuyerShop = ({
   const [searchParams, setSearchParams] = useSearchParams()
   const { t } = useLanguage()
   const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [categories, setCategories] = useState<any[]>([
+    { id: '', name: t('shop.allProducts'), count: 0 },
+    ...HINCTON_PRODUCTS.map((product) => ({
+      id: product.category,
+      name: product.name,
+      count: 0,
+    })),
+  ])
+  const [loading, setLoading] = useState(false)
 
   // Define sortOptions with translations
     const sortOptions = [
@@ -61,6 +68,7 @@ const BuyerShop = ({
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(false)
       try {
           // Fetch products with filters
         const currentSort = searchParams.get('sort') || 'featured'

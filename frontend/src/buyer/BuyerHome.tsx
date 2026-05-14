@@ -24,14 +24,15 @@ const BuyerHome = ({
   const navigate = useNavigate()
   const { profile } = useSiteContent()
   const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([...HINCTON_PRODUCTS])
   const [productTiles, setProductTiles] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const topProductScrollerRef = useRef<HTMLDivElement>(null)
   const bottomProductScrollerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(false)
       try {
         // Fetch featured products
         const [productsData, allProductsData] = await Promise.all([
