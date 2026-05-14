@@ -3,10 +3,9 @@ services:
     name: hincton-meat-api
     runtime: node
     plan: starter
-    rootDir: backend
-    buildCommand: cd backend && npm ci --include=dev && npm run render-build
-    preDeployCommand: cd backend && npm run db:push
-    startCommand: cd backend && npm start
+    buildCommand: npm --prefix backend ci --include=dev && npm --prefix backend run render-build
+    preDeployCommand: npm --prefix backend run db:push
+    startCommand: npm --prefix backend start
     healthCheckPath: /health
     autoDeploy: true
     envVars:
