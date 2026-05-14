@@ -7,6 +7,12 @@ const router = express.Router()
 const sendMessageSchema = z.object({
   sessionId: z.string().min(1),
   message: z.string().min(1),
+  attachments: z.array(z.object({
+    url: z.string().min(1),
+    name: z.string().optional(),
+    type: z.string().optional(),
+    size: z.number().optional(),
+  })).optional(),
   // sender: user or admin
   from: z.enum(['user', 'admin']).default('user'),
 })
@@ -16,6 +22,46 @@ const isAdmin = (req: any) => req.user?.roles?.some((role: string) => ['ADMIN', 
 const getGuestSessionId = (req: any): string | null => {
   const value = req.header('X-Guest-Session-Id')
   return typeof value === 'string' && value.trim().length >= 12 ? value.trim() : null
+}
+
+const CHAT_EDIT_DELETE_WINDOW_MS = 15 * 60 * 1000
+
+const displayName = (user: any) => {
+  return user?.profile?.fullName ||
+    [user?.profile?.firstName, user?.profile?.lastName].filter(Boolean).join(' ') ||
+    user?.username ||
+    user?.email ||
+    'Unknown user'
+}
+
+const serializeChatMessage = (message: any, viewerId?: string | null) => {
+  const sender = message.isFromUser ? message.user : message.admin
+  const receiver = message.isFromUser ? message.admin : message.user
+  const age = Date.now() - new Date(message.createdAt).getTime()
+  const isOwn = message.isFromUser ? message.userId === viewerId : message.adminId === viewerId
+
+  return {
+    id: message.id,
+    roomId: message.roomId,
+    sessionId: message.sessionId,
+    senderId: sender?.id || '',
+    senderName: displayName(sender),
+    senderAvatar: sender?.profile?.avatar || null,
+    senderEmail: sender?.email || null,
+    senderPhone: sender?.phone || sender?.profile?.mpesaPhone || null,
+    receiverId: receiver?.id || '',
+    receiverName: displayName(receiver),
+    receiverAvatar: receiver?.profile?.avatar || null,
+    content: message.message || '',
+    attachments: message.attachments || [],
+    timestamp: message.createdAt,
+    editedAt: message.editedAt,
+    isRead: message.isRead,
+    isFromUser: message.isFromUser,
+    canEdit: isOwn && age <= CHAT_EDIT_DELETE_WINDOW_MS,
+    canDelete: isOwn && age <= CHAT_EDIT_DELETE_WINDOW_MS,
+    type: message.attachments ? 'attachment' : 'text',
+  }
 }
 
 const notifyAdminsOfCustomerMessage = async (sessionId: string, userId: string, message: string) => {
@@ -71,7 +117,7 @@ const getOrCreateGuestChatUser = async (sessionId: string) => {
 
 router.post('/messages', async (req, res) => {
   try {
-    const { sessionId, message, from } = sendMessageSchema.parse(req.body)
+    const { sessionId, message, attachments, from } = sendMessageSchema.parse(req.body)
 
     const authUserId = getAuthUserId(req)
     const guestSessionId = getGuestSessionId(req)
@@ -102,10 +148,11 @@ router.post('/messages', async (req, res) => {
         userId: finalUserId,
         adminId: from === 'admin' ? authUserId : null,
         message,
+        attachments: attachments || undefined,
       },
       include: {
-        user: { select: { id: true, username: true, email: true, profile: { select: { fullName: true, avatar: true } } } },
-        admin: { select: { id: true, username: true, email: true, profile: { select: { fullName: true, avatar: true } } } },
+        user: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
+        admin: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
       },
     })
 
@@ -119,7 +166,7 @@ router.post('/messages', async (req, res) => {
       })
     }
 
-    res.status(201).json({ message: 'Message sent', msg })
+    res.status(201).json({ message: 'Message sent', msg: serializeChatMessage(msg, authUserId) })
   } catch (error) {
     console.error('Send chat message error:', error)
     res.status(500).json({ error: 'Failed to send message' })
@@ -134,13 +181,13 @@ router.get('/sessions/:sessionId/messages', async (req, res) => {
     const messages = await prisma.liveChatMessage.findMany({
       where: { sessionId, roomId: sessionId },
       include: {
-        user: { select: { id: true, username: true, email: true, profile: { select: { fullName: true, avatar: true } } } },
-        admin: { select: { id: true, username: true, email: true, profile: { select: { fullName: true, avatar: true } } } },
+        user: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
+        admin: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
       },
       orderBy: { createdAt: 'asc' },
     })
 
-    res.json({ sessionId, messages })
+    res.json({ sessionId, messages: messages.map((message) => serializeChatMessage(message, getAuthUserId(req))) })
   } catch (error) {
     console.error('Get chat messages error:', error)
     res.status(500).json({ error: 'Failed to get messages' })
@@ -157,8 +204,8 @@ router.get('/admin/sessions', async (req, res) => {
     const messages = await prisma.liveChatMessage.findMany({
       where: { sessionId: { not: null } },
       include: {
-        user: { select: { id: true, username: true, email: true, profile: { select: { fullName: true, avatar: true } } } },
-        admin: { select: { id: true, username: true, email: true, profile: { select: { fullName: true, avatar: true } } } },
+        user: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
+        admin: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -233,7 +280,7 @@ router.put('/sessions/:sessionId/read', async (req, res) => {
   }
 })
 
-// Edit message (users can edit their own messages within 10 minutes)
+// Edit message (users can edit their own messages within 15 minutes)
 router.put('/messages/:messageId', async (req, res) => {
   try {
     const { messageId } = req.params
@@ -248,23 +295,23 @@ router.put('/messages/:messageId', async (req, res) => {
     if (!message) return res.status(404).json({ error: 'Message not found' })
 
     // Check if user can edit this message
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000)
+    const editWindowStart = new Date(Date.now() - CHAT_EDIT_DELETE_WINDOW_MS)
     
     if (message.isFromUser) {
       // User editing their own message
       if (message.userId !== userId) {
         return res.status(403).json({ error: 'Not authorized to edit this message' })
       }
-      if (message.createdAt < tenMinutesAgo) {
-        return res.status(403).json({ error: 'Can only edit messages within 10 minutes' })
+      if (message.createdAt < editWindowStart) {
+        return res.status(403).json({ error: 'Can only edit messages within 15 minutes' })
       }
     } else {
       // Admin editing their own message
       if (!isAdmin(req) || message.adminId !== userId) {
         return res.status(403).json({ error: 'Not authorized to edit this message' })
       }
-      if (message.createdAt < tenMinutesAgo) {
-        return res.status(403).json({ error: 'Can only edit messages within 10 minutes' })
+      if (message.createdAt < editWindowStart) {
+        return res.status(403).json({ error: 'Can only edit messages within 15 minutes' })
       }
     }
 
@@ -297,7 +344,7 @@ router.put('/messages/:messageId', async (req, res) => {
   }
 })
 
-// Delete message (admin only)
+// Delete message (sender can delete within 15 minutes)
 router.delete('/messages/:messageId', async (req, res) => {
   try {
     const { messageId } = req.params
@@ -310,9 +357,12 @@ router.delete('/messages/:messageId', async (req, res) => {
 
     if (!message) return res.status(404).json({ error: 'Message not found' })
 
-    // Only admin who sent the message or system admin can delete
-    if (message.adminId !== userId) {
+    const ownsMessage = message.isFromUser ? message.userId === userId : message.adminId === userId
+    if (!ownsMessage) {
       return res.status(403).json({ error: 'Not authorized to delete this message' })
+    }
+    if (message.createdAt < new Date(Date.now() - CHAT_EDIT_DELETE_WINDOW_MS)) {
+      return res.status(403).json({ error: 'Can only delete messages within 15 minutes' })
     }
 
     await prisma.liveChatMessage.delete({
@@ -332,23 +382,42 @@ router.get('/conversations', async (req, res) => {
     const userId = getAuthUserId(req)
     if (!userId) return res.status(401).json({ error: 'Invalid token' })
 
-    // For now, return mock data since conversation model doesn't exist
-    const mockConversations = [
-      {
-        id: 'conv1',
-        participantId: 'admin1',
-        participantName: 'Support Team',
-        participantAvatar: null,
-        participantType: 'support',
-        lastMessage: 'Hello! How can we help you today?',
-        lastMessageTime: new Date().toISOString(),
-        unreadCount: 0,
-        isStarred: false,
-        messages: []
-      }
-    ]
+    const adminView = isAdmin(req)
+    const messages = await prisma.liveChatMessage.findMany({
+      where: adminView ? {} : { userId },
+      include: {
+        user: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
+        admin: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
 
-    res.json({ success: true, conversations: mockConversations })
+    const byRoom = new Map<string, any>()
+    for (const message of messages) {
+      if (!byRoom.has(message.roomId)) {
+        const participant = adminView ? message.user : (message.isFromUser ? message.admin : message.user)
+        byRoom.set(message.roomId, {
+          id: message.roomId,
+          participantId: participant?.id || '',
+          participantName: displayName(participant),
+          participantAvatar: participant?.profile?.avatar || null,
+          participantEmail: participant?.email || null,
+          participantPhone: participant?.phone || participant?.profile?.mpesaPhone || null,
+          participantType: adminView ? 'buyer' : 'support',
+          lastMessage: message.message || '',
+          lastMessageTime: message.createdAt,
+          unreadCount: 0,
+          isStarred: false,
+          messages: [],
+        })
+      }
+
+      const row = byRoom.get(message.roomId)
+      if (adminView && message.isFromUser && !message.isRead) row.unreadCount += 1
+      if (!adminView && !message.isFromUser && !message.isRead) row.unreadCount += 1
+    }
+
+    res.json({ success: true, conversations: Array.from(byRoom.values()) })
   } catch (error) {
     console.error('Get conversations error:', error)
     res.status(500).json({ error: 'Failed to fetch conversations' })
@@ -361,25 +430,20 @@ router.get('/conversations/:conversationId/messages', async (req, res) => {
     const { conversationId } = req.params
     if (!userId) return res.status(401).json({ error: 'Invalid token' })
 
-    // For now, return mock data
-    const mockMessages = [
-      {
-        id: 'msg1',
-        senderId: 'admin1',
-        senderName: 'Support Team',
-        senderAvatar: null,
-        receiverId: userId,
-        content: 'Hello! How can we help you today?',
-        timestamp: new Date().toISOString(),
-        isRead: false,
-        isStarred: false,
-        type: 'text',
-        orderId: null,
-        orderNumber: null
-      }
-    ]
+    const adminView = isAdmin(req)
+    const messages = await prisma.liveChatMessage.findMany({
+      where: {
+        roomId: conversationId,
+        ...(adminView ? {} : { userId }),
+      },
+      include: {
+        user: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
+        admin: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
 
-    res.json({ success: true, messages: mockMessages })
+    res.json({ success: true, messages: messages.map((message) => serializeChatMessage(message, userId)) })
   } catch (error) {
     console.error('Get messages error:', error)
     res.status(500).json({ error: 'Failed to fetch messages' })
@@ -396,23 +460,30 @@ router.post('/conversations/message', async (req, res) => {
       return res.status(400).json({ error: 'Message content is required' })
     }
 
-    // For now, return mock response
-    const newMessage = {
-      id: 'msg_' + Date.now(),
-      senderId: userId,
-      senderName: 'You',
-      senderAvatar: null,
-      receiverId: 'admin1',
-      content: content.trim(),
-      timestamp: new Date().toISOString(),
-      isRead: false,
-      isStarred: false,
-      type: type || 'text',
-      orderId: null,
-      orderNumber: null
-    }
+    const existing = await prisma.liveChatMessage.findFirst({
+      where: { roomId: conversationId },
+      orderBy: { createdAt: 'asc' },
+      select: { userId: true },
+    })
+    const finalUserId = isAdmin(req) ? existing?.userId : userId
+    if (!finalUserId) return res.status(404).json({ error: 'Conversation not found' })
 
-    res.status(201).json({ success: true, message: newMessage })
+    const message = await prisma.liveChatMessage.create({
+      data: {
+        sessionId: conversationId,
+        roomId: conversationId,
+        userId: finalUserId,
+        adminId: isAdmin(req) ? userId : null,
+        isFromUser: !isAdmin(req),
+        message: content.trim(),
+      },
+      include: {
+        user: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
+        admin: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
+      },
+    })
+
+    res.status(201).json({ success: true, message: serializeChatMessage(message, userId) })
   } catch (error) {
     console.error('Send message error:', error)
     res.status(500).json({ error: 'Failed to send message' })
@@ -424,6 +495,14 @@ router.put('/conversations/:conversationId/read', async (req, res) => {
     const userId = getAuthUserId(req)
     const { conversationId } = req.params
     if (!userId) return res.status(401).json({ error: 'Invalid token' })
+
+    await prisma.liveChatMessage.updateMany({
+      where: {
+        roomId: conversationId,
+        ...(isAdmin(req) ? { isFromUser: true } : { userId, isFromUser: false }),
+      },
+      data: { isRead: true },
+    })
 
     res.json({ success: true, message: 'Conversation marked as read' })
   } catch (error) {
@@ -442,19 +521,6 @@ router.put('/messages/:messageId/star', async (req, res) => {
   } catch (error) {
     console.error('Star message error:', error)
     res.status(500).json({ error: 'Failed to star message' })
-  }
-})
-
-router.delete('/messages/:messageId', async (req, res) => {
-  try {
-    const userId = getAuthUserId(req)
-    const { messageId } = req.params
-    if (!userId) return res.status(401).json({ error: 'Invalid token' })
-
-    res.json({ success: true, message: 'Message deleted successfully' })
-  } catch (error) {
-    console.error('Delete message error:', error)
-    res.status(500).json({ error: 'Failed to delete message' })
   }
 })
 

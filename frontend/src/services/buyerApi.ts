@@ -132,6 +132,11 @@ export const cartApi = {
   clearCart: async () => {
     const response = await apiClient.delete('/cart/clear')
     return response.data
+  },
+
+  lockForCheckout: async () => {
+    const response = await apiClient.post('/cart/checkout-lock')
+    return response.data
   }
 }
 

@@ -77,6 +77,64 @@ const emptyCart = {
   },
 }
 
+type CartReservation = {
+  productId: string
+  variantId?: string | null
+  quantity: number
+  expiresAt: string
+}
+
+const RESERVATION_MINUTES = 15
+
+const parseCartNotes = (notes?: string | null): { reservations?: CartReservation[]; [key: string]: any } => {
+  if (!notes) return {}
+  try {
+    const parsed = JSON.parse(notes)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+const getActiveReservations = (notes?: string | null) => {
+  const now = Date.now()
+  return (parseCartNotes(notes).reservations || []).filter((reservation) => {
+    return reservation.quantity > 0 && new Date(reservation.expiresAt).getTime() > now
+  })
+}
+
+const writeReservations = async (tx: any, cartId: string, notes: string | null | undefined, reservations: CartReservation[]) => {
+  const existing = parseCartNotes(notes)
+  await tx.cart.update({
+    where: { id: cartId },
+    data: {
+      notes: JSON.stringify({
+        ...existing,
+        reservations,
+        reservationUpdatedAt: new Date().toISOString(),
+      }),
+    },
+  })
+}
+
+const releaseActiveReservations = async (tx: any, cart: { id: string; notes?: string | null }) => {
+  const reservations = getActiveReservations(cart.notes)
+  for (const reservation of reservations) {
+    if (reservation.variantId) {
+      await tx.productVariant.update({
+        where: { id: reservation.variantId },
+        data: { stockQuantity: { increment: reservation.quantity } },
+      })
+    } else {
+      await tx.product.update({
+        where: { id: reservation.productId },
+        data: { stockQuantity: { increment: reservation.quantity } },
+      })
+    }
+  }
+  await writeReservations(tx, cart.id, cart.notes, [])
+}
+
 const isDatabaseUnavailable = (error: unknown) => {
   const code = (error as any)?.code
   return code === 'P1001' || code === 'P2021' || code === 'P2022'
@@ -132,10 +190,15 @@ router.get('/', async (req, res) => {
     })
 
     const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0)
+    const reservations = getActiveReservations(cart?.notes)
+    const reservationExpiresAt = reservations.length
+      ? reservations.reduce((min, reservation) => Math.min(min, new Date(reservation.expiresAt).getTime()), Infinity)
+      : null
 
     res.json({
       cart: {
         items,
+        reservationExpiresAt: reservationExpiresAt ? new Date(reservationExpiresAt).toISOString() : null,
         summary: {
           totalItems: items.reduce((s, i) => s + i.quantity, 0),
           subtotal,
@@ -227,13 +290,18 @@ router.put('/item/:itemId', async (req, res) => {
 
     if (!existing) return res.status(404).json(apiMessage(meatShopMessages.stock.unavailable))
 
-    if (existing.product.stockQuantity < quantity) {
-      return res.status(400).json(apiMessage(meatShopMessages.cart.stockRemaining, { quantity: existing.product.stockQuantity }))
+    const reservedQty = getActiveReservations(cart.notes).find((reservation) => reservation.productId === existing.productId && !reservation.variantId)?.quantity || 0
+    const available = existing.product.stockQuantity + reservedQty
+    if (available < quantity) {
+      return res.status(400).json(apiMessage(meatShopMessages.cart.stockRemaining, { quantity: available }))
     }
 
-    const updated = await prisma.cartItem.update({
-      where: { id: existing.id },
-      data: { quantity },
+    const updated = await prisma.$transaction(async (tx) => {
+      await releaseActiveReservations(tx, cart)
+      return tx.cartItem.update({
+        where: { id: existing.id },
+        data: { quantity },
+      })
     })
 
     res.json({ ...resolveMessage(meatShopMessages.cart.updated), item: updated })
@@ -257,7 +325,10 @@ router.delete('/item/:itemId', async (req, res) => {
     const item = await prisma.cartItem.findFirst({ where: { id: itemId, cartId: cart.id } })
     if (!item) return res.status(404).json(apiMessage(meatShopMessages.stock.unavailable))
 
-    await prisma.cartItem.delete({ where: { id: item.id } })
+    await prisma.$transaction(async (tx) => {
+      await releaseActiveReservations(tx, cart)
+      await tx.cartItem.delete({ where: { id: item.id } })
+    })
 
     res.json(resolveMessage(meatShopMessages.cart.itemRemoved))
   } catch (error) {
@@ -275,12 +346,85 @@ router.delete('/clear', async (req, res) => {
     const cart = await prisma.cart.findUnique({ where: getCartWhere(scope) })
     if (!cart) return res.status(200).json(resolveMessage(meatShopMessages.cart.cleared))
 
-    await prisma.cartItem.deleteMany({ where: { cartId: cart.id } })
+    await prisma.$transaction(async (tx) => {
+      await releaseActiveReservations(tx, cart)
+      await tx.cartItem.deleteMany({ where: { cartId: cart.id } })
+    })
 
     res.json(resolveMessage(meatShopMessages.cart.cleared))
   } catch (error) {
     console.error('Clear cart error:', error)
     res.status(500).json(apiMessage(meatShopMessages.system.serverBusy))
+  }
+})
+
+// POST /api/cart/checkout-lock
+router.post('/checkout-lock', async (req, res) => {
+  try {
+    const scope = getCartScope(req)
+    if (!scope) return res.status(400).json(apiMessage(meatShopMessages.system.sessionExpired))
+
+    const cart = await prisma.cart.findUnique({
+      where: getCartWhere(scope),
+      include: {
+        items: {
+          include: {
+            product: { select: { id: true, name: true, stockQuantity: true } },
+            variant: { select: { id: true, stockQuantity: true } },
+          },
+        },
+      },
+    })
+
+    if (!cart || cart.items.length === 0) {
+      return res.status(400).json(apiMessage(meatShopMessages.cart.restored))
+    }
+
+    const expiresAt = new Date(Date.now() + RESERVATION_MINUTES * 60 * 1000)
+
+    const result = await prisma.$transaction(async (tx) => {
+      await releaseActiveReservations(tx, cart)
+
+      for (const item of cart.items) {
+        if (item.variantId) {
+          const updated = await tx.productVariant.updateMany({
+            where: { id: item.variantId, stockQuantity: { gte: item.quantity } },
+            data: { stockQuantity: { decrement: item.quantity } },
+          })
+          if (updated.count !== 1) {
+            throw new Error(resolveMessage(meatShopMessages.cart.stockRemaining, { quantity: item.variant?.stockQuantity || 0 }).message)
+          }
+        } else {
+          const updated = await tx.product.updateMany({
+            where: { id: item.productId, stockQuantity: { gte: item.quantity } },
+            data: { stockQuantity: { decrement: item.quantity } },
+          })
+          if (updated.count !== 1) {
+            throw new Error(resolveMessage(meatShopMessages.cart.stockRemaining, { quantity: item.product.stockQuantity }).message)
+          }
+        }
+      }
+
+      const reservations = cart.items.map((item) => ({
+        productId: item.productId,
+        variantId: item.variantId,
+        quantity: item.quantity,
+        expiresAt: expiresAt.toISOString(),
+      }))
+
+      await writeReservations(tx, cart.id, cart.notes, reservations)
+      return { reservations, expiresAt }
+    })
+
+    res.json({
+      message: `Your cart is reserved for ${RESERVATION_MINUTES} minutes while you pay.`,
+      reservationExpiresAt: result.expiresAt,
+      reservations: result.reservations,
+    })
+  } catch (error) {
+    console.error('Checkout lock error:', error)
+    const message = error instanceof Error ? error.message : resolveMessage(meatShopMessages.system.serverBusy).message
+    res.status(400).json({ ...apiMessage(meatShopMessages.system.serverBusy), message, error: message })
   }
 })
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CreditCard, Smartphone, Truck, User, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatPrice } from '../utils/currency';
-import { ordersApi, paymentsApi } from '../services/buyerApi';
+import { cartApi, ordersApi, paymentsApi } from '../services/buyerApi';
 import { locationService } from '../services/locationService';
 import { getApiErrorMessage } from '../services/api';
 import { contentApi } from '../services/contentApi';
@@ -225,6 +225,11 @@ const CheckoutPage: React.FC = () => {
     setProcessing(true);
 
     try {
+      const lock = await cartApi.lockForCheckout();
+      if (lock?.reservationExpiresAt) {
+        toast.success(`Stock reserved until ${new Date(lock.reservationExpiresAt).toLocaleTimeString()}.`);
+      }
+
       const orderResponse = await ordersApi.createOrder({
         customer: {
           firstName: formData.firstName,

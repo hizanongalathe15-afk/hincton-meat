@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Star, Trash2, Send, MessageSquare, User, Check, CheckCheck } from 'lucide-react';
+import { Search, Star, Trash2, Send, MessageSquare, User, Check, CheckCheck, Phone, Paperclip } from 'lucide-react';
+import { io, Socket } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import { chatApi } from '../services/buyerApi';
+import { getApiHost } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmationDialog from '../components/ui/ConfirmationDialog';
 
@@ -11,12 +13,16 @@ interface Message {
   senderId: string;
   senderName: string;
   senderAvatar?: string;
+  senderPhone?: string;
   receiverId: string;
   content: string;
+  attachments?: Array<{ url: string; name?: string; type?: string }>;
   timestamp: string;
   isRead: boolean;
   isStarred: boolean;
-  type: 'text' | 'system' | 'order_update';
+  canDelete?: boolean;
+  canEdit?: boolean;
+  type: 'text' | 'system' | 'order_update' | 'attachment';
   orderId?: string;
   orderNumber?: string;
 }
@@ -26,6 +32,7 @@ interface Conversation {
   participantId: string;
   participantName: string;
   participantAvatar?: string;
+  participantPhone?: string;
   participantType: 'admin' | 'farmer' | 'support';
   lastMessage: string;
   lastMessageTime: string;
@@ -45,6 +52,9 @@ const BuyerMessages: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread' | 'starred'>('all');
   const [sending, setSending] = useState(false);
+  const [presence, setPresence] = useState<Record<string, 'online' | 'away' | 'offline'>>({});
+  const [typingUser, setTypingUser] = useState('');
+  const socketRef = useRef<Socket | null>(null);
 
   // Confirmation dialog states
   const [deleteConfirmDialog, setDeleteConfirmDialog] = useState({
@@ -64,10 +74,44 @@ const BuyerMessages: React.FC = () => {
   }, [user, navigate]);
 
   useEffect(() => {
+    if (!user) return;
+    const socket = io(getApiHost(), { withCredentials: true });
+    socketRef.current = socket;
+
+    socket.emit('presence:join', { userId: user.id });
+    socket.on('presence:update', ({ userId, status }) => {
+      if (userId) setPresence((current) => ({ ...current, [userId]: status || 'offline' }));
+    });
+    socket.on('presence:snapshot', (rows: Array<{ userId: string; status: 'online' | 'away' | 'offline' }>) => {
+      setPresence((current) => rows.reduce((next, row) => ({ ...next, [row.userId]: row.status }), { ...current }));
+    });
+    socket.on('chat:typing', ({ roomId, name, isTyping }) => {
+      if (roomId === selectedConversation?.id) setTypingUser(isTyping ? name || 'They' : '');
+    });
+    socket.on('chat:message', (message: Message) => {
+      if (message?.receiverId === user.id || message?.senderId !== user.id) {
+        setMessages((current) => current.some((item) => item.id === message.id) ? current : [...current, message]);
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [user, navigate, selectedConversation?.id]);
+
+  useEffect(() => {
     if (selectedConversation) {
       fetchMessages(selectedConversation.id);
+      socketRef.current?.emit('chat:join', selectedConversation.id);
+      socketRef.current?.emit('presence:check', { userIds: [selectedConversation.participantId] });
     }
   }, [selectedConversation]);
+
+  useEffect(() => {
+    const ids = conversations.map((conversation) => conversation.participantId).filter(Boolean);
+    if (ids.length) socketRef.current?.emit('presence:check', { userIds: ids });
+  }, [conversations]);
 
   const fetchConversations = async () => {
     try {
@@ -106,20 +150,10 @@ const BuyerMessages: React.FC = () => {
         type: 'text'
       });
 
-      // Add message to local state for immediate UI update
-      const newMsg: Message = {
-        id: response.message.id,
-        senderId: user!.id,
-        senderName: user!.name || 'You',
-        receiverId: selectedConversation.participantId,
-        content: newMessage.trim(),
-        timestamp: new Date().toISOString(),
-        isRead: false,
-        isStarred: false,
-        type: 'text'
-      };
+      const newMsg: Message = response.message;
 
       setMessages(prev => [...prev, newMsg]);
+      socketRef.current?.emit('chat:message', { roomId: selectedConversation.id, message: newMsg });
       setNewMessage('');
 
       // Update conversation last message
@@ -226,6 +260,13 @@ const BuyerMessages: React.FC = () => {
     return date.toLocaleDateString();
   };
 
+  const presenceMeta = (userId: string) => {
+    const status = presence[userId] || 'offline';
+    if (status === 'online') return { label: 'Online', className: 'bg-green-500' };
+    if (status === 'away') return { label: 'Away', className: 'bg-yellow-400' };
+    return { label: 'Offline', className: 'bg-gray-400' };
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -309,8 +350,15 @@ const BuyerMessages: React.FC = () => {
                         }`}
                       >
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                            <User className="w-5 h-5 text-gray-500" />
+                          <div className="relative h-10 w-10 rounded-full bg-gray-200">
+                            {conversation.participantAvatar ? (
+                              <img src={conversation.participantAvatar} alt="" className="h-10 w-10 rounded-full object-cover" />
+                            ) : (
+                              <div className="flex h-10 w-10 items-center justify-center">
+                                <User className="w-5 h-5 text-gray-500" />
+                              </div>
+                            )}
+                            <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${presenceMeta(conversation.participantId).className}`} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
@@ -324,6 +372,7 @@ const BuyerMessages: React.FC = () => {
                             <p className="text-sm text-gray-600 truncate">
                               {conversation.lastMessage}
                             </p>
+                            <p className="mt-1 text-xs text-gray-500">{presenceMeta(conversation.participantId).label}</p>
                           </div>
                         </div>
                         <div className="flex items-center justify-between mt-2">
@@ -375,15 +424,28 @@ const BuyerMessages: React.FC = () => {
                   <div className="p-4 border-b border-gray-200">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                          <User className="w-5 h-5 text-gray-500" />
+                        <div className="relative h-10 w-10 rounded-full bg-gray-200">
+                          {selectedConversation.participantAvatar ? (
+                            <img src={selectedConversation.participantAvatar} alt="" className="h-10 w-10 rounded-full object-cover" />
+                          ) : (
+                            <div className="flex h-10 w-10 items-center justify-center">
+                              <User className="w-5 h-5 text-gray-500" />
+                            </div>
+                          )}
+                          <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${presenceMeta(selectedConversation.participantId).className}`} />
                         </div>
                         <div>
                           <h2 className="font-semibold text-gray-900">
                             {selectedConversation.participantName}
                           </h2>
-                          <p className="text-sm text-gray-500">
-                            {selectedConversation.participantType}
+                          <p className="flex items-center gap-2 text-sm text-gray-500">
+                            <span>{presenceMeta(selectedConversation.participantId).label}</span>
+                            {selectedConversation.participantPhone && (
+                              <span className="inline-flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                {selectedConversation.participantPhone}
+                              </span>
+                            )}
                           </p>
                         </div>
                       </div>
@@ -424,7 +486,13 @@ const BuyerMessages: React.FC = () => {
                                 : 'bg-gray-100 text-gray-900'
                             }`}
                           >
-                            <p className="text-sm">{message.content}</p>
+                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                            {(message.attachments || []).map((attachment) => (
+                              <a key={attachment.url} href={attachment.url} target="_blank" rel="noreferrer" className="mt-2 flex items-center gap-2 text-sm underline">
+                                <Paperclip className="h-4 w-4" />
+                                {attachment.name || attachment.url}
+                              </a>
+                            ))}
                             <div className={`flex items-center justify-between mt-1 ${
                               message.senderId === user?.id ? 'text-red-100' : 'text-gray-500'
                             }`}>
@@ -445,17 +513,22 @@ const BuyerMessages: React.FC = () => {
                                 >
                                   <Star className={`w-3 h-3 ${message.isStarred ? 'fill-current' : ''}`} />
                                 </button>
-                                <button
-                                  onClick={() => handleDeleteMessage(message.id)}
-                                  className="hover:opacity-70"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
+                                {message.canDelete !== false && (
+                                  <button
+                                    onClick={() => handleDeleteMessage(message.id)}
+                                    className="hover:opacity-70"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
                         </div>
                       ))
+                    )}
+                    {typingUser && (
+                      <div className="text-sm text-gray-500">{typingUser} is typing...</div>
                     )}
                   </div>
 
@@ -465,7 +538,15 @@ const BuyerMessages: React.FC = () => {
                       <input
                         type="text"
                         value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
+                        onChange={(e) => {
+                          setNewMessage(e.target.value);
+                          socketRef.current?.emit('chat:typing', {
+                            roomId: selectedConversation.id,
+                            userId: user?.id,
+                            name: user?.name || user?.email,
+                            isTyping: Boolean(e.target.value.trim()),
+                          });
+                        }}
                         onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                         placeholder="Type a message..."
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"

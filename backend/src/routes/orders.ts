@@ -63,6 +63,36 @@ const generateOrderNumber = () => {
   return `HMP-${stamp}-${suffix}`
 }
 
+type CartReservation = {
+  productId: string
+  variantId?: string | null
+  quantity: number
+  expiresAt: string
+}
+
+const parseCartNotes = (notes?: string | null): { reservations?: CartReservation[]; [key: string]: any } => {
+  if (!notes) return {}
+  try {
+    const parsed = JSON.parse(notes)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+const getActiveReservations = (notes?: string | null) => {
+  const now = Date.now()
+  return (parseCartNotes(notes).reservations || []).filter((reservation) => {
+    return reservation.quantity > 0 && new Date(reservation.expiresAt).getTime() > now
+  })
+}
+
+const reservationQuantityFor = (reservations: CartReservation[], productId: string, variantId?: string | null) => {
+  return reservations
+    .filter((reservation) => reservation.productId === productId && (reservation.variantId || null) === (variantId || null))
+    .reduce((sum, reservation) => sum + reservation.quantity, 0)
+}
+
 const getGuestSessionId = (req: AuthRequest): string | null => {
   const value = req.header('X-Guest-Session-Id')
   return typeof value === 'string' && value.trim().length >= 12 ? value.trim() : null
@@ -83,6 +113,8 @@ router.post('/', async (req: AuthRequest, res) => {
   try {
     const payload = createOrderSchema.parse(req.body)
     const productIds = payload.items.map((item) => item.productId)
+    const userId = req.user?.id
+    const guestSessionId = userId ? null : getGuestSessionId(req)
 
     const products = await prisma.product.findMany({
       where: { id: { in: productIds }, isPublished: true, deletedAt: null },
@@ -93,11 +125,19 @@ router.post('/', async (req: AuthRequest, res) => {
       return res.status(400).json(apiMessage(meatShopMessages.stock.unavailable))
     }
 
+    const cart = userId
+      ? await prisma.cart.findUnique({ where: { userId }, include: { items: true } })
+      : guestSessionId
+        ? await prisma.cart.findUnique({ where: { sessionId: guestSessionId }, include: { items: true } })
+        : null
+    const activeReservations = getActiveReservations(cart?.notes)
+
     const productById = new Map(products.map((product) => [product.id, product]))
     const orderItems = payload.items.map((item) => {
       const product = productById.get(item.productId)!
-      if (product.stockQuantity < item.quantity) {
-        throw new Error(resolveMessage(meatShopMessages.cart.stockRemaining, { quantity: product.stockQuantity }).message)
+      const available = product.stockQuantity + reservationQuantityFor(activeReservations, item.productId)
+      if (available < item.quantity) {
+        throw new Error(resolveMessage(meatShopMessages.cart.stockRemaining, { quantity: available }).message)
       }
       const unitPrice = Number(product.price)
       return {
@@ -111,16 +151,18 @@ router.post('/', async (req: AuthRequest, res) => {
     const subtotal = orderItems.reduce((sum, item) => sum + item.totalPrice, 0)
     const shippingCost = 200
     const totalAmount = subtotal + shippingCost
-    const userId = req.user?.id
-    const guestSessionId = userId ? null : getGuestSessionId(req)
     const paymentStatus = payload.paymentMethod === 'cash' ? 'PENDING' : 'UNPAID'
     const orderNumber = generateOrderNumber()
 
     const order = await prisma.$transaction(async (tx) => {
       for (const item of orderItems) {
+        const reservedQuantity = reservationQuantityFor(activeReservations, item.product.id)
+        const unreservedQuantity = Math.max(0, item.quantity - reservedQuantity)
+        if (unreservedQuantity === 0) continue
+
         const stockUpdate = await tx.product.updateMany({
-          where: { id: item.product.id, stockQuantity: { gte: item.quantity } },
-          data: { stockQuantity: { decrement: item.quantity } },
+          where: { id: item.product.id, stockQuantity: { gte: unreservedQuantity } },
+          data: { stockQuantity: { decrement: unreservedQuantity } },
         })
         if (stockUpdate.count !== 1) {
           throw new Error(resolveMessage(meatShopMessages.cart.stockRemaining, { quantity: item.product.stockQuantity }).message)
@@ -192,12 +234,19 @@ router.post('/', async (req: AuthRequest, res) => {
         },
       })
 
-      if (userId) {
-        const cart = await tx.cart.findUnique({ where: { userId } })
-        if (cart) await tx.cartItem.deleteMany({ where: { cartId: cart.id } })
-      } else if (guestSessionId) {
-        const cart = await tx.cart.findUnique({ where: { sessionId: guestSessionId } })
-        if (cart) await tx.cartItem.deleteMany({ where: { cartId: cart.id } })
+      if (cart) {
+        await tx.cartItem.deleteMany({ where: { cartId: cart.id } })
+        await tx.cart.update({
+          where: { id: cart.id },
+          data: {
+            notes: JSON.stringify({
+              ...parseCartNotes(cart.notes),
+              reservations: [],
+              reservationConsumedByOrderId: created.id,
+              reservationConsumedAt: new Date().toISOString(),
+            }),
+          },
+        })
       }
 
       return created
@@ -244,6 +293,28 @@ router.get('/mine', async (req: AuthRequest, res) => {
   }
 })
 
+router.get('/admin/cancelled/recent', async (req: AuthRequest, res) => {
+  try {
+    const isAdmin = req.user?.roles?.some((role) => ['ADMIN', 'SUPER_ADMIN', 'SUPPORT'].includes(role))
+    if (!isAdmin) return res.status(403).json({ error: 'Admin access required' })
+
+    const orders = await prisma.order.findMany({
+      where: { status: 'CANCELLED', deletedAt: null },
+      include: {
+        user: { select: { id: true, email: true, phone: true, profile: { select: { fullName: true } } } },
+        statusHistory: { orderBy: { createdAt: 'desc' }, take: 3 },
+      },
+      orderBy: { cancelledAt: 'desc' },
+      take: 50,
+    })
+
+    res.json({ orders })
+  } catch (error) {
+    console.error('Recent cancelled orders error:', error)
+    res.status(500).json(apiMessage(meatShopMessages.system.serverBusy))
+  }
+})
+
 router.get('/:orderId', async (req: AuthRequest, res) => {
   try {
     const userId = req.user?.id
@@ -278,6 +349,117 @@ router.get('/:orderId', async (req: AuthRequest, res) => {
     res.json({ order })
   } catch (error) {
     console.error('Get order error:', error)
+    res.status(500).json(apiMessage(meatShopMessages.system.serverBusy))
+  }
+})
+
+const canCancelOrder = (order: any) => {
+  return ['PENDING', 'CONFIRMED', 'AWAITING_PAYMENT', 'ON_HOLD'].includes(order.status)
+}
+
+router.patch('/:orderId/cancel', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id
+    const guestSessionId = userId ? null : getGuestSessionId(req)
+    const isAdmin = req.user?.roles?.some((role) => ['ADMIN', 'SUPER_ADMIN', 'SUPPORT'].includes(role))
+    const { orderId } = req.params
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 500) : ''
+
+    if (!isAdmin && !userId && !guestSessionId) {
+      return res.status(400).json(apiMessage(meatShopMessages.system.sessionExpired))
+    }
+
+    const order = await prisma.order.findFirst({
+      where: {
+        deletedAt: null,
+        OR: [{ id: orderId }, { orderNumber: orderId }],
+        ...(isAdmin ? {} : userId ? { userId } : { guestSessionId }),
+      },
+      include: {
+        orderItems: true,
+        user: { select: { id: true, email: true, phone: true, profile: { select: { fullName: true } } } },
+      },
+    })
+
+    if (!order) return res.status(404).json(apiMessage(meatShopMessages.order.failedAttempt))
+    if (!canCancelOrder(order)) {
+      return res.status(400).json({ message: 'Order cannot be cancelled at this stage', error: 'Order cannot be cancelled at this stage' })
+    }
+
+    const cancelled = await prisma.$transaction(async (tx) => {
+      for (const item of order.orderItems) {
+        if (!item.productId) continue
+        if (item.variantId) {
+          await tx.productVariant.update({ where: { id: item.variantId }, data: { stockQuantity: { increment: item.quantity } } })
+        } else {
+          await tx.product.update({ where: { id: item.productId }, data: { stockQuantity: { increment: item.quantity } } })
+        }
+      }
+
+      const updated = await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: new Date(),
+          notes: reason ? `${order.notes || ''}\nCancellation reason: ${reason}`.trim() : order.notes,
+        },
+        include: {
+          user: { select: { id: true, email: true, phone: true, profile: { select: { fullName: true } } } },
+          orderItems: true,
+          statusHistory: { orderBy: { createdAt: 'desc' } },
+        },
+      })
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          status: 'CANCELLED',
+          notes: reason || 'Order cancelled',
+          createdBy: isAdmin ? userId || 'admin' : userId || guestSessionId || 'guest',
+        },
+      })
+
+      await tx.trackingHistory.create({
+        data: {
+          orderId: order.id,
+          trackingNumber: order.trackingNumber || order.orderNumber,
+          status: 'CANCELLED',
+          location: 'Hincton Meat Products',
+          description: reason ? `Order cancelled. Reason: ${reason}` : 'Order cancelled.',
+        },
+      })
+
+      return updated
+    })
+
+    const admins = await prisma.user.findMany({
+      where: { roles: { hasSome: ['ADMIN', 'SUPER_ADMIN', 'SUPPORT'] as any } },
+      select: { id: true, email: true, phone: true },
+    })
+
+    notifyRecipients({
+      type: 'ORDER',
+      title: `Order cancelled ${cancelled.orderNumber}`,
+      message: `${cancelled.user?.profile?.fullName || cancelled.user?.email || cancelled.guestEmail || 'A customer'} cancelled order ${cancelled.orderNumber}.`,
+      actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/orders`,
+      channels: ['inApp', 'email'],
+      recipients: admins,
+      data: {
+        orderId: cancelled.id,
+        orderNumber: cancelled.orderNumber,
+        cancelledBy: isAdmin ? 'admin' : 'customer',
+        customerEmail: cancelled.user?.email || cancelled.guestEmail,
+        customerPhone: cancelled.user?.phone || cancelled.guestPhone,
+        reason,
+      },
+    }).catch((error) => console.error('Admin cancelled order notification error:', error))
+
+    notifyOrderCustomer(cancelled, `Order cancelled ${cancelled.orderNumber}`, orderStatusMessage(cancelled), ['inApp', 'email', 'sms', 'whatsapp'])
+      .catch((error) => console.error('Customer cancellation notification error:', error))
+
+    res.json({ message: 'Order cancelled successfully', order: cancelled })
+  } catch (error) {
+    console.error('Cancel order error:', error)
     res.status(500).json(apiMessage(meatShopMessages.system.serverBusy))
   }
 })

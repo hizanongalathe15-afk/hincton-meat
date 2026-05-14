@@ -381,8 +381,65 @@ app.get('/health', (req, res) => {
 });
 
 if (io) {
+  const onlineUsers = new Map<string, Set<string>>();
+
+  const presenceFor = (lastSeen?: Date | null, connected = false) => {
+    if (connected) return 'online';
+    if (lastSeen && Date.now() - lastSeen.getTime() <= 15 * 60 * 1000) return 'away';
+    return 'offline';
+  };
+
   io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
+
+    socket.on('presence:join', async (data: { userId?: string }) => {
+      if (!data?.userId) return;
+      const sockets = onlineUsers.get(data.userId) || new Set<string>();
+      sockets.add(socket.id);
+      onlineUsers.set(data.userId, sockets);
+      socket.join(`user-${data.userId}`);
+      await prisma.userSession.updateMany({
+        where: { userId: data.userId, isRevoked: false, expiresAt: { gt: new Date() } },
+        data: { lastActivity: new Date() },
+      }).catch(() => undefined);
+      io?.emit('presence:update', { userId: data.userId, status: 'online' });
+    });
+
+    socket.on('presence:check', async (data: { userIds?: string[] }) => {
+      const ids = Array.isArray(data?.userIds) ? data.userIds.slice(0, 100) : [];
+      const sessions = ids.length
+        ? await prisma.userSession.findMany({
+            where: { userId: { in: ids }, isRevoked: false },
+            orderBy: { lastActivity: 'desc' },
+            distinct: ['userId'],
+          }).catch(() => [])
+        : [];
+      const byUser = new Map(sessions.map((session) => [session.userId, session]));
+      socket.emit('presence:snapshot', ids.map((userId) => ({
+        userId,
+        status: presenceFor(byUser.get(userId)?.lastActivity, Boolean(onlineUsers.get(userId)?.size)),
+      })));
+    });
+
+    socket.on('chat:join', (roomId: string) => {
+      if (roomId) socket.join(`chat-${roomId}`);
+    });
+
+    socket.on('chat:typing', (data: { roomId?: string; userId?: string; name?: string; isTyping?: boolean }) => {
+      if (!data?.roomId) return;
+      socket.to(`chat-${data.roomId}`).emit('chat:typing', {
+        roomId: data.roomId,
+        userId: data.userId,
+        name: data.name,
+        isTyping: Boolean(data.isTyping),
+      });
+    });
+
+    socket.on('chat:message', (data: { roomId?: string; message?: any }) => {
+      if (!data?.roomId) return;
+      socket.to(`chat-${data.roomId}`).emit('chat:message', data.message);
+    });
+
     socket.on('join-order', (orderId) => {
       socket.join(`order-${orderId}`);
     });
@@ -390,6 +447,15 @@ if (io) {
       socket.to(`order-${data.orderId}`).emit('location-update', data);
     });
     socket.on('disconnect', () => {
+      for (const [userId, sockets] of onlineUsers.entries()) {
+        if (!sockets.delete(socket.id)) continue;
+        if (sockets.size === 0) {
+          onlineUsers.delete(userId);
+          io?.emit('presence:update', { userId, status: 'away' });
+        } else {
+          onlineUsers.set(userId, sockets);
+        }
+      }
       console.log('Client disconnected:', socket.id);
     });
   });
