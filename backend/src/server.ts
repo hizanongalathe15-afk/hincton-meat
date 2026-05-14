@@ -62,7 +62,7 @@ const isKnownPreviewOrigin = (origin: string | undefined) => {
   return (
     typeof origin === 'string' &&
     origin.includes('hincton-meat') &&
-    /^https:\/\/[a-z0-9-]+\.onrender\.com$/.test(origin)
+    /^https:\/\/[a-z0-9-]+\.(onrender\.com|vercel\.app)$/.test(origin)
   );
 };
 
