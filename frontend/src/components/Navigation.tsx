@@ -94,11 +94,11 @@ const Navigation = () => {
     <>
       <nav className="fixed top-0 z-50 w-full bg-white/95 shadow-sm backdrop-blur-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-20 items-center justify-between">
+          <div className="flex h-16 items-center justify-between md:h-20">
             {/* Brand/Logo Section */}
             <Link to={homePath} className="flex items-center gap-3 flex-shrink-0">
-              <img src={profile.images.logo || profile.brand.logo} alt={profile.brand.name} className="h-12 w-auto" />
-              <span className="hidden text-lg font-extrabold uppercase tracking-normal text-gray-900 sm:block">
+              <img src={profile.images.logo || profile.brand.logo} alt={profile.brand.name} className="h-10 w-auto sm:h-12" />
+              <span className="text-base sm:text-lg font-extrabold uppercase tracking-normal text-gray-900 truncate max-w-[10rem]">
                 {profile.brand.name}
               </span>
             </Link>
@@ -128,7 +128,7 @@ const Navigation = () => {
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
                     placeholder={t('shop.searchForMeats') || 'Search meat products'}
-                    className="w-48 lg:w-64 pl-10 pr-3 py-2 border border-gray-200 rounded-full bg-white text-sm text-gray-900 placeholder-gray-400 focus:border-red-600 focus:ring-1 focus:ring-red-600"
+                    className="w-40 lg:w-64 pl-10 pr-3 py-1.5 border border-gray-200 rounded-full bg-white text-sm text-gray-900 placeholder-gray-400 focus:border-red-600 focus:ring-1 focus:ring-red-600"
                     aria-label="Search products"
                   />
                 </form>
