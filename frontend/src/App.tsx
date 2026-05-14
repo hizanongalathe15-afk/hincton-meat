@@ -53,6 +53,7 @@ import WebProfilePage from './pages/WebProfilePage'
 import ContactPage from './pages/ContactPage'
 import FarmsPage from './pages/FarmsPage'
 import SustainabilityPage from './pages/SustainabilityPage'
+import LegalPage from './pages/LegalPage'
 
 // Components
 import AuthSlider from './components/AuthSlider'
@@ -129,6 +130,8 @@ function App() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/web-profile" element={<WebProfilePage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/terms" element={<LegalPage type="terms" />} />
+          <Route path="/privacy" element={<LegalPage type="privacy" />} />
           <Route path="/farms" element={<FarmsPage />} />
           <Route path="/sustainability" element={<SustainabilityPage />} />
           

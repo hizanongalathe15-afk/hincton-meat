@@ -27,8 +27,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ThemeProvider>
-          <LanguageProvider>
-            <AuthProvider>
+          <AuthProvider>
+            <LanguageProvider>
               <CartProvider>
                 <WishlistProvider>
                   <SiteContentProvider>
@@ -36,8 +36,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   </SiteContentProvider>
                 </WishlistProvider>
               </CartProvider>
-            </AuthProvider>
-          </LanguageProvider>
+            </LanguageProvider>
+          </AuthProvider>
         </ThemeProvider>
       </BrowserRouter>
       <Toaster

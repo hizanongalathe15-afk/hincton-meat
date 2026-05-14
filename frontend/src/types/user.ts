@@ -17,6 +17,7 @@ export interface User {
     mpesaPhone?: string
     preferredDeliveryLocation?: string
     locationLabel?: string
+    preferredLanguage?: string
   }
   address?: {
     street: string
@@ -79,6 +80,7 @@ export interface UpdateProfileData {
   coverImage?: string
   bio?: string
   website?: string
+  preferredLanguage?: string
   preferredDeliveryLocation?: string
   address?: {
     street: string

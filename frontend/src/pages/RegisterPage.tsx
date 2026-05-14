@@ -57,7 +57,6 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
         password: formData.password,
         agreed: formData.agreed,
       })
-      toast.success(t('register.accountCreatedSuccess'))
       navigate('/profile')
     } catch (error: any) {
       toast.error(error.message || t('register.registrationFailed'))

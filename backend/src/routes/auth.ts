@@ -1,7 +1,9 @@
 import express from 'express'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
+import fs from 'fs/promises'
 import jwt, { Secret, SignOptions } from 'jsonwebtoken'
+import path from 'path'
 import { prisma } from '../config/prisma'
 import { z } from 'zod'
 import multer from 'multer'
@@ -15,6 +17,25 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => file.mimetype.startsWith('image/') ? cb(null, true) : cb(new Error('Only image files are allowed')),
 })
+
+const saveAvatarToServer = async (file: Express.Multer.File) => {
+  const extension = path.extname(file.originalname).toLowerCase() || '.jpg'
+  const safeExtension = ['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(extension) ? extension : '.jpg'
+  const filename = `${crypto.randomUUID()}${safeExtension}`
+  const directory = path.resolve(process.cwd(), 'uploads', 'profiles')
+  await fs.mkdir(directory, { recursive: true })
+  await fs.writeFile(path.join(directory, filename), file.buffer)
+  return `/uploads/profiles/${filename}`
+}
+
+const storeAvatar = async (file: Express.Multer.File) => {
+  try {
+    return (await uploadImage(file.buffer, 'hincton/profiles')).url
+  } catch (error) {
+    console.warn('Cloud avatar upload unavailable, saving avatar on server:', error instanceof Error ? error.message : error)
+    return saveAvatarToServer(file)
+  }
+}
 
 const ADMIN_EMAILS = new Set(['admin@meat.com', 'admin2@meat.com'])
 const ADMIN_PASSWORD = 'admin123@'
@@ -441,9 +462,30 @@ router.post('/register', async (req, res) => {
     })
 
     const session = await createLoginSession(user, req, 'PASSWORD')
+    const buyerName = firstName || name.trim() || 'there'
+    const welcomeMessage = `Welcome ${buyerName}. Your Hincton Meat account is ready, and you can now shop fresh meat, track orders, and message support from your buyer account.`
+
+    await prisma.notification.create({
+      data: {
+        userId: user.id,
+        type: 'ACCOUNT',
+        title: `Welcome ${buyerName}`,
+        message: welcomeMessage,
+        actionUrl: '/profile',
+        channel: 'IN_APP',
+        sentAt: new Date(),
+      },
+    }).catch((error) => console.error('Welcome notification create failed:', error))
+
+    sendEmail({
+      to: user.email,
+      subject: `Welcome ${buyerName} to Hincton Meat`,
+      text: welcomeMessage,
+      html: `<p>Hello ${buyerName},</p><p>${welcomeMessage}</p><p><a href="${process.env.FRONTEND_URL || ''}/profile">Open your account</a></p>`,
+    }).catch((error) => console.error('Welcome email failed:', error))
 
     res.status(201).json({
-      ...resolveMessage(meatShopMessages.auth.accountCreated),
+      ...resolveMessage({ ...meatShopMessages.auth.accountCreated, text: welcomeMessage }),
       user: serializeUser(user),
       token: signToken(user, session.id),
     })
@@ -956,7 +998,7 @@ router.post('/profile/avatar', upload.single('avatar'), async (req, res) => {
       return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
     }
 
-    const avatarUrl = (await uploadImage(req.file.buffer, 'hincton/profiles')).url
+    const avatarUrl = await storeAvatar(req.file)
 
     const user = await prisma.user.update({
       where: { id: decoded.userId },

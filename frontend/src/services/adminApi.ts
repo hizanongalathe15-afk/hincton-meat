@@ -419,6 +419,13 @@ export const adsApi = {
   deleteCampaign: async (id: string) => {
     const response = await apiClient.delete(`/ads/campaigns/${id}`)
     return response.data
+  },
+
+  uploadMedia: async (file: File) => {
+    const data = new FormData()
+    data.append('media', file)
+    const response = await apiClient.post('/ads/upload-media', data, { headers: { 'Content-Type': 'multipart/form-data' } })
+    return response.data
   }
 }
 

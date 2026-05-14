@@ -3,8 +3,18 @@ import { prisma } from '../config/prisma'
 import { z } from 'zod'
 import { authenticate } from '../middleware/auth'
 import { authorize } from '../middleware/auth'
+import multer from 'multer'
+import { uploadImage } from '../config/cloudinary'
 
 const router = express.Router()
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) return cb(null, true)
+    cb(new Error('Only images, GIFs, stickers, or videos are allowed'))
+  },
+})
 
 // Ad placement schemas
 const adPlacementSchema = z.object({
@@ -67,12 +77,39 @@ const adCampaignSchema = z.object({
     title: z.string(),
     description: z.string(),
     imageUrl: z.string().url().optional(),
+    mediaUrl: z.string().url().optional(),
+    mediaType: z.enum(['image', 'gif', 'video', 'sticker']).optional(),
+    stickerUrl: z.string().url().optional(),
     landingUrl: z.string().url(),
     buttonText: z.string().optional()
   }),
   isActive: z.boolean().default(true),
   startDate: z.string().datetime(),
   endDate: z.string().datetime()
+})
+
+router.post('/upload-media', authenticate, authorize('ADMIN'), upload.single('media'), async (req, res) => {
+  try {
+    const file = req.file
+    if (!file) return res.status(400).json({ error: 'No media file uploaded' })
+
+    const uploaded = await uploadImage(file.buffer, 'hincton/ads')
+    const mediaType = file.mimetype.startsWith('video/')
+      ? 'video'
+      : file.mimetype === 'image/gif'
+        ? 'gif'
+        : 'image'
+
+    res.status(201).json({
+      url: uploaded.url,
+      publicId: uploaded.publicId,
+      mediaType,
+      message: 'Ad media uploaded successfully',
+    })
+  } catch (error: any) {
+    console.error('Upload ad media error:', error)
+    res.status(500).json({ error: error?.message || 'Failed to upload ad media' })
+  }
 })
 
 // === AD PLACEMENTS ===
@@ -302,17 +339,6 @@ router.get('/serve', async (req, res) => {
   try {
     const { placementId, location, device, userAgent } = req.query
     
-    // Check if user has consented to advertising cookies
-    const adConsent = req.cookies?.advertising_consent === 'true'
-    
-    if (!adConsent) {
-      return res.json({
-        ad: null,
-        reason: 'no_consent',
-        message: 'User has not consented to advertising cookies'
-      })
-    }
-
     // Get placement details
     const placement = await prisma.adPlacement?.findUnique({
       where: { id: placementId as string },
@@ -343,9 +369,6 @@ router.get('/serve', async (req, res) => {
         isActive: true,
         startDate: { lte: now },
         endDate: { gte: now },
-        OR: [
-          { targeting: { path: ['locations'], array_contains: [userLocation] } }
-        ]
       },
       select: {
         id: true,
@@ -377,7 +400,7 @@ router.get('/serve', async (req, res) => {
     const selectedCampaign = campaigns[0]
 
     // Record impression
-    await prisma.adImpression?.create({
+    const impression = await prisma.adImpression?.create({
       data: {
         campaignId: selectedCampaign.id,
         placementId: placement.id,
@@ -389,23 +412,30 @@ router.get('/serve', async (req, res) => {
       }
     })
 
+    const creative = selectedCampaign.creative as any
     res.json({
       ad: {
         id: selectedCampaign.id,
-        title: (selectedCampaign.creative as any)?.title,
-        description: (selectedCampaign.creative as any)?.description,
-        imageUrl: (selectedCampaign.creative as any)?.imageUrl,
-        landingUrl: (selectedCampaign.creative as any)?.landingUrl,
-        buttonText: (selectedCampaign.creative as any)?.buttonText,
+        title: creative?.title,
+        description: creative?.description,
+        imageUrl: creative?.imageUrl || creative?.mediaUrl,
+        mediaUrl: creative?.mediaUrl || creative?.imageUrl,
+        mediaType: creative?.mediaType || (String(creative?.mediaUrl || creative?.imageUrl || '').match(/\.(mp4|webm|mov)(\?|$)/i) ? 'video' : 'image'),
+        stickerUrl: creative?.stickerUrl,
+        landingUrl: creative?.landingUrl,
+        buttonText: creative?.buttonText,
         advertiser: selectedCampaign.advertiser?.username,
         placement: {
           id: placement.id,
           type: placement.type,
           size: placement.size
-        }
+        },
+        tracking: {
+          impressionId: impression?.id || `imp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        },
       },
       tracking: {
-        impressionId: `imp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        impressionId: impression?.id
       }
     })
   } catch (error) {

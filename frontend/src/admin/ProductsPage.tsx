@@ -197,7 +197,9 @@ const ProductsPage = ({
     formData.append('unit', product.unit || 'kg')
     formData.append('isPublished', String(product.isPublished))
     formData.append('existingImages', JSON.stringify(product.existingImages || []))
+    formData.append('existingVideos', JSON.stringify(product.existingVideos || []))
     product.images.forEach((image: File) => formData.append('images', image))
+    product.videos.forEach((video: File) => formData.append('videos', video))
 
     if (modalMode === 'edit' && product.id) {
       await productsApi.updateProduct(product.id, formData)

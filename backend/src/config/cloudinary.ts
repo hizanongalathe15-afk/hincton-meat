@@ -5,15 +5,15 @@ import { Cloudinary } from '@cloudinary/url-gen'
 
 // Configure Cloudinary
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET || process.env.CLOUDINARY_SECRET,
   secure: true
 })
 
 export const cloudinaryApi = new Cloudinary({
   cloud: {
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_NAME
   },
   url: {
     secure: true
@@ -26,7 +26,11 @@ export const uploadImage = async (
   folder: string = 'premium-meat-shop'
 ): Promise<{ url: string; publicId: string }> => {
   try {
-    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+    if (
+      !(process.env.CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_NAME) ||
+      !(process.env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_KEY) ||
+      !(process.env.CLOUDINARY_API_SECRET || process.env.CLOUDINARY_SECRET)
+    ) {
       throw new Error('Cloudinary is not configured')
     }
 

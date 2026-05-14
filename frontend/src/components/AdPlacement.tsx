@@ -13,6 +13,9 @@ interface AdData {
   title: string
   description: string
   imageUrl?: string
+  mediaUrl?: string
+  mediaType?: 'image' | 'gif' | 'video' | 'sticker'
+  stickerUrl?: string
   landingUrl: string
   buttonText?: string
   advertiser: string
@@ -140,13 +143,18 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
         style={adStyle}
         onClick={handleClick}
       >
-        {ad.imageUrl && (
+        {ad.mediaType === 'video' && ad.mediaUrl ? (
+          <video src={ad.mediaUrl} className="h-full w-full object-cover" muted autoPlay loop playsInline />
+        ) : ad.imageUrl || ad.mediaUrl ? (
           <img 
-            src={ad.imageUrl} 
+            src={ad.imageUrl || ad.mediaUrl} 
             alt={ad.title}
             className="w-full h-full object-cover"
             loading="lazy"
           />
+        ) : null}
+        {ad.stickerUrl && (
+          <img src={ad.stickerUrl} alt="" className="absolute right-3 top-3 h-12 w-12 object-contain" loading="lazy" />
         )}
         
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
@@ -196,9 +204,11 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
               </button>
             </div>
             
-            {ad.imageUrl && (
+            {ad.mediaType === 'video' && ad.mediaUrl ? (
+              <video src={ad.mediaUrl} controls className="mb-4 h-48 w-full rounded-lg object-cover" />
+            ) : (ad.imageUrl || ad.mediaUrl) && (
               <img 
-                src={ad.imageUrl} 
+                src={ad.imageUrl || ad.mediaUrl} 
                 alt={ad.title}
                 className="w-full h-48 object-cover rounded-lg mb-4"
               />

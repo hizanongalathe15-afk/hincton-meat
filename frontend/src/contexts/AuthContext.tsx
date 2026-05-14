@@ -21,6 +21,7 @@ interface User {
     mpesaPhone?: string
     preferredDeliveryLocation?: string
     locationLabel?: string
+    preferredLanguage?: string
   }
   address?: {
     street: string
@@ -38,10 +39,10 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>
   requestPhoneOtp: (phone: string) => Promise<any>
   verifyPhoneOtp: (phone: string, otp: string) => Promise<void>
-  register: (userData: any) => Promise<void>
+  register: (userData: any) => Promise<any>
   logout: () => void
   updateProfile: (userData: any) => Promise<void>
-  updateAvatar: (file: File) => Promise<void>
+  updateAvatar: (file: File) => Promise<User>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
 }
 
@@ -138,7 +139,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('token', response.token)
       localStorage.setItem('user', JSON.stringify(response.user))
       setUser(response.user)
-      toast.success('Registration successful!')
+      toast.success(response.message || 'Registration successful!')
+      return response
     } catch (error: any) {
       toast.error(error.message || 'Registration failed')
       throw error
@@ -169,6 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(updatedUser)
       localStorage.setItem('user', JSON.stringify(updatedUser))
       toast.success('Profile image updated successfully!')
+      return updatedUser
     } catch (error: any) {
       toast.error(error.message || 'Profile image update failed')
       throw error

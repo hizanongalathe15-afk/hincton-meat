@@ -152,7 +152,9 @@ const OrderTracker = ({ orderId, onClose }: OrderTrackerProps) => {
         state: address.state || address.region || '',
         zipCode: address.zipCode || address.postalCode || '',
         country: address.country || 'Kenya',
-      },
+        latitude: address.latitude,
+        longitude: address.longitude,
+      } as any,
       items: (order.orderItems || []).map((item: any) => ({
         id: item.productId || item.id,
         name: item.productName,
@@ -239,6 +241,16 @@ const OrderTracker = ({ orderId, onClose }: OrderTrackerProps) => {
   }
 
   const trackingSteps = getTrackingSteps()
+  const mapQuery = (orderDetails.shippingAddress as any).latitude && (orderDetails.shippingAddress as any).longitude
+    ? `${(orderDetails.shippingAddress as any).latitude},${(orderDetails.shippingAddress as any).longitude}`
+    : [
+        orderDetails.shippingAddress.street,
+        orderDetails.shippingAddress.city,
+        orderDetails.shippingAddress.state,
+        orderDetails.shippingAddress.country,
+      ].filter(Boolean).join(', ')
+  const mapSrc = mapQuery ? `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=15&output=embed` : ''
+  const mapUrl = mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}` : ''
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -409,6 +421,17 @@ const OrderTracker = ({ orderId, onClose }: OrderTrackerProps) => {
                   {orderDetails.shippingAddress.city}, {orderDetails.shippingAddress.state} {orderDetails.shippingAddress.zipCode}
                 </p>
               </div>
+              {mapSrc && (
+                <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
+                  <iframe title="Order delivery map" src={mapSrc} className="h-56 w-full" loading="lazy" />
+                  <div className="flex items-center justify-between gap-3 bg-gray-50 px-3 py-2 text-sm">
+                    <span className="font-medium text-gray-700">Delivery map</span>
+                    <a href={mapUrl} target="_blank" rel="noreferrer" className="font-bold text-red-700 hover:text-red-800">
+                      Open live map
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Additional Info */}

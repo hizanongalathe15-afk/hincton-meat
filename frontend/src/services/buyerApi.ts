@@ -64,6 +64,11 @@ export const productsApi = {
     return response.data
   },
 
+  getRecommendations: async (params?: { productId?: string; limit?: number }) => {
+    const response = await apiClient.get('/products/recommendations', { params })
+    return response.data
+  },
+
   getCategories: async () => {
     const response = await apiClient.get('/categories')
     return response.data

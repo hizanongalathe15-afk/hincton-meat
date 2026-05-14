@@ -117,6 +117,8 @@ const BuyerShop = ({
             weightUnit: product.weightUnit || undefined,
             origin: product.brand || 'Hincton Meat Products',
             sku: product.sku,
+            videos: product.videos || product.productVideos?.map((video: any) => video.url) || [],
+            productVideos: product.productVideos || [],
           }
         })
         
@@ -199,8 +201,8 @@ const BuyerShop = ({
       setSearchParams(params, { replace: true })
     }
 
-    const handleProductClick = (product: Product) => {
-    navigate(`/product/${product.id}`)
+  const handleProductClick = (product: Product) => {
+    navigate(`/product/${product.id}`, { state: { product } })
     onProductClick?.(product)
   }
 

@@ -103,6 +103,15 @@ const CheckoutPage: React.FC = () => {
   const deliveryPromise = beforeCutoff
     ? `Order by ${cutoffLabel} AM -> delivered today before ${commerceSettings?.shipping?.sameDayDeliveryBy || '5:00 PM'}`
     : `Orders placed now use the next available cold-chain slot`
+  const deliveryMapQuery = formData.latitude && formData.longitude
+    ? `${formData.latitude},${formData.longitude}`
+    : [formData.address, formData.city, formData.state, 'Kenya'].filter(Boolean).join(', ')
+  const deliveryMapSrc = deliveryMapQuery
+    ? `https://www.google.com/maps?q=${encodeURIComponent(deliveryMapQuery)}&z=${formData.latitude && formData.longitude ? '16' : '14'}&output=embed`
+    : ''
+  const deliveryMapUrl = deliveryMapQuery
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(deliveryMapQuery)}`
+    : ''
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -434,13 +443,23 @@ const CheckoutPage: React.FC = () => {
                   />
                 </div>
                 <div className="md:col-span-2 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-                  {formData.latitude && formData.longitude ? (
-                    <iframe
-                      title="Pinned delivery map"
-                      src={`https://www.google.com/maps?q=${formData.latitude},${formData.longitude}&z=15&output=embed`}
-                      className="h-64 w-full"
-                      loading="lazy"
-                    />
+                  {deliveryMapSrc ? (
+                    <div>
+                      <iframe
+                        title="Delivery location map"
+                        src={deliveryMapSrc}
+                        className="h-64 w-full"
+                        loading="lazy"
+                      />
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-white px-4 py-3 text-sm">
+                        <span className="font-medium text-gray-700">
+                          {formData.latitude && formData.longitude ? 'Pinned GPS location' : 'Map preview from your address'}
+                        </span>
+                        <a href={deliveryMapUrl} target="_blank" rel="noreferrer" className="font-bold text-red-700 hover:text-red-800">
+                          Open live map
+                        </a>
+                      </div>
+                    </div>
                   ) : (
                     <div className="flex h-32 items-center justify-center px-4 text-center text-sm text-gray-600">
                       {t('checkout.pinYourLocation')}

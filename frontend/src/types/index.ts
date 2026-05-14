@@ -5,6 +5,8 @@ export interface Product {
   originalPrice?: number
   image: string
   images: string[]
+  videos?: string[]
+  productVideos?: Array<{ url: string; provider?: string; thumbnail?: string; title?: string; description?: string }>
   rating: number
   reviews: number
   category: string

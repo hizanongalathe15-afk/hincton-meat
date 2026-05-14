@@ -114,18 +114,22 @@ router.post('/', async (req: AuthRequest, res) => {
     const userId = req.user?.id
     const guestSessionId = userId ? null : getGuestSessionId(req)
     const paymentStatus = payload.paymentMethod === 'cash' ? 'PENDING' : 'UNPAID'
+    const orderNumber = generateOrderNumber()
 
     const order = await prisma.$transaction(async (tx) => {
       for (const item of orderItems) {
-        await tx.product.update({
-          where: { id: item.product.id },
+        const stockUpdate = await tx.product.updateMany({
+          where: { id: item.product.id, stockQuantity: { gte: item.quantity } },
           data: { stockQuantity: { decrement: item.quantity } },
         })
+        if (stockUpdate.count !== 1) {
+          throw new Error(resolveMessage(meatShopMessages.cart.stockRemaining, { quantity: item.product.stockQuantity }).message)
+        }
       }
 
       const created = await tx.order.create({
         data: {
-          orderNumber: generateOrderNumber(),
+          orderNumber,
           userId,
           guestEmail: userId ? undefined : payload.customer.email,
           guestPhone: userId ? undefined : payload.customer.phone,
@@ -171,6 +175,14 @@ router.post('/', async (req: AuthRequest, res) => {
               status: paymentStatus as any,
               mpesaPhone: payload.mpesaPhone,
               metadata: { customer: payload.customer },
+            },
+          },
+          trackingHistory: {
+            create: {
+              trackingNumber: orderNumber,
+              status: 'PENDING',
+              location: 'Online order',
+              description: `Thank you ${payload.customer.firstName}. Your order has been received and is waiting for confirmation.`,
             },
           },
         } as any,

@@ -26,7 +26,9 @@ interface ProductFormData {
   isPublished: boolean
   tags: string[]
   images: File[]
+  videos: File[]
   existingImages?: string[]
+  existingVideos?: string[]
 }
 
 const ProductModal: React.FC<ProductModalProps> = ({
@@ -49,7 +51,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
     isPublished: true,
     tags: [],
     images: [],
-    existingImages: []
+    videos: [],
+    existingImages: [],
+    existingVideos: []
   })
   
   const [categories, setCategories] = useState([])
@@ -75,7 +79,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
           isPublished: product.isPublished ?? true,
           tags: product.tags || [],
           images: [],
-          existingImages: product.productImages?.map((img: any) => img.url) || []
+          videos: [],
+          existingImages: product.productImages?.map((img: any) => img.url) || [],
+          existingVideos: product.productVideos?.map((video: any) => video.url) || product.videos || []
         })
         setImagePreviews(product.productImages?.map((img: any) => img.url) || [])
       } else {
@@ -107,7 +113,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
       isPublished: true,
       tags: [],
       images: [],
-      existingImages: []
+      videos: [],
+      existingImages: [],
+      existingVideos: []
     })
     setImagePreviews([])
   }
@@ -132,6 +140,15 @@ const ProductModal: React.FC<ProductModalProps> = ({
     }))
     
     setImagePreviews(prev => [...prev, ...newPreviews])
+  }
+
+  const handleVideoUpload = (files: FileList | null) => {
+    if (!files) return
+    const newVideos = Array.from(files)
+    setFormData(prev => ({
+      ...prev,
+      videos: [...prev.videos, ...newVideos]
+    }))
   }
 
   const handleDrag = (e: React.DragEvent) => {
@@ -173,6 +190,14 @@ const ProductModal: React.FC<ProductModalProps> = ({
       
       setFormData(prev => ({ ...prev, images: newImages }))
       setImagePreviews(newPreviews)
+    }
+  }
+
+  const removeVideo = (index: number, isExisting = false) => {
+    if (isExisting) {
+      setFormData(prev => ({ ...prev, existingVideos: prev.existingVideos?.filter((_, i) => i !== index) || [] }))
+    } else {
+      setFormData(prev => ({ ...prev, videos: prev.videos.filter((_, i) => i !== index) }))
     }
   }
 
@@ -466,6 +491,51 @@ const ProductModal: React.FC<ProductModalProps> = ({
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Images
+              </label>
+            </div>
+          </div>
+
+          {/* Video Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Product Videos
+            </label>
+            {(formData.existingVideos?.length || formData.videos.length) > 0 && (
+              <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                {formData.existingVideos?.map((url, index) => (
+                  <div key={url} className="relative overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                    <video src={url} controls className="h-36 w-full object-cover" />
+                    <button type="button" onClick={() => removeVideo(index, true)} className="absolute right-2 top-2 rounded-full bg-red-600 p-1 text-white">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                {formData.videos.map((file, index) => (
+                  <div key={`${file.name}-${index}`} className="relative rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <p className="truncate text-sm font-medium text-gray-800">{file.name}</p>
+                    <p className="mt-1 text-xs text-gray-500">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
+                    <button type="button" onClick={() => removeVideo(index)} className="absolute right-2 top-2 rounded-full bg-red-600 p-1 text-white">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="rounded-lg border-2 border-dashed border-gray-300 p-6 text-center">
+              <Upload className="mx-auto mb-3 h-10 w-10 text-gray-400" />
+              <p className="mb-2 text-gray-600">Upload one or more product videos</p>
+              <p className="mb-4 text-sm text-gray-500">MP4, WebM, MOV up to 50MB each</p>
+              <input
+                type="file"
+                multiple
+                accept="video/*"
+                onChange={(e) => handleVideoUpload(e.target.files)}
+                className="hidden"
+                id="video-upload"
+              />
+              <label htmlFor="video-upload" className="inline-flex cursor-pointer items-center rounded-lg bg-gray-900 px-4 py-2 text-white hover:bg-gray-800">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Videos
               </label>
             </div>
           </div>

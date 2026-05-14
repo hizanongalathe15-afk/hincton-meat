@@ -90,7 +90,7 @@ interface UserProfile {
 const EnhancedProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, updateAvatar } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -240,9 +240,8 @@ const EnhancedProfilePage: React.FC = () => {
 
     setSaving(true)
     try {
-      const response = await userApi.updateAvatar(file)
-      setProfile({ ...profile, avatar: response.avatar })
-      toast.success('Profile picture updated')
+      const updatedUser = await updateAvatar(file)
+      setProfile({ ...profile, avatar: updatedUser.avatar || updatedUser.profile?.avatar })
     } catch (error) {
       toast.error('Could not update profile picture')
     } finally {

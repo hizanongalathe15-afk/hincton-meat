@@ -53,6 +53,9 @@ interface AdCampaign {
     title: string
     description: string
     imageUrl?: string
+    mediaUrl?: string
+    mediaType?: 'image' | 'gif' | 'video' | 'sticker'
+    stickerUrl?: string
     landingUrl: string
     buttonText?: string
   }
@@ -105,6 +108,9 @@ const AdManagement = () => {
     title: '',
     description: '',
     imageUrl: '',
+    mediaUrl: '',
+    mediaType: 'image' as 'image' | 'gif' | 'video' | 'sticker',
+    stickerUrl: '',
     landingUrl: '',
     buttonText: 'Shop now',
     totalBudget: 10000,
@@ -223,6 +229,9 @@ const AdManagement = () => {
       title: creative.title || '',
       description: creative.description || '',
       imageUrl: creative.imageUrl || '',
+      mediaUrl: creative.mediaUrl || creative.imageUrl || '',
+      mediaType: creative.mediaType || 'image',
+      stickerUrl: creative.stickerUrl || '',
       landingUrl: creative.landingUrl || '',
       buttonText: creative.buttonText || 'Shop now',
       totalBudget: Number(campaign.budget?.total || 10000),
@@ -235,6 +244,9 @@ const AdManagement = () => {
       title: '',
       description: '',
       imageUrl: '',
+      mediaUrl: '',
+      mediaType: 'image',
+      stickerUrl: '',
       landingUrl: '',
       buttonText: 'Shop now',
       totalBudget: 10000,
@@ -244,6 +256,25 @@ const AdManagement = () => {
       endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     })
     setShowCampaignModal(true)
+  }
+
+  const uploadCampaignMedia = async (file?: File) => {
+    if (!file) return
+    setSaving(true)
+    try {
+      const uploaded = await adsApi.uploadMedia(file)
+      setCampaignForm((current) => ({
+        ...current,
+        mediaUrl: uploaded.url,
+        imageUrl: uploaded.mediaType === 'video' ? current.imageUrl : uploaded.url,
+        mediaType: uploaded.mediaType || (file.type.startsWith('video/') ? 'video' : file.type === 'image/gif' ? 'gif' : 'image'),
+      }))
+      toast.success('Ad media uploaded')
+    } catch (error: any) {
+      toast.error(error?.message || 'Could not upload ad media')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const savePlacement = async (event: FormEvent) => {
@@ -290,7 +321,10 @@ const AdManagement = () => {
         creative: {
           title: campaignForm.title,
           description: campaignForm.description,
-          imageUrl: campaignForm.imageUrl || undefined,
+          imageUrl: campaignForm.imageUrl || campaignForm.mediaUrl || undefined,
+          mediaUrl: campaignForm.mediaUrl || campaignForm.imageUrl || undefined,
+          mediaType: campaignForm.mediaType,
+          stickerUrl: campaignForm.stickerUrl || undefined,
           landingUrl: campaignForm.landingUrl,
           buttonText: campaignForm.buttonText,
         },
@@ -697,9 +731,34 @@ const AdManagement = () => {
                 <input required type="url" value={campaignForm.landingUrl} onChange={(event) => setCampaignForm({ ...campaignForm, landingUrl: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Image URL</label>
-                <input type="url" value={campaignForm.imageUrl} onChange={(event) => setCampaignForm({ ...campaignForm, imageUrl: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" />
+                <label className="block text-sm font-medium text-gray-700">Media URL</label>
+                <input type="url" value={campaignForm.mediaUrl} onChange={(event) => setCampaignForm({ ...campaignForm, mediaUrl: event.target.value, imageUrl: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" />
               </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_12rem]">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Upload image, GIF, sticker, or video</label>
+                <input type="file" accept="image/*,video/*" onChange={(event) => uploadCampaignMedia(event.target.files?.[0])} className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Media type</label>
+                <select value={campaignForm.mediaType} onChange={(event) => setCampaignForm({ ...campaignForm, mediaType: event.target.value as any })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+                  {['image', 'gif', 'video', 'sticker'].map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </div>
+            </div>
+            {campaignForm.mediaUrl && (
+              <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                {campaignForm.mediaType === 'video' ? (
+                  <video src={campaignForm.mediaUrl} controls className="h-48 w-full object-cover" />
+                ) : (
+                  <img src={campaignForm.mediaUrl} alt="Ad media preview" className="h-48 w-full object-cover" />
+                )}
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Optional sticker URL</label>
+              <input type="url" value={campaignForm.stickerUrl} onChange={(event) => setCampaignForm({ ...campaignForm, stickerUrl: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" />
             </div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <div>

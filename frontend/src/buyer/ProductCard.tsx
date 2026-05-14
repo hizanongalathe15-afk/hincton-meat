@@ -28,15 +28,23 @@ const ProductCard = ({
   const [quantity, setQuantity] = useState(1)
   const baseWeight = product.weightValue || Number.parseFloat(String(product.weight || '1')) || 1
   const baseUnit = product.weightUnit || (String(product.weight || '').toLowerCase().includes('g') ? 'g' : 'kg')
-  const weightOptions = baseUnit === 'pcs'
-    ? [{ label: '1 pc', multiplier: 1 }, { label: '2 pcs', multiplier: 2 }, { label: '5 pcs', multiplier: 5 }]
-    : [
-        { label: `${baseWeight} ${baseUnit}`, multiplier: 1 },
-        { label: `${baseWeight * 2} ${baseUnit}`, multiplier: 2 },
-        { label: `${baseWeight * 5} ${baseUnit}`, multiplier: 5 },
-      ]
+  const formatWeightLabel = (multiplier: number) => {
+    if (baseUnit === 'pcs') return `${multiplier} ${multiplier === 1 ? 'pc' : 'pcs'}`
+
+    const normalizedUnit = baseUnit.toLowerCase()
+    const grams = normalizedUnit === 'g' ? baseWeight * multiplier : baseWeight * multiplier * 1000
+    if (grams >= 1000) {
+      const kg = grams / 1000
+      return `${Number.isInteger(kg) ? kg : kg.toFixed(2).replace(/\.?0+$/, '')} kg`
+    }
+    return `${Math.round(grams)} g`
+  }
+  const packMultipliers = baseUnit === 'pcs' ? [1, 2, 5] : [1, 2, 5, 10]
+  const weightOptions = packMultipliers.map((multiplier) => ({
+    label: formatWeightLabel(multiplier),
+    multiplier,
+  }))
   const [selectedWeight, setSelectedWeight] = useState(weightOptions[0])
-  const selectedWeightIndex = Math.max(0, weightOptions.findIndex((option) => option.label === selectedWeight.label))
   const [isAdding, setIsAdding] = useState(false)
   const fallbackImage = 'https://images.unsplash.com/photo-1546823998-b7c00af72b9d?w=600&h=600&fit=crop'
 
@@ -179,15 +187,22 @@ const ProductCard = ({
               <span>{selectedWeight.label}</span>
               <span>{selectedWeight.multiplier} x {formatPrice(product.price)}</span>
             </div>
-            <input
-              type="range"
-              min="0"
-              max={weightOptions.length - 1}
-              step="1"
-              value={selectedWeightIndex}
-              onChange={(event) => setSelectedWeight(weightOptions[Number(event.target.value)])}
-              className="w-full accent-red-600"
-            />
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {weightOptions.map((option) => (
+                <button
+                  key={option.label}
+                  type="button"
+                  onClick={() => setSelectedWeight(option)}
+                  className={`rounded-md border px-2 py-2 text-xs font-bold transition ${
+                    selectedWeight.label === option.label
+                      ? 'border-red-600 bg-red-600 text-white'
+                      : 'border-gray-200 bg-white text-gray-800 hover:border-red-300 hover:bg-red-50'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
         </label>
 

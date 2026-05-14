@@ -101,7 +101,12 @@ export const login = async (req: AuthRequest, res: Response, next: any) => {
 
 export const getProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: {
+        profile: true
+      }
+    });
     res.json({ user });
   } catch (error) {
     next(error);
@@ -150,6 +155,41 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: any) 
     res.status(500).json({ message: 'Server error while updating profile' });
   }
 };
+
+export const updatePreferredLanguage = async (req: AuthRequest, res: Response, next: any) => {
+  try {
+    const { language } = req.body
+    const supportedLanguages = ['en', 'sw', 'fr', 'de']
+    if (!supportedLanguages.includes(language)) {
+      return res.status(400).json({ message: 'Unsupported language' })
+    }
+
+    const userId = req.user?.id
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' })
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        profile: {
+          upsert: {
+            create: { preferredLanguage: language as any },
+            update: { preferredLanguage: language as any },
+          },
+        },
+      },
+      include: {
+        profile: true,
+      },
+    })
+
+    res.json({ message: 'Language preference saved', user: updatedUser })
+  } catch (error) {
+    console.error('Update preferred language error:', error)
+    res.status(500).json({ message: 'Server error while saving language preference' })
+  }
+}
 
 export const changePassword = async (req: AuthRequest, res: Response, next: any) => {
   try {

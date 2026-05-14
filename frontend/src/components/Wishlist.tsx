@@ -22,6 +22,7 @@ const Wishlist: React.FC = () => {
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedItems, setSelectedItems] = useState<string[]>([])
+  const [movingIds, setMovingIds] = useState<string[]>([])
   const { t } = useLanguage()
 
 

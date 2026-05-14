@@ -60,6 +60,11 @@ const ProductDetails = ({
         : []
 
   const parsedImagesNormalized = parsedImages.filter(Boolean)
+  const parsedVideos: string[] = Array.isArray((product as any).videos)
+    ? (product as any).videos
+    : Array.isArray((product as any).productVideos)
+      ? (product as any).productVideos.map((video: any) => video.url).filter(Boolean)
+      : []
 
   const mediaItems = [
     ...parsedImagesNormalized.map((url) => ({
@@ -68,17 +73,22 @@ const ProductDetails = ({
       thumbnail: url,
       alt: `${product.name}`
     })),
-...(typeof (product as any).videoUrl === 'string' && (product as any).videoUrl
-      ? [
-          {
-            type: 'video' as const,
-            url: (product as any).videoUrl,
-            thumbnail: parsedImagesNormalized[0] ?? '',
-            alt: `${product.name} - Product Video`
-          }
-        ]
+    ...parsedVideos.map((url) => ({
+      type: 'video' as const,
+      url,
+      thumbnail: parsedImagesNormalized[0] ?? '',
+      alt: `${product.name} - Product Video`
+    })),
+    ...(typeof (product as any).videoUrl === 'string' && (product as any).videoUrl
+      ? [{
+          type: 'video' as const,
+          url: (product as any).videoUrl,
+          thumbnail: parsedImagesNormalized[0] ?? '',
+          alt: `${product.name} - Product Video`
+        }]
       : [])
   ]
+  const selectedItem = mediaItems[selectedMedia]
 
 
   const [isAdding, setIsAdding] = useState(false)
@@ -116,16 +126,16 @@ const ProductDetails = ({
           <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-50 group">
             {mediaItems.length === 0 ? (
               <div className="w-full h-full flex items-center justify-center text-gray-400">No media</div>
-            ) : mediaItems[selectedMedia].type === 'image' ? (
+            ) : selectedItem?.type === 'image' ? (
               <img
-                src={mediaItems[selectedMedia].url}
-                alt={mediaItems[selectedMedia].alt}
+                src={selectedItem.url}
+                alt={selectedItem.alt}
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 onClick={() => setShowZoom(true)}
               />
             ) : (
               <video
-                src={mediaItems[selectedMedia].url}
+                src={selectedItem?.url}
                 className="w-full h-full object-cover"
                 controls
                 muted={isMuted}
@@ -135,7 +145,7 @@ const ProductDetails = ({
             
             {/* Media Controls Overlay */}
             <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              {mediaItems[selectedMedia]?.type === 'video' && (
+              {selectedItem?.type === 'video' && (
 
                 <button
                   onClick={() => setIsMuted(!isMuted)}
@@ -150,7 +160,7 @@ const ProductDetails = ({
               >
                 <Maximize2 className="w-4 h-4" />
               </button>
-            {mediaItems[selectedMedia]?.type === 'image' && (
+            {selectedItem?.type === 'image' && (
                 <button
                   onClick={() => setShowZoom(true)}
                   className="bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-colors"
@@ -181,7 +191,7 @@ const ProductDetails = ({
 
             {/* Media Type Badge */}
             <div className="absolute top-4 left-4">
-              {mediaItems[selectedMedia]?.type === 'video' && (
+            {selectedItem?.type === 'video' && (
 
                 <div className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2">
                   <Play className="w-4 h-4" />
@@ -227,7 +237,7 @@ const ProductDetails = ({
 
           {/* Media Info */}
           <div className="text-sm text-gray-600 text-center">
-            {mediaItems[selectedMedia].type === 'video' 
+            {selectedItem?.type === 'video' 
               ? 'Click play to watch product video' 
               : 'Click image to zoom in'
             }

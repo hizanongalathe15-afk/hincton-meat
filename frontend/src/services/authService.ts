@@ -75,6 +75,11 @@ export const authService = {
     return response.data.user
   },
 
+  async updatePreferredLanguage(language: string): Promise<User> {
+    const response = await api.put('/auth/profile/language', { language })
+    return response.data.user
+  },
+
   async updateAvatar(file: File): Promise<User> {
     const data = new FormData()
     data.append('avatar', file)

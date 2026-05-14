@@ -236,6 +236,114 @@ app.get('/api/content/commerce-settings', async (_req, res) => {
   }
 });
 
+const getOrCreateContactUser = async (contact: { name: string; email: string; phone?: string | null }) => {
+  const email = contact.email.trim().toLowerCase()
+  const name = contact.name.trim()
+  const parts = name.split(/\s+/)
+
+  return prisma.user.upsert({
+    where: { email },
+    update: {
+      profile: {
+        upsert: {
+          create: {
+            firstName: parts[0] || name,
+            lastName: parts.slice(1).join(' '),
+            fullName: name,
+            mpesaPhone: contact.phone || undefined,
+          },
+          update: {
+            fullName: name,
+            mpesaPhone: contact.phone || undefined,
+          },
+        },
+      },
+    },
+    create: {
+      email,
+      roles: ['BUYER'] as any,
+      profile: {
+        create: {
+          firstName: parts[0] || name,
+          lastName: parts.slice(1).join(' '),
+          fullName: name,
+          mpesaPhone: contact.phone || undefined,
+        },
+      },
+      security: {
+        create: {
+          is_active: true,
+          isEmailVerified: false,
+        },
+      },
+    },
+    include: { profile: true },
+  })
+}
+
+app.post('/api/content/contact/submit', optionalAuthenticate, async (req: any, res) => {
+  try {
+    const body = req.body || {}
+    const contactData = {
+      name: String(body.name || '').trim(),
+      email: String(body.email || '').trim().toLowerCase(),
+      phone: body.phone ? String(body.phone).trim() : '',
+      subject: String(body.subject || '').trim(),
+      message: String(body.message || '').trim(),
+    }
+
+    if (!contactData.name || !contactData.subject || !contactData.message || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactData.email)) {
+      return res.status(400).json({ error: 'Name, valid email, subject, and message are required' })
+    }
+
+    const sender = req.user?.id
+      ? await prisma.user.findUnique({ where: { id: req.user.id }, include: { profile: true } })
+      : await getOrCreateContactUser(contactData)
+
+    if (!sender) return res.status(401).json({ error: 'Could not identify message sender' })
+
+    const ticket = await prisma.supportTicket.create({
+      data: {
+        userId: sender.id,
+        subject: contactData.subject,
+        message: [
+          `From: ${contactData.name} <${contactData.email}>`,
+          contactData.phone ? `Phone: ${contactData.phone}` : null,
+          '',
+          contactData.message,
+        ].filter(Boolean).join('\n'),
+        category: 'GENERAL_INQUIRY',
+        priority: 'LOW',
+        status: 'OPEN',
+      },
+    })
+
+    const admins = await prisma.user.findMany({
+      where: { roles: { hasSome: ['ADMIN', 'SUPER_ADMIN', 'SUPPORT'] as any } },
+      select: { id: true },
+    })
+    if (admins.length) {
+      await prisma.notification.createMany({
+        data: admins.map((admin) => ({
+          userId: admin.id,
+          type: 'SYSTEM' as any,
+          title: `Contact message from ${contactData.name}`,
+          message: contactData.message.slice(0, 180),
+          actionUrl: '/admin/communications',
+          data: { ticketId: ticket.id, senderEmail: contactData.email },
+          channel: 'IN_APP',
+          sentAt: new Date(),
+        })),
+      })
+    }
+
+    res.json({ message: 'Message sent successfully', ticketId: ticket.id })
+  } catch (error) {
+    console.error('Public contact form submission error:', error)
+    res.status(500).json({ error: 'Failed to submit contact form' })
+  }
+});
+
 app.get('/api/categories', async (_req, res) => {
   try {
     const categories = await prisma.category.findMany({

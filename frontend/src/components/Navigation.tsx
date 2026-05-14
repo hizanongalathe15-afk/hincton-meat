@@ -357,6 +357,17 @@ const Navigation = () => {
                       Admin Dashboard
                     </Link>
                   ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false)
+                      handleLogout()
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left font-medium text-red-700 hover:bg-red-50"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Logout
+                  </button>
                 </>
               ) : (
                 <div className="flex justify-center pt-2">

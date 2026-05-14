@@ -125,6 +125,7 @@ const productInclude = {
   category: { select: { id: true, name: true, slug: true } },
   reviews: { select: { rating: true } },
   productImages: { select: { url: true } },
+  productVideos: { select: { url: true, provider: true, thumbnail: true, title: true, description: true, sortOrder: true }, orderBy: { sortOrder: 'asc' as const } },
 }
 
 const serializeProduct = (product: any) => {
@@ -132,9 +133,74 @@ const serializeProduct = (product: any) => {
   return {
     ...product,
     images: product.productImages?.map((img: any) => img.url) ?? [],
+    videos: product.productVideos?.map((video: any) => video.url) ?? [],
+    productVideos: product.productVideos ?? [],
     averageRating,
     reviewCount,
   }
+}
+
+const getRecommendedProducts = async (productId?: string, limitNum = 8) => {
+  const current = productId
+    ? await prisma.product.findFirst({
+        where: { id: productId, isPublished: true, deletedAt: null },
+        select: { id: true, categoryId: true, name: true },
+      })
+    : null
+
+  const productIds = new Set<string>()
+  const recommended: any[] = []
+  const pushProducts = (items: any[]) => {
+    for (const item of items) {
+      if (productIds.has(item.id) || item.id === productId) continue
+      productIds.add(item.id)
+      recommended.push(item)
+      if (recommended.length >= limitNum) break
+    }
+  }
+
+  if (current?.categoryId) {
+    pushProducts(await prisma.product.findMany({
+      where: { id: { not: current.id }, categoryId: current.categoryId, isPublished: true, deletedAt: null, stockQuantity: { gt: 0 } },
+      take: limitNum,
+      orderBy: [{ totalSold: 'desc' }, { averageRating: 'desc' }, { createdAt: 'desc' }],
+      include: productInclude,
+    }))
+  }
+
+  if (recommended.length < limitNum) {
+    const boughtTogether = productId
+      ? await prisma.orderItem.groupBy({
+          by: ['productId'],
+          where: {
+            productId: { not: productId },
+            order: { orderItems: { some: { productId } } },
+          },
+          _sum: { quantity: true },
+          orderBy: { _sum: { quantity: 'desc' } },
+          take: limitNum,
+        })
+      : []
+    const ids = boughtTogether.map((item) => item.productId).filter(Boolean) as string[]
+    if (ids.length) {
+      const products = await prisma.product.findMany({
+        where: { id: { in: ids }, isPublished: true, deletedAt: null, stockQuantity: { gt: 0 } },
+        include: productInclude,
+      })
+      pushProducts(ids.map((id) => products.find((product) => product.id === id)).filter(Boolean))
+    }
+  }
+
+  if (recommended.length < limitNum) {
+    pushProducts(await prisma.product.findMany({
+      where: { isPublished: true, deletedAt: null, stockQuantity: { gt: 0 }, ...(productId ? { id: { not: productId } } : {}) },
+      take: limitNum,
+      orderBy: [{ isFeatured: 'desc' }, { totalSold: 'desc' }, { averageRating: 'desc' }, { createdAt: 'desc' }],
+      include: productInclude,
+    }))
+  }
+
+  return recommended.slice(0, limitNum).map(serializeProduct)
 }
 
 // GET /api/products/featured
@@ -156,6 +222,20 @@ router.get('/featured', async (req, res) => {
     if (isDatabaseUnavailable(error)) {
       return res.json({ products: [] })
     }
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// GET /api/products/recommendations
+router.get('/recommendations', async (req, res) => {
+  try {
+    const limitNum = parsePageInt(req.query.limit, 8)
+    const productId = typeof req.query.productId === 'string' ? req.query.productId : undefined
+    const products = await getRecommendedProducts(productId, limitNum)
+    res.json({ products, source: productId ? 'product-context' : 'storefront' })
+  } catch (error) {
+    console.error('Get product recommendations error:', error)
+    if (isDatabaseUnavailable(error)) return res.json({ products: [], source: 'unavailable' })
     res.status(500).json({ error: 'Internal server error' })
   }
 })

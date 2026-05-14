@@ -5,6 +5,7 @@ import { notifyRecipients } from '../utils/notificationService'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
+import { uploadImage } from '../config/cloudinary'
 
 const router = express.Router()
 
@@ -210,16 +211,30 @@ const ensureDirectory = (dir: string) => {
 ensureDirectory(productUploadPath)
 
 const productImageUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      ensureDirectory(productUploadPath)
-      cb(null, productUploadPath)
-    },
-    filename: (_req, file, cb) => cb(null, `${file.fieldname}-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`),
-  }),
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => file.mimetype.startsWith('image/') ? cb(null, true) : cb(new Error('Only image files are allowed')),
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) return cb(null, true)
+    cb(new Error('Only image, GIF, or video files are allowed'))
+  },
 })
+
+const saveMediaToServer = (file: Express.Multer.File, folder: 'products' | 'ads') => {
+  const targetPath = path.join(uploadBasePath, folder)
+  ensureDirectory(targetPath)
+  const filename = `${file.fieldname}-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`
+  fs.writeFileSync(path.join(targetPath, filename), file.buffer)
+  return `/uploads/${folder}/${filename}`
+}
+
+const uploadMediaFile = async (file: Express.Multer.File, folder: 'products' | 'ads') => {
+  try {
+    return (await uploadImage(file.buffer, `hincton/${folder}`)).url
+  } catch (error) {
+    console.warn(`Cloudinary ${folder} upload unavailable, saving on server:`, error instanceof Error ? error.message : error)
+    return saveMediaToServer(file, folder)
+  }
+}
 
 const slugify = (input: string) =>
   input.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `product-${Date.now()}`
@@ -251,11 +266,13 @@ const productPayloadSchema = z.object({
   isPublished: z.preprocess(parseBoolean, z.boolean().default(true)),
   isFeatured: z.preprocess(parseBoolean, z.boolean().default(false)),
   existingImages: z.string().optional(),
+  existingVideos: z.string().optional(),
 })
 
 const productInclude = {
   category: { select: { id: true, name: true, slug: true } },
   productImages: { orderBy: { sortOrder: 'asc' as const } },
+  productVideos: { orderBy: { sortOrder: 'asc' as const } },
   reviews: { select: { rating: true } },
   _count: { select: { orderItems: true } },
 }
@@ -270,6 +287,7 @@ const serializeProduct = (product: any) => {
     price: Number(product.price),
     comparePrice: product.comparePrice ? Number(product.comparePrice) : null,
     images: product.productImages?.map((image: any) => image.url) || [],
+    videos: product.productVideos?.map((video: any) => video.url) || [],
     averageRating,
     reviewCount: reviewCount || Number(product.totalReviews || 0),
   }
@@ -576,11 +594,14 @@ router.get('/products/:id', async (req, res) => {
   }
 })
 
-router.post('/products', productImageUpload.array('images', 5), async (req, res) => {
+router.post('/products', productImageUpload.fields([{ name: 'images', maxCount: 12 }, { name: 'videos', maxCount: 8 }]), async (req, res) => {
   try {
     const data = productPayloadSchema.parse(req.body)
-    const files = (req.files || []) as Express.Multer.File[]
-    const imageUrls = files.map((file) => `/uploads/products/${file.filename}`)
+    const files = req.files as Record<string, Express.Multer.File[]> | undefined
+    const imageFiles = files?.images || []
+    const videoFiles = files?.videos || []
+    const imageUrls = await Promise.all(imageFiles.map((file) => uploadMediaFile(file, 'products')))
+    const videoUrls = await Promise.all(videoFiles.map((file) => uploadMediaFile(file, 'products')))
     const slug = await makeUniqueSlug(data.name)
     const sku = data.sku || `SKU-${Date.now()}`
 
@@ -604,6 +625,9 @@ router.post('/products', productImageUpload.array('images', 5), async (req, res)
         productImages: {
           create: imageUrls.map((url, index) => ({ url, sortOrder: index, isPrimary: index === 0 })),
         },
+        productVideos: {
+          create: videoUrls.map((url, index) => ({ url, provider: 'cloudinary', sortOrder: index })),
+        },
       },
       include: productInclude,
     })
@@ -618,16 +642,21 @@ router.post('/products', productImageUpload.array('images', 5), async (req, res)
   }
 })
 
-router.put('/products/:id', productImageUpload.array('images', 5), async (req, res) => {
+router.put('/products/:id', productImageUpload.fields([{ name: 'images', maxCount: 12 }, { name: 'videos', maxCount: 8 }]), async (req, res) => {
   try {
-    const existing = await prisma.product.findFirst({ where: { id: req.params.id, deletedAt: null }, include: { productImages: true } })
+    const existing = await prisma.product.findFirst({ where: { id: req.params.id, deletedAt: null }, include: { productImages: true, productVideos: true } })
     if (!existing) return res.status(404).json({ error: 'Product not found' })
 
     const data = productPayloadSchema.partial({ name: true, price: true, stockQuantity: true }).parse(req.body)
-    const files = (req.files || []) as Express.Multer.File[]
-    const newImageUrls = files.map((file) => `/uploads/products/${file.filename}`)
+    const files = req.files as Record<string, Express.Multer.File[]> | undefined
+    const imageFiles = files?.images || []
+    const videoFiles = files?.videos || []
+    const newImageUrls = await Promise.all(imageFiles.map((file) => uploadMediaFile(file, 'products')))
+    const newVideoUrls = await Promise.all(videoFiles.map((file) => uploadMediaFile(file, 'products')))
     const keptImages = data.existingImages ? JSON.parse(data.existingImages) as string[] : existing.productImages.map((image) => image.url)
+    const keptVideos = data.existingVideos ? JSON.parse(data.existingVideos) as string[] : existing.productVideos.map((video) => video.url)
     const finalImageUrls = [...keptImages, ...newImageUrls]
+    const finalVideoUrls = [...keptVideos, ...newVideoUrls]
 
     const product = await prisma.product.update({
       where: { id: req.params.id },
@@ -649,6 +678,10 @@ router.put('/products/:id', productImageUpload.array('images', 5), async (req, r
         productImages: {
           deleteMany: {},
           create: finalImageUrls.map((url, index) => ({ url, sortOrder: index, isPrimary: index === 0 })),
+        },
+        productVideos: {
+          deleteMany: {},
+          create: finalVideoUrls.map((url, index) => ({ url, provider: 'cloudinary', sortOrder: index })),
         },
       },
       include: productInclude,
