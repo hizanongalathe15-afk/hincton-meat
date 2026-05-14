@@ -5,7 +5,7 @@ import jwt, { Secret, SignOptions } from 'jsonwebtoken'
 import { prisma } from '../config/prisma'
 import { z } from 'zod'
 import multer from 'multer'
-import { sendPasswordResetEmail } from '../utils/emailService'
+import { sendEmail, sendPasswordResetEmail } from '../utils/emailService'
 import { uploadImage } from '../config/cloudinary'
 import { meatShopMessages, messageText, resolveMessage } from '../messages/meatShopMessages'
 
@@ -148,7 +148,7 @@ const serializeUser = (user: any) => ({
   updatedAt: user.updatedAt,
 })
 
-const signToken = (user: any) => {
+const signToken = (user: any, sessionId?: string) => {
   const options: SignOptions = { expiresIn: (process.env.JWT_EXPIRE as any) || '7d' }
   return jwt.sign(
     {
@@ -156,17 +156,170 @@ const signToken = (user: any) => {
       email: user.email,
       role: getPrimaryRole(user.roles || []) === 'admin' ? 'ADMIN' : 'BUYER',
       roles: user.roles || [],
+      sessionId,
     },
     JWT_SECRET,
     options
   )
 }
 
-const getUserIdFromRequest = (req: express.Request) => {
+const getUserIdFromRequest = async (req: express.Request) => {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return null
   const decoded = jwt.verify(token, JWT_SECRET) as any
+  if (!(await isDecodedSessionActive(decoded))) return null
   return decoded.userId as string
+}
+
+const getSessionIdFromRequest = (req: express.Request) => {
+  const token = req.headers.authorization?.replace('Bearer ', '')
+  if (!token) return null
+  const decoded = jwt.verify(token, JWT_SECRET) as any
+  return decoded.sessionId as string | null
+}
+
+async function isDecodedSessionActive(decoded: any) {
+  if (!decoded.sessionId) return true
+
+  const session = await prisma.userSession.findFirst({
+    where: {
+      id: decoded.sessionId,
+      userId: decoded.userId,
+      isRevoked: false,
+      expiresAt: { gt: new Date() },
+    },
+  })
+
+  if (!session) return false
+
+  await prisma.userSession.update({
+    where: { id: session.id },
+    data: { lastActivity: new Date() },
+  }).catch(() => undefined)
+
+  return true
+}
+
+const getClientIp = (req: express.Request) => {
+  const forwarded = req.headers['x-forwarded-for']
+  return (Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0])?.trim() || req.ip || req.socket.remoteAddress || ''
+}
+
+const inferDeviceType = (userAgent = '') => {
+  const ua = userAgent.toLowerCase()
+  if (/ipad|tablet/.test(ua)) return 'TABLET'
+  if (/mobile|android|iphone|ipod/.test(ua)) return 'MOBILE'
+  if (/smart-tv|smarttv|tv/.test(ua)) return 'SMART_TV'
+  return ua ? 'DESKTOP' : 'UNKNOWN'
+}
+
+const inferDeviceName = (userAgent = '') => {
+  if (/iphone/i.test(userAgent)) return 'iPhone'
+  if (/ipad/i.test(userAgent)) return 'iPad'
+  if (/android/i.test(userAgent)) return 'Android device'
+  if (/windows/i.test(userAgent)) return 'Windows browser'
+  if (/macintosh|mac os/i.test(userAgent)) return 'Mac browser'
+  if (/linux/i.test(userAgent)) return 'Linux browser'
+  return 'Unknown device'
+}
+
+const notifySecurityLogin = async (user: any, session: any, isNewDevice: boolean) => {
+  if (!isNewDevice) return
+
+  const actionUrl = '/profile?tab=security'
+  const title = 'New device signed in'
+  const message = `${session.deviceName || 'A device'} signed in to your Hincton account. Review active devices if this was not you.`
+
+  await prisma.notification.create({
+    data: {
+      userId: user.id,
+      type: 'ACCOUNT',
+      title,
+      message,
+      actionUrl,
+      data: {
+        sessionId: session.id,
+        ipAddress: session.ipAddress,
+        deviceType: session.deviceType,
+        deviceName: session.deviceName,
+      },
+    },
+  }).catch((error) => console.error('Security notification create failed:', error))
+
+  await sendEmail({
+    to: user.email,
+    subject: 'New sign-in to your Hincton account',
+    html: `
+      <p>Hello ${user.profile?.firstName || user.email},</p>
+      <p>${message}</p>
+      <p><strong>Device:</strong> ${session.deviceName || 'Unknown'}<br>
+      <strong>IP:</strong> ${session.ipAddress || 'Unknown'}<br>
+      <strong>Time:</strong> ${new Date(session.createdAt).toLocaleString()}</p>
+      <p><a href="${process.env.FRONTEND_URL || ''}${actionUrl}">Review active devices</a></p>
+    `,
+    text: `${message}\nDevice: ${session.deviceName || 'Unknown'}\nIP: ${session.ipAddress || 'Unknown'}\nReview: ${(process.env.FRONTEND_URL || '') + actionUrl}`,
+  }).catch((error) => console.error('Security email failed:', error))
+
+  if (user.phone && process.env.SMS_WEBHOOK_URL) {
+    await fetch(process.env.SMS_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(process.env.SMS_WEBHOOK_TOKEN ? { Authorization: `Bearer ${process.env.SMS_WEBHOOK_TOKEN}` } : {}),
+      },
+      body: JSON.stringify({
+        to: user.phone,
+        message: `Hincton security alert: ${session.deviceName || 'a device'} signed in. Review devices in your profile.`,
+      }),
+    }).catch((error) => console.error('Security SMS failed:', error))
+  }
+}
+
+const createLoginSession = async (user: any, req: express.Request, loginMethod: 'PASSWORD' | 'PHONE' = 'PASSWORD') => {
+  const ipAddress = getClientIp(req)
+  const userAgent = req.headers['user-agent'] || ''
+  const deviceType = inferDeviceType(userAgent)
+  const deviceName = inferDeviceName(userAgent)
+  const sessionToken = crypto.randomBytes(32).toString('hex')
+  const refreshToken = crypto.randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+
+  const matchingActiveSession = await prisma.userSession.findFirst({
+    where: {
+      userId: user.id,
+      isRevoked: false,
+      expiresAt: { gt: new Date() },
+      userAgent: String(userAgent),
+      ipAddress,
+    },
+  })
+
+  const session = await prisma.userSession.create({
+    data: {
+      userId: user.id,
+      sessionToken,
+      refreshToken,
+      ipAddress,
+      userAgent: String(userAgent),
+      deviceName,
+      deviceType: deviceType as any,
+      expiresAt,
+    },
+  })
+
+  await prisma.loginHistory.create({
+    data: {
+      userId: user.id,
+      ipAddress,
+      userAgent: String(userAgent),
+      deviceType: deviceType as any,
+      loginMethod,
+      status: 'SUCCESS',
+    },
+  }).catch((error) => console.error('Login history create failed:', error))
+
+  await notifySecurityLogin(user, session, !matchingActiveSession)
+  return session
 }
 
 const serializeAddress = (address: any) => ({
@@ -287,10 +440,12 @@ router.post('/register', async (req, res) => {
       include: userInclude,
     })
 
+    const session = await createLoginSession(user, req, 'PASSWORD')
+
     res.status(201).json({
       ...resolveMessage(meatShopMessages.auth.accountCreated),
       user: serializeUser(user),
-      token: signToken(user),
+      token: signToken(user, session.id),
     })
   } catch (error: any) {
     console.error('Registration error:', error)
@@ -375,10 +530,12 @@ router.post('/login', async (req, res) => {
       include: userInclude,
     })
 
+    const session = await createLoginSession(refreshedUser || user, req, 'PASSWORD')
+
     res.json({
       ...resolveMessage(meatShopMessages.auth.welcomeBack, { name: refreshedUser?.profile?.fullName || user.profile?.fullName || user.email }),
       user: serializeUser(refreshedUser || user),
-      token: signToken(refreshedUser || user),
+      token: signToken(refreshedUser || user, session.id),
     })
   } catch (error: any) {
     console.error('Login error:', error)
@@ -463,10 +620,12 @@ router.post('/phone/verify-otp', async (req, res) => {
       include: userInclude,
     })
 
+    const session = await createLoginSession(refreshedUser || user, req, 'PHONE')
+
     res.json({
       message: 'Phone login successful',
       user: serializeUser(refreshedUser || user),
-      token: signToken(refreshedUser || user),
+      token: signToken(refreshedUser || user, session.id),
     })
   } catch (error: any) {
     console.error('Phone OTP verify error:', error)
@@ -552,6 +711,10 @@ router.get('/profile', async (req, res) => {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as any
+    if (!(await isDecodedSessionActive(decoded))) {
+      return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       include: userInclude,
@@ -576,6 +739,10 @@ router.get('/me', async (req, res) => {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as any
+    if (!(await isDecodedSessionActive(decoded))) {
+      return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       include: userInclude,
@@ -592,6 +759,104 @@ router.get('/me', async (req, res) => {
   }
 })
 
+const serializeSession = (session: any, currentSessionId?: string | null) => ({
+  id: session.id,
+  deviceName: session.deviceName || inferDeviceName(session.userAgent || ''),
+  deviceType: session.deviceType || inferDeviceType(session.userAgent || ''),
+  ipAddress: session.ipAddress,
+  userAgent: session.userAgent,
+  createdAt: session.createdAt,
+  lastActivity: session.lastActivity,
+  expiresAt: session.expiresAt,
+  isRevoked: session.isRevoked,
+  isCurrent: session.id === currentSessionId,
+})
+
+router.get('/sessions', async (req, res) => {
+  try {
+    const userId = await getUserIdFromRequest(req)
+    const currentSessionId = getSessionIdFromRequest(req)
+    if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+
+    const sessions = await prisma.userSession.findMany({
+      where: { userId },
+      orderBy: { lastActivity: 'desc' },
+      take: 50,
+    })
+
+    res.json({
+      sessions: sessions.map((session) => serializeSession(session, currentSessionId)),
+      activeCount: sessions.filter((session) => !session.isRevoked && session.expiresAt > new Date()).length,
+    })
+  } catch (error) {
+    console.error('Get sessions error:', error)
+    res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+  }
+})
+
+router.delete('/sessions/:id', async (req, res) => {
+  try {
+    const userId = await getUserIdFromRequest(req)
+    if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+
+    await prisma.userSession.updateMany({
+      where: { id: req.params.id, userId },
+      data: { isRevoked: true },
+    })
+
+    res.json({ message: 'Device session logged out' })
+  } catch (error) {
+    console.error('Revoke session error:', error)
+    res.status(500).json({ error: 'Could not log out device' })
+  }
+})
+
+router.post('/sessions/revoke-others', async (req, res) => {
+  try {
+    const userId = await getUserIdFromRequest(req)
+    const currentSessionId = getSessionIdFromRequest(req)
+    if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+
+    const result = await prisma.userSession.updateMany({
+      where: {
+        userId,
+        id: currentSessionId ? { not: currentSessionId } : undefined,
+        isRevoked: false,
+      },
+      data: { isRevoked: true },
+    })
+
+    res.json({ message: 'Other devices logged out', count: result.count })
+  } catch (error) {
+    console.error('Revoke other sessions error:', error)
+    res.status(500).json({ error: 'Could not log out other devices' })
+  }
+})
+
+router.post('/sessions/:id/accept', async (req, res) => {
+  try {
+    const userId = await getUserIdFromRequest(req)
+    if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+
+    const session = await prisma.userSession.findFirst({ where: { id: req.params.id, userId } })
+    if (!session) return res.status(404).json({ error: 'Session not found' })
+
+    await prisma.notification.updateMany({
+      where: {
+        userId,
+        type: 'ACCOUNT',
+        data: { path: ['sessionId'], equals: req.params.id },
+      } as any,
+      data: { isRead: true, readAt: new Date() },
+    }).catch(() => undefined)
+
+    res.json({ message: 'Device accepted' })
+  } catch (error) {
+    console.error('Accept session error:', error)
+    res.status(500).json({ error: 'Could not accept device' })
+  }
+})
+
 router.put('/profile', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '')
@@ -600,6 +865,10 @@ router.put('/profile', async (req, res) => {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as any
+    if (!(await isDecodedSessionActive(decoded))) {
+      return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+    }
+
     const {
       name,
       firstName: providedFirstName,
@@ -683,6 +952,10 @@ router.post('/profile/avatar', upload.single('avatar'), async (req, res) => {
     if (!req.file) return res.status(400).json(apiMessage(meatShopMessages.system.unknownError))
 
     const decoded = jwt.verify(token, JWT_SECRET) as any
+    if (!(await isDecodedSessionActive(decoded))) {
+      return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+    }
+
     const avatarUrl = (await uploadImage(req.file.buffer, 'hincton/profiles')).url
 
     const user = await prisma.user.update({
@@ -713,6 +986,10 @@ router.put('/change-password', async (req, res) => {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as any
+    if (!(await isDecodedSessionActive(decoded))) {
+      return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+    }
+
     const { currentPassword, newPassword } = changePasswordSchema.parse(req.body)
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
@@ -749,7 +1026,7 @@ router.put('/change-password', async (req, res) => {
 
 router.get('/addresses', async (req, res) => {
   try {
-    const userId = getUserIdFromRequest(req)
+    const userId = await getUserIdFromRequest(req)
     if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
 
     const addresses = await prisma.address.findMany({
@@ -766,7 +1043,7 @@ router.get('/addresses', async (req, res) => {
 
 router.post('/addresses', async (req, res) => {
   try {
-    const userId = getUserIdFromRequest(req)
+    const userId = await getUserIdFromRequest(req)
     if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
 
     const data = addressSchema.parse(req.body)
@@ -803,7 +1080,7 @@ router.post('/addresses', async (req, res) => {
 
 router.put('/addresses/:id', async (req, res) => {
   try {
-    const userId = getUserIdFromRequest(req)
+    const userId = await getUserIdFromRequest(req)
     if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
 
     const data = addressSchema.partial().parse(req.body)
@@ -835,7 +1112,7 @@ router.put('/addresses/:id', async (req, res) => {
 
 router.delete('/addresses/:id', async (req, res) => {
   try {
-    const userId = getUserIdFromRequest(req)
+    const userId = await getUserIdFromRequest(req)
     if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
 
     const result = await prisma.address.updateMany({
@@ -853,7 +1130,7 @@ router.delete('/addresses/:id', async (req, res) => {
 
 router.put('/addresses/:id/default', async (req, res) => {
   try {
-    const userId = getUserIdFromRequest(req)
+    const userId = await getUserIdFromRequest(req)
     if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
 
     const existing = await prisma.address.findFirst({ where: { id: req.params.id, userId, deletedAt: null } })
@@ -871,7 +1148,7 @@ router.put('/addresses/:id/default', async (req, res) => {
 
 router.get('/payment-methods', async (req, res) => {
   try {
-    const userId = getUserIdFromRequest(req)
+    const userId = await getUserIdFromRequest(req)
     if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
 
     const paymentMethods = await prisma.paymentMethod.findMany({
@@ -888,7 +1165,7 @@ router.get('/payment-methods', async (req, res) => {
 
 router.post('/payment-methods', async (req, res) => {
   try {
-    const userId = getUserIdFromRequest(req)
+    const userId = await getUserIdFromRequest(req)
     if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
 
     const data = paymentMethodSchema.parse(req.body)
@@ -918,7 +1195,7 @@ router.post('/payment-methods', async (req, res) => {
 
 router.delete('/payment-methods/:id', async (req, res) => {
   try {
-    const userId = getUserIdFromRequest(req)
+    const userId = await getUserIdFromRequest(req)
     if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
 
     const result = await prisma.paymentMethod.deleteMany({ where: { id: req.params.id, userId } })
@@ -932,7 +1209,7 @@ router.delete('/payment-methods/:id', async (req, res) => {
 
 router.put('/payment-methods/:id/default', async (req, res) => {
   try {
-    const userId = getUserIdFromRequest(req)
+    const userId = await getUserIdFromRequest(req)
     if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
 
     const existing = await prisma.paymentMethod.findFirst({ where: { id: req.params.id, userId } })
@@ -950,7 +1227,7 @@ router.put('/payment-methods/:id/default', async (req, res) => {
 
 router.get('/notification-settings', async (req, res) => {
   try {
-    const userId = getUserIdFromRequest(req)
+    const userId = await getUserIdFromRequest(req)
     if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
 
     const settings = await prisma.userSettings.upsert({ where: { userId }, update: {}, create: { userId } })
@@ -963,7 +1240,7 @@ router.get('/notification-settings', async (req, res) => {
 
 router.put('/notification-settings', async (req, res) => {
   try {
-    const userId = getUserIdFromRequest(req)
+    const userId = await getUserIdFromRequest(req)
     if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
 
     const data = notificationSettingsSchema.parse(req.body)

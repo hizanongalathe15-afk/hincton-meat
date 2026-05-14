@@ -5,7 +5,7 @@ import { Product } from '../types/index'
 import { productsApi } from '../services/buyerApi'
 
 interface BuyerProductDetailProps {
-  onAddToCart?: (product: Product, quantity: number) => void
+  onAddToCart?: (product: Product, quantity: number) => Promise<void>
   onToggleWishlist?: (productId: string) => void
   wishlistItems?: Set<string>
 }

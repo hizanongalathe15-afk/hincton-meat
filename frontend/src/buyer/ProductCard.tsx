@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { MouseEvent } from 'react'
-import { ShoppingCart, Heart, Star, Plus, Minus, MessageCircle } from 'lucide-react'
+import { ShoppingCart, Heart, Star, Plus, Minus, MessageCircle, Loader2 } from 'lucide-react'
 import { Product } from '../types/index'
 import { formatPrice } from '../utils/currency'
 import { useSiteContent } from '../contexts/SiteContentContext'
@@ -8,7 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 
 interface ProductCardProps {
   product: Product
-  onAddToCart?: (product: Product, quantity: number) => void
+  onAddToCart?: (product: Product, quantity: number) => Promise<void>
   onToggleWishlist?: (productId: string) => void
   isInWishlist?: boolean
   className?: string
@@ -42,8 +42,8 @@ const ProductCard = ({
 
   const handleAddToCart = async (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()
-    if (!product.inStock) return
-    
+    if (!product.inStock || isAdding) return
+
     setIsAdding(true)
     try {
       if (onAddToCart) {
@@ -68,7 +68,7 @@ const ProductCard = ({
   const whatsappDigits = (profile.brand.phoneHref || profile.brand.phone || '').replace(/\D/g, '')
   const whatsappPhone = whatsappDigits.startsWith('254') ? whatsappDigits : whatsappDigits.startsWith('0') ? `254${whatsappDigits.slice(1)}` : whatsappDigits
   const whatsappHref = whatsappPhone
-    ? `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(`Hello ${profile.brand.name}, I need help choosing ${product.name}.`)}`
+    ? `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(t('product.whatsappMessage').replace('{brand}', profile.brand.name).replace('{product}', product.name))}`
     : ''
 
   return (
@@ -151,8 +151,8 @@ const ProductCard = ({
               disabled={!product.inStock || isAdding}
               className="flex flex-1 items-center justify-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-400"
             >
-              <ShoppingCart className="h-4 w-4" />
-              {isAdding ? 'Adding...' : 'Add'}
+              {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
+              {isAdding ? t('product.adding') : t('product.add')}
             </button>
           </div>
         </div>
@@ -173,7 +173,7 @@ const ProductCard = ({
         )}
 
         <label className="mb-3 block text-xs font-bold uppercase text-gray-500" onClick={(event) => event.stopPropagation()}>
-          Weight
+          {t('product.weight')}
           <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 p-3">
             <div className="mb-2 flex items-center justify-between text-sm normal-case text-gray-900">
               <span>{selectedWeight.label}</span>
@@ -213,14 +213,14 @@ const ProductCard = ({
         <div className="border-t border-gray-100 pt-4">
           <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
             <div>
-              <span className="block text-[11px] font-bold uppercase tracking-wide text-gray-500">Now</span>
+              <span className="block text-[11px] font-bold uppercase tracking-wide text-gray-500">{t('product.now')}</span>
               <span className="text-xl font-extrabold text-gray-950">
                 {formatPrice(product.price * selectedWeight.multiplier)}
               </span>
             </div>
             {product.originalPrice && product.originalPrice > product.price && (
               <div>
-                <span className="block text-[11px] font-bold uppercase tracking-wide text-gray-500">Before</span>
+                <span className="block text-[11px] font-bold uppercase tracking-wide text-gray-500">{t('product.before')}</span>
                 <span className="text-sm font-semibold text-gray-500 line-through">
                   {formatPrice(product.originalPrice * selectedWeight.multiplier)}
                 </span>
@@ -237,7 +237,7 @@ const ProductCard = ({
             className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-bold text-green-700 hover:bg-green-100"
           >
             <MessageCircle className="h-4 w-4" />
-            WhatsApp us about this cut
+            {t('product.whatsappHelp')}
           </a>
         )}
       </div>

@@ -18,14 +18,15 @@ import {
   ChevronLeft,
   ChevronRight,
   ZoomIn,
-  X
+  X,
+  Loader2
 } from 'lucide-react'
 import { Product } from '../types/index'
-import { formatPriceFromUSD } from '../utils/currency'
+import { formatPrice } from '../utils/currency'
 
 interface ProductDetailsProps {
   product: Product
-  onAddToCart?: (product: Product, quantity: number) => void
+  onAddToCart?: (product: Product, quantity: number) => Promise<void>
   onToggleWishlist?: (productId: string) => void
   isInWishlist?: boolean
 }
@@ -267,11 +268,11 @@ const ProductDetails = ({
           {/* Price */}
           <div className="flex items-center gap-4">
             <span className="text-3xl font-bold text-gray-900">
-              ${product.price.toFixed(2)}
+              {formatPrice(product.price)}
             </span>
             {product.originalPrice && (
               <span className="text-xl text-gray-500 line-through">
-                ${product.originalPrice.toFixed(2)}
+                {formatPrice(product.originalPrice)}
               </span>
             )}
             {product.weight && (
@@ -328,7 +329,7 @@ const ProductDetails = ({
                 disabled={!product.inStock || isAdding}
                 className="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 font-medium"
               >
-                <ShoppingCart className="w-5 h-5" />
+                {isAdding ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShoppingCart className="w-5 h-5" />}
                 {isAdding ? 'Adding to Cart...' : 'Add to Cart'}
               </button>
               <button
@@ -348,7 +349,7 @@ const ProductDetails = ({
               <Truck className="w-5 h-5 text-gray-600" />
               <div>
                 <div className="font-medium text-sm">Free Delivery</div>
-                <div className="text-xs text-gray-500">On orders over {formatPriceFromUSD(50)}</div>
+                <div className="text-xs text-gray-500">On orders over {formatPrice(6500)}</div>
               </div>
             </div>
             <div className="flex items-center gap-2">

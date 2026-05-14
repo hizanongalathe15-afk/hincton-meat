@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useSiteContent } from '../contexts/SiteContentContext'
 import { useTypewriter } from '../utils/animations'
+import { COMPANY_PROFILE, HINCTON_BRAND } from '../utils/hinctonBrand'
 
 interface HeroSectionProps {
   onSearch?: (query: string) => void
@@ -12,8 +13,11 @@ const HeroSection = ({ onSearch }: HeroSectionProps) => {
   const { t } = useLanguage()
   const { profile } = useSiteContent()
   const brand = profile.brand
+  const brandTagline = brand.tagline === HINCTON_BRAND.tagline ? t('brand.tagline') : brand.tagline
+  const brandMantra = brand.mantra === HINCTON_BRAND.mantra ? t('brand.mantra') : brand.mantra
+  const companyProfile = profile.companyProfile === COMPANY_PROFILE ? t('company.profile') : profile.companyProfile
   const { text: typedCompanyProfile, isTyping } = useTypewriter({
-    text: profile.companyProfile,
+    text: companyProfile,
     speed: 26,
     delay: 350,
   })
@@ -34,7 +38,7 @@ const HeroSection = ({ onSearch }: HeroSectionProps) => {
             <div className="mb-8 inline-flex items-center gap-4 rounded bg-white px-4 py-3 shadow-lg">
               <img src={profile.images.logo || brand.logo} alt={brand.name} className="h-16 w-auto" />
               <span className="hidden text-sm font-extrabold uppercase tracking-wide text-[#9f2f20] sm:block">
-                {brand.tagline}
+                {brandTagline}
               </span>
             </div>
             <h1 className="mb-6 text-4xl font-extrabold leading-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
@@ -43,10 +47,10 @@ const HeroSection = ({ onSearch }: HeroSectionProps) => {
             </h1>
             <p
               className="relative mb-8 grid max-w-2xl text-base leading-7 text-gray-100 sm:text-xl sm:leading-8"
-              aria-label={profile.companyProfile}
+              aria-label={companyProfile}
             >
               <span className="invisible col-start-1 row-start-1" aria-hidden="true">
-                {profile.companyProfile}
+                {companyProfile}
               </span>
               <span className="col-start-1 row-start-1" aria-hidden="true">
                 {typedCompanyProfile}
@@ -67,7 +71,7 @@ const HeroSection = ({ onSearch }: HeroSectionProps) => {
                 {t('hero.cta.viewProfile')}
               </Link>
             </div>
-            <p className="mt-10 text-lg font-semibold italic text-white">"{brand.mantra}"</p>
+            <p className="mt-10 text-lg font-semibold italic text-white">"{brandMantra}"</p>
           </div>
         </div>
       </div>

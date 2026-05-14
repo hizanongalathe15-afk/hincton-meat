@@ -68,6 +68,7 @@ const Wishlist: React.FC = () => {
   }
 
   const moveToCart = async (productIds: string[]) => {
+    setMovingIds(productIds)
     try {
       const response = await fetch('/api/wishlist/move-to-cart', {
         method: 'POST',
@@ -87,6 +88,8 @@ const Wishlist: React.FC = () => {
     } catch (error) {
       console.error('Error moving to cart:', error)
       toast.error('Failed to move items to cart')
+    } finally {
+      setMovingIds([])
     }
   }
 
@@ -151,9 +154,14 @@ const Wishlist: React.FC = () => {
                   <>
                     <button
                       onClick={() => moveToCart(selectedItems)}
-                      className="glass-button px-4 py-2 text-sm font-medium text-primary-600 rounded-lg hover:bg-primary-50 flex items-center space-x-2"
+                      disabled={movingIds.length > 0}
+                      className="glass-button px-4 py-2 text-sm font-medium text-primary-600 rounded-lg hover:bg-primary-50 flex items-center space-x-2 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      <ShoppingCart className="w-4 h-4" />
+                      {movingIds.length > 0 ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <ShoppingCart className="w-4 h-4" />
+                      )}
                       <span>{t('wishlist.moveToCart').replace('{count}', selectedItems.length.toString())}</span>
                     </button>
                     <button
@@ -255,10 +263,15 @@ const Wishlist: React.FC = () => {
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => moveToCart([item.product.id])}
-                        className="p-2 glass-button rounded-full hover:bg-primary-500 hover:text-white transition-colors"
+                        disabled={movingIds.length > 0}
+                        className="p-2 glass-button rounded-full hover:bg-primary-500 hover:text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                         title="Add to Cart"
                       >
-                        <ShoppingCart className="w-4 h-4" />
+                        {movingIds.includes(item.product.id) ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        ) : (
+                          <ShoppingCart className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   </div>

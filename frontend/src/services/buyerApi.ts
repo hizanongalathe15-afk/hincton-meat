@@ -233,6 +233,26 @@ export const userApi = {
     return response.data
   },
 
+  getSessions: async () => {
+    const response = await apiClient.get('/auth/sessions')
+    return response.data
+  },
+
+  revokeSession: async (id: string) => {
+    const response = await apiClient.delete(`/auth/sessions/${id}`)
+    return response.data
+  },
+
+  revokeOtherSessions: async () => {
+    const response = await apiClient.post('/auth/sessions/revoke-others')
+    return response.data
+  },
+
+  acceptSession: async (id: string) => {
+    const response = await apiClient.post(`/auth/sessions/${id}/accept`)
+    return response.data
+  },
+
   login: async (data: {
     email: string
     password: string

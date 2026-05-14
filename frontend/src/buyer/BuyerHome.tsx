@@ -7,11 +7,11 @@ import { Product } from '../types/index'
 import { productsApi as api } from '../services/buyerApi'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useSiteContent } from '../contexts/SiteContentContext'
-import { HINCTON_PRODUCTS } from '../utils/hinctonBrand'
+import { HINCTON_BRAND, HINCTON_MARKETS, HINCTON_PRODUCTS, HINCTON_QUALITY_POINTS } from '../utils/hinctonBrand'
 
 interface BuyerHomeProps {
   onProductClick?: (product: Product) => void
-  onAddToCart?: (product: Product, quantity: number) => void
+  onAddToCart?: (product: Product, quantity: number) => Promise<void>
   onToggleWishlist?: (productId: string) => void
   wishlistItems?: Set<string>
 }
@@ -25,6 +25,13 @@ const BuyerHome = ({
   const navigate = useNavigate()
   const { t } = useLanguage()
   const { profile } = useSiteContent()
+  const localizedMarkets = profile.markets.join('|') === HINCTON_MARKETS.join('|')
+    ? HINCTON_MARKETS.map((_, index) => t(`buyerHome.markets.${index}`))
+    : profile.markets
+  const localizedQualityPoints = profile.qualityPoints.join('|') === HINCTON_QUALITY_POINTS.join('|')
+    ? HINCTON_QUALITY_POINTS.map((_, index) => t(`buyerHome.qualityPoints.${index}`))
+    : profile.qualityPoints
+  const brandMantra = profile.brand.mantra === HINCTON_BRAND.mantra ? t('brand.mantra') : profile.brand.mantra
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<any[]>([])
   const [productTiles, setProductTiles] = useState<any[]>([])
@@ -64,7 +71,7 @@ const BuyerHome = ({
           images: product.productImages?.map((img: any) => img.url) || [],
           rating: 4.5, // Would need reviews API
           reviews: 0, // Would need reviews API
-          category: product.category?.name || 'Uncategorized',
+          category: product.category?.name || t('category.uncategorized'),
           categorySlug: product.category?.slug || product.categoryId || product.category?.id,
           inStock: product.stockQuantity > 0,
           stockQuantity: Number(product.stockQuantity) || 0,
@@ -81,10 +88,10 @@ const BuyerHome = ({
         const backendProductTiles = (allProductsData.products || []).map((product: any) => ({
           name: product.name,
           category: product.category?.slug || product.categoryId || product.category?.id || '',
-          description: product.shortDescription || product.description || product.category?.name || 'Fresh Hincton product.',
+          description: product.shortDescription || product.description || product.category?.name || t('buyerHome.products.fallbackProductDescription'),
           image: product.productImages?.[0]?.url || product.images?.[0] || 'https://via.placeholder.com/800x650',
           href: `/product/${product.id}`,
-          cta: 'View Product',
+          cta: t('buyerHome.products.viewProduct'),
         }))
 
         setProductTiles(backendProductTiles)
@@ -110,7 +117,7 @@ const BuyerHome = ({
     }
 
     fetchData()
-  }, [])
+  }, [localizedFallbackCategories, t])
 
   const features = useMemo(
     () => [
@@ -224,12 +231,12 @@ const BuyerHome = ({
             <div className="grid gap-3 sm:grid-cols-2">
               {(['top', 'bottom'] as const).map((row) => (
                 <div key={row} className="flex items-center justify-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{row}</span>
+                  <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{t(`buyerHome.products.row.${row}`)}</span>
                   <button
                     type="button"
                     onClick={() => scrollProductTiles(row, 'left')}
                     className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-800 shadow-sm transition hover:border-red-500 hover:text-red-700"
-                    aria-label={`Scroll ${row} products left`}
+                    aria-label={t('buyerHome.products.scrollLeft').replace('{row}', t(`buyerHome.products.row.${row}`))}
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </button>
@@ -237,7 +244,7 @@ const BuyerHome = ({
                     type="button"
                     onClick={() => scrollProductTiles(row, 'right')}
                     className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-800 shadow-sm transition hover:border-red-500 hover:text-red-700"
-                    aria-label={`Scroll ${row} products right`}
+                    aria-label={t('buyerHome.products.scrollRight').replace('{row}', t(`buyerHome.products.row.${row}`))}
                   >
                     <ChevronRight className="h-5 w-5" />
                   </button>
@@ -246,10 +253,10 @@ const BuyerHome = ({
             </div>
           </div>
 
-          <div className="space-y-6" aria-label={productTiles.length ? 'Products' : 'Product categories'}>
+          <div className="space-y-6" aria-label={productTiles.length ? t('buyerHome.products.productsAria') : t('buyerHome.products.categoriesAria')}>
             {[
-              { ref: topProductScrollerRef, tiles: topProductTiles, label: 'Upper products' },
-              { ref: bottomProductScrollerRef, tiles: bottomProductTiles, label: 'Lower products' },
+              { ref: topProductScrollerRef, tiles: topProductTiles, label: t('buyerHome.products.upperRow') },
+              { ref: bottomProductScrollerRef, tiles: bottomProductTiles, label: t('buyerHome.products.lowerRow') },
             ].map((row) => (
               <div
                 key={row.label}
@@ -292,7 +299,7 @@ const BuyerHome = ({
             <p className="text-sm font-bold uppercase tracking-wide text-red-700">{t('buyerHome.marketPresence')}</p>
             <h2 className="mt-3 text-4xl font-extrabold text-gray-950">{t('buyerHome.marketPresenceTitle')}</h2>
             <div className="mt-8 space-y-5">
-              {profile.markets.map((market) => (
+              {localizedMarkets.map((market) => (
                 <div key={market} className="flex gap-3 text-lg leading-8 text-gray-700">
                   <Globe2 className="mt-1 h-6 w-6 shrink-0 text-red-700" />
                   <p>{market}</p>
@@ -319,7 +326,7 @@ const BuyerHome = ({
             <h2 className="mt-3 text-4xl font-extrabold text-gray-950">{t('buyerHome.processing.title')}</h2>
           </div>
           <div className="space-y-4">
-                {profile.qualityPoints.map((point) => (
+                {localizedQualityPoints.map((point) => (
               <div key={point} className="rounded bg-white p-5 shadow-sm">
                 <p className="text-lg leading-7 text-gray-700">{point}</p>
               </div>
@@ -357,7 +364,7 @@ const BuyerHome = ({
 
       <section className="bg-[#333437] py-20">
         <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
-          <h2 className="text-4xl font-extrabold text-white">{profile.brand.mantra}</h2>
+          <h2 className="text-4xl font-extrabold text-white">{brandMantra}</h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-red-100">
             {t('buyerHome.orderPrompt')}
           </p>

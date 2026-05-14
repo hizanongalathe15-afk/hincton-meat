@@ -7,7 +7,7 @@ import { getApiErrorMessage } from '../services/api'
 
 interface CartContextType {
   items: CartItem[]
-  addItem: (product: Product, quantity: number) => void
+  addItem: (product: Product, quantity: number) => Promise<void>
   removeItem: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
   clearCart: (askConfirmation?: boolean) => void
@@ -70,24 +70,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user])
 
-  const addItem = (product: Product, quantity: number) => {
+  const addItem = async (product: Product, quantity: number): Promise<void> => {
     if (!product.inStock) {
       toast.error('This item is out of stock.')
       return
     }
 
-    cartApi.addToCart({ productId: product.id, quantity })
-      .then((response) => {
-        toast.success(response?.message || `Added ${quantity} ${product.name} to cart.`)
-        return cartApi.getCart()
-      })
-      .then((data) => {
-        setItems(mapBackendCartItems(data))
-      })
-      .catch((error) => {
-        console.error('Failed to save cart item:', error)
-        toast.error(getApiErrorMessage(error, 'Could not save cart item.'))
-      })
+    try {
+      const response = await cartApi.addToCart({ productId: product.id, quantity })
+      toast.success(response?.message || `Added ${quantity} ${product.name} to cart.`)
+      const data = await cartApi.getCart()
+      setItems(mapBackendCartItems(data))
+    } catch (error) {
+      console.error('Failed to save cart item:', error)
+      toast.error(getApiErrorMessage(error, 'Could not save cart item.'))
+      throw error
+    }
   }
 
   const removeItem = (productId: string) => {

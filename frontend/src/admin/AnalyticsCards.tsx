@@ -6,7 +6,7 @@ import {
   ArrowUp,
   ArrowDown
 } from 'lucide-react'
-import { formatPriceFromUSD } from '../utils/currency'
+import { formatPrice } from '../utils/currency'
 import { useEffect, useState } from 'react'
 import { analyticsApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
@@ -52,7 +52,7 @@ const AnalyticsCards = ({
         const transformedCards: AnalyticsCard[] = [
           {
             title: 'Total Revenue',
-            value: formatPriceFromUSD(data.totalRevenue || 0),
+            value: formatPrice(data.totalRevenue || 0),
             change: 12.5, // TODO: Calculate from API
             changeType: 'increase',
             icon: TrendingUp,
@@ -274,7 +274,7 @@ const AnalyticsCards = ({
           </div>
           <div className="text-center">
             <div className="text-3xl font-bold text-orange-600 mb-1">
-              {dashboardStats?.avgOrderValue != null ? formatPriceFromUSD(dashboardStats.avgOrderValue) : '—'}
+              {dashboardStats?.avgOrderValue != null ? formatPrice(dashboardStats.avgOrderValue) : '—'}
             </div>
             <p className="text-sm text-gray-600">Avg Order Value</p>
           </div>
@@ -299,7 +299,7 @@ const AnalyticsCards = ({
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900">{formatPriceFromUSD(product.revenue)}</p>
+                    <p className="font-semibold text-gray-900">{formatPrice(product.revenue)}</p>
                     <p className="text-sm text-green-600">Top seller</p>
                   </div>
                 </div>
@@ -337,7 +337,7 @@ const AnalyticsCards = ({
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Avg Order Value</span>
               <div className="text-right">
-                <p className="font-semibold">{dashboardStats?.avgOrderValue != null ? formatPriceFromUSD(dashboardStats.avgOrderValue) : '—'}</p>
+                <p className="font-semibold">{dashboardStats?.avgOrderValue != null ? formatPrice(dashboardStats.avgOrderValue) : '—'}</p>
                 <p className="text-sm text-gray-500">Based on current orders</p>
               </div>
             </div>

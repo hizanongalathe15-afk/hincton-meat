@@ -3,6 +3,7 @@ import { RefreshCw } from 'lucide-react'
 import OrderTable from './OrderTable'
 import { ordersApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
+import { formatPrice } from '../utils/currency'
 
 type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
 type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
@@ -235,7 +236,7 @@ const OrdersPage = ({
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-600 mb-1">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">KSh {totalRevenue.toLocaleString('en-US', {maximumFractionDigits: 0})}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatPrice(totalRevenue)}</p>
             </div>
             <div className="bg-green-500 p-3 rounded-full">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6 text-white">
@@ -250,7 +251,7 @@ const OrdersPage = ({
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-600 mb-1">Avg Order Value</p>
-              <p className="text-2xl font-bold text-gray-900">KSh {averageOrderValue.toLocaleString('en-US', {maximumFractionDigits: 0})}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatPrice(averageOrderValue)}</p>
             </div>
             <div className="bg-purple-500 p-3 rounded-full">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6 text-white">

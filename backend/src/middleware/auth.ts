@@ -45,6 +45,27 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
       email: string
       role: string
       roles?: RoleValue[]
+      sessionId?: string
+    }
+
+    if (decoded.sessionId) {
+      const session = await prisma.userSession.findFirst({
+        where: {
+          id: decoded.sessionId,
+          userId: decoded.userId,
+          isRevoked: false,
+          expiresAt: { gt: new Date() },
+        },
+      })
+
+      if (!session) {
+        return res.status(401).json({ error: 'Session expired or revoked. Please log in again.' })
+      }
+
+      await prisma.userSession.update({
+        where: { id: decoded.sessionId },
+        data: { lastActivity: new Date() },
+      }).catch(() => undefined)
     }
 
     const user = await prisma.user.findUnique({
@@ -85,6 +106,23 @@ export const optionalAuthenticate = async (req: AuthRequest, _res: Response, nex
       email: string
       role: string
       roles?: RoleValue[]
+      sessionId?: string
+    }
+
+    if (decoded.sessionId) {
+      const session = await prisma.userSession.findFirst({
+        where: {
+          id: decoded.sessionId,
+          userId: decoded.userId,
+          isRevoked: false,
+          expiresAt: { gt: new Date() },
+        },
+      })
+      if (!session) return next()
+      await prisma.userSession.update({
+        where: { id: decoded.sessionId },
+        data: { lastActivity: new Date() },
+      }).catch(() => undefined)
     }
 
     const user = await prisma.user.findUnique({

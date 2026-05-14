@@ -15,6 +15,7 @@ import {
   Upload,
   RefreshCw
 } from 'lucide-react'
+import { formatPrice } from '../utils/currency'
 
 interface InventoryItem {
   id: string
@@ -330,7 +331,7 @@ const InventoryManager = ({
               <DollarSign className="w-4 h-4 text-green-600" />
               <span className="text-sm text-gray-600">Total Value</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900">${totalInventoryValue.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-gray-900">{formatPrice(totalInventoryValue)}</p>
           </div>
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-1">
@@ -477,12 +478,12 @@ const InventoryManager = ({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
-                      ${item.unitPrice.toFixed(2)}
+                      {formatPrice(item.unitPrice)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
-                      ${item.totalValue.toFixed(2)}
+                      {formatPrice(item.totalValue)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

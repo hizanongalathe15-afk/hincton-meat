@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Camera, User, Mail, Phone, ShoppingBag, Heart, Package, Settings, MapPin, Eye, EyeOff, Save, Trash2, Plus, Bell, CreditCard } from 'lucide-react';
+import { Camera, User, Mail, Phone, ShoppingBag, Heart, Package, Settings, MapPin, Eye, EyeOff, Save, Trash2, Plus, Bell, CreditCard, ShieldCheck, Monitor, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import { ordersApi, userApi, wishlistApi } from '../services/buyerApi';
@@ -8,6 +8,7 @@ import { locationService, ProfileUpdateData } from '../services/locationService'
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog';
 import ConfirmationDialog from '../components/ui/ConfirmationDialog';
 import { getApiHost } from '../services/api';
+import { formatPrice } from '../utils/currency';
 
 interface UserProfile {
   id: string;
@@ -72,6 +73,18 @@ interface UserProfile {
     promotions: boolean;
     newsletter: boolean;
   };
+  sessions?: Array<{
+    id: string;
+    deviceName: string;
+    deviceType: string;
+    ipAddress?: string;
+    userAgent?: string;
+    createdAt: string;
+    lastActivity: string;
+    expiresAt: string;
+    isRevoked: boolean;
+    isCurrent: boolean;
+  }>;
 }
 
 const EnhancedProfilePage: React.FC = () => {
@@ -81,7 +94,7 @@ const EnhancedProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'settings' | 'addresses' | 'payments' | 'notifications'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'settings' | 'addresses' | 'payments' | 'notifications' | 'security'>('orders');
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -121,12 +134,13 @@ const EnhancedProfilePage: React.FC = () => {
 
     const fetchProfile = async () => {
       try {
-        const [profileResponse, ordersResponse, wishlistResponse, addressesResponse, paymentsResponse] = await Promise.all([
+        const [profileResponse, ordersResponse, wishlistResponse, addressesResponse, paymentsResponse, sessionsResponse] = await Promise.all([
           userApi.getProfile(),
           ordersApi.getMyOrders().catch(() => ({ orders: [] })),
           wishlistApi.getWishlist().catch(() => ({ wishlist: { items: [] } })),
           userApi.getAddresses().catch(() => ({ addresses: [] })),
-          userApi.getPaymentMethods().catch(() => ({ paymentMethods: [] }))
+          userApi.getPaymentMethods().catch(() => ({ paymentMethods: [] })),
+          userApi.getSessions().catch(() => ({ sessions: [] }))
         ])
         
         const apiUser = profileResponse.user
@@ -158,6 +172,7 @@ const EnhancedProfilePage: React.FC = () => {
           })),
           addresses: addressesResponse.addresses || [],
           paymentMethods: paymentsResponse.paymentMethods || [],
+          sessions: sessionsResponse.sessions || [],
           notifications: apiUser.notifications || {
             email: true,
             sms: false,
@@ -180,7 +195,7 @@ const EnhancedProfilePage: React.FC = () => {
 
   useEffect(() => {
     const tab = searchParams.get('tab')
-    if (tab === 'orders' || tab === 'wishlist' || tab === 'settings' || tab === 'addresses' || tab === 'payments' || tab === 'notifications') {
+    if (tab === 'orders' || tab === 'wishlist' || tab === 'settings' || tab === 'addresses' || tab === 'payments' || tab === 'notifications' || tab === 'security') {
       setActiveTab(tab)
     }
   }, [searchParams])
@@ -475,6 +490,41 @@ const EnhancedProfilePage: React.FC = () => {
     }
   }
 
+  const refreshSessions = async () => {
+    const response = await userApi.getSessions()
+    setProfile(prev => prev ? { ...prev, sessions: response.sessions || [] } : null)
+  }
+
+  const handleRevokeSession = async (sessionId: string) => {
+    try {
+      await userApi.revokeSession(sessionId)
+      toast.success('Device logged out')
+      await refreshSessions()
+    } catch {
+      toast.error('Could not log out device')
+    }
+  }
+
+  const handleAcceptSession = async (sessionId: string) => {
+    try {
+      await userApi.acceptSession(sessionId)
+      toast.success('Device accepted')
+      await refreshSessions()
+    } catch {
+      toast.error('Could not accept device')
+    }
+  }
+
+  const handleRevokeOtherSessions = async () => {
+    try {
+      await userApi.revokeOtherSessions()
+      toast.success('Other devices logged out')
+      await refreshSessions()
+    } catch {
+      toast.error('Could not log out other devices')
+    }
+  }
+
   const handleViewOrder = (orderId: string) => {
     navigate(`/order-tracking/${orderId}`);
   };
@@ -625,6 +675,15 @@ const EnhancedProfilePage: React.FC = () => {
                   <Bell className="w-5 h-5" />
                   <span>Notifications</span>
                 </button>
+                <button
+                  onClick={() => setActiveTab('security')}
+                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left ${
+                    activeTab === 'security' ? 'bg-red-50 text-red-700' : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <ShieldCheck className="w-5 h-5" />
+                  <span>Security Devices</span>
+                </button>
               </nav>
             </div>
           </div>
@@ -668,7 +727,7 @@ const EnhancedProfilePage: React.FC = () => {
                               {new Date(order.createdAt).toLocaleDateString()}
                             </p>
                             <p className="text-sm font-medium">
-                              KES {order.totalAmount.toLocaleString()}
+                              {formatPrice(order.totalAmount)}
                             </p>
                             {order.items && order.items.length > 0 && (
                               <p className="text-xs text-gray-500 mt-1">
@@ -743,7 +802,7 @@ const EnhancedProfilePage: React.FC = () => {
                         
                         <h3 className="font-medium text-gray-900 mb-2">{item.product.name}</h3>
                         <p className="text-lg font-semibold text-gray-900 mb-3">
-                          KES {item.product.price.toLocaleString()}
+                          {formatPrice(item.product.price)}
                         </p>
                         
                         <div className="flex space-x-2">
@@ -1243,6 +1302,71 @@ const EnhancedProfilePage: React.FC = () => {
                       </label>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'security' && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">Signed-in devices</h2>
+                    <p className="mt-1 text-sm text-gray-600">Review every active account session and log out anything you do not recognize.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRevokeOtherSessions}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Log out other devices
+                  </button>
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  {(profile.sessions || []).length === 0 ? (
+                    <p className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600">No device sessions found.</p>
+                  ) : (
+                    profile.sessions?.map((session) => (
+                      <div key={session.id} className={`rounded-lg border p-4 ${session.isRevoked ? 'border-gray-200 bg-gray-50 opacity-70' : session.isCurrent ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'}`}>
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700">
+                              <Monitor className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-semibold text-gray-900">{session.deviceName || session.deviceType || 'Unknown device'}</p>
+                                {session.isCurrent && <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">Current</span>}
+                                {session.isRevoked && <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-bold text-gray-600">Logged out</span>}
+                              </div>
+                              <p className="mt-1 text-sm text-gray-600">{session.ipAddress || 'Unknown IP'}</p>
+                              <p className="mt-1 text-xs text-gray-500">Last active {new Date(session.lastActivity).toLocaleString()}</p>
+                              <p className="mt-1 line-clamp-1 text-xs text-gray-400">{session.userAgent}</p>
+                            </div>
+                          </div>
+                          {!session.isRevoked && (
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleAcceptSession(session.id)}
+                                className="rounded-lg border border-green-200 px-3 py-2 text-sm font-semibold text-green-700 hover:bg-green-50"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRevokeSession(session.id)}
+                                className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+                              >
+                                Log out
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}

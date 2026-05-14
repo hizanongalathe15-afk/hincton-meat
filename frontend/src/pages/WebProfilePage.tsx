@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Award, Beef, Globe2, Mail, MapPin, Phone, ShieldCheck, ShoppingBag, Snowflake, Truck } from 'lucide-react'
 import { profileApi } from '../services/buyerApi'
 import { defaultSiteProfile, SiteProfile, useSiteContent } from '../contexts/SiteContentContext'
+import { formatPrice } from '../utils/currency'
 
 interface WebProfileData {
   profile?: Partial<SiteProfile>
@@ -196,7 +197,7 @@ const WebProfilePage = () => {
                     <h3 className="mt-2 text-2xl font-extrabold text-gray-950">{product.name}</h3>
                     <p className="mt-3 line-clamp-2 text-gray-600">{product.shortDescription || product.description || 'Fresh Hincton Meat Products catalog item.'}</p>
                     <div className="mt-5 flex items-center justify-between font-bold">
-                      <span className="text-[#9f2f20]">KES {Number(product.price).toLocaleString()}</span>
+                      <span className="text-[#9f2f20]">{formatPrice(Number(product.price) || 0)}</span>
                       <span className="text-sm text-gray-500">{product.stockQuantity} available</span>
                     </div>
                   </div>

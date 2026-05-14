@@ -9,6 +9,7 @@ import {
 import { useEffect, useState } from 'react'
 import { dashboardApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
+import { formatPrice } from '../utils/currency'
 
 interface StatCard {
   title: string
@@ -121,7 +122,7 @@ const DashboardStats = ({ stats, loading = false }: DashboardStatsProps) => {
   const statCards: StatCard[] = [
     {
       title: 'Total Revenue',
-      value: `$${data.revenue.current.toLocaleString()}`,
+      value: formatPrice(data.revenue.current),
       change: data.revenue.change,
       changeType: data.revenue.change >= 0 ? 'increase' : 'decrease',
       icon: DollarSign,

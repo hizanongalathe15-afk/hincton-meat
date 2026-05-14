@@ -1,4 +1,5 @@
 import { api } from './api'
+import { formatPrice } from '../utils/currency'
 
 export interface SearchResult {
   id: string
@@ -55,7 +56,7 @@ export const adminSearchService = {
             id: product.id,
             type: 'product',
             title: product.name,
-            subtitle: `₦${product.price?.toLocaleString()}`,
+            subtitle: formatPrice(Number(product.price) || 0),
             data: product
           })
         })
@@ -69,7 +70,7 @@ export const adminSearchService = {
             id: order.id,
             type: 'order',
             title: `Order #${order.orderNumber || order.id.slice(0, 8)}`,
-            subtitle: `₦${order.total?.toLocaleString()}`,
+            subtitle: formatPrice(Number(order.total) || 0),
             data: order
           })
         })

@@ -10,7 +10,7 @@ import { HINCTON_PRODUCTS } from '../utils/hinctonBrand'
 
 interface BuyerShopProps {
   onProductClick?: (product: Product) => void
-  onAddToCart?: (product: Product, quantity: number) => void
+  onAddToCart?: (product: Product, quantity: number) => Promise<void>
   onToggleWishlist?: (productId: string) => void
   wishlistItems?: Set<string>
 }

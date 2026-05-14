@@ -9,7 +9,7 @@ import {
   Crown
 } from 'lucide-react'
 import { usersApi } from '../services/adminApi'
-import { formatPriceFromUSD } from '../utils/currency'
+import { formatPrice } from '../utils/currency'
 
 interface AdminUser {
   id: string
@@ -274,7 +274,7 @@ const UsersPage = ({
                     {user.totalOrders}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ${formatPriceFromUSD(user.totalSpent)}
+                    {formatPrice(user.totalSpent)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {formatDate(user.lastLogin)}

@@ -8,6 +8,7 @@ import { useConfirmationDialog } from '../hooks/useConfirmationDialog';
 import ConfirmationDialog from '../components/ui/ConfirmationDialog';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getApiHost } from '../services/api';
+import { formatPrice } from '../utils/currency';
 
 interface UserProfile {
   id: string;
@@ -471,7 +472,7 @@ const ProfilePage: React.FC = () => {
                               {new Date(order.createdAt).toLocaleDateString()}
                             </p>
                             <p className="text-sm font-medium">
-                              KES {order.totalAmount.toLocaleString()}
+                              {formatPrice(order.totalAmount)}
                             </p>
                           </div>
                           
@@ -529,7 +530,7 @@ const ProfilePage: React.FC = () => {
                         
                         <h3 className="font-medium text-gray-900 mb-2">{item.product.name}</h3>
                         <p className="text-lg font-semibold text-gray-900 mb-3">
-                          KES {item.product.price.toLocaleString()}
+                          {formatPrice(item.product.price)}
                         </p>
                         
                         <div className="flex space-x-2">

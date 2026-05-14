@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Heart, Star, Truck, Shield, RefreshCw } from 'lucide-react';
+import { ShoppingCart, Heart, Star, Truck, Shield, RefreshCw, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useLanguage } from '../contexts/LanguageContext';
+import { formatPrice } from '../utils/currency';
+import { cartApi } from '../services/buyerApi';
 
 interface Product {
   id: string;
@@ -41,6 +43,7 @@ const ProductDetailPage: React.FC = () => {
   const [quantity, setQuantity] = useState(1);
   const [weight, setWeight] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
     // Mock product data - replace with API call
@@ -82,16 +85,24 @@ const ProductDetailPage: React.FC = () => {
     }, 1000);
   }, [id]);
 
-  const handleAddToCart = () => {
-    if (!product) return;
-    
-    // Mock add to cart - replace with API call
-    toast.success(`${product.name} added to cart!`);
+  const handleAddToCart = async () => {
+    if (!product || isAdding) return;
+
+    setIsAdding(true)
+    try {
+      await cartApi.addToCart({ productId: product.id, quantity })
+      toast.success(`${product.name} added to cart!`)
+    } catch (error) {
+      console.error('Failed to add product to cart:', error)
+      toast.error('Failed to add this product to your cart. Please try again.')
+    } finally {
+      setIsAdding(false)
+    }
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     if (!product) return;
-    handleAddToCart();
+    await handleAddToCart();
     navigate('/checkout');
   };
 
@@ -183,11 +194,11 @@ const ProductDetailPage: React.FC = () => {
             <div className="space-y-2">
               <div className="flex items-center space-x-3">
                 <span className="text-3xl font-bold text-gray-900">
-                  KES {product.price.toLocaleString()}
+                  {formatPrice(product.price)}
                 </span>
                 {product.originalPrice && (
                   <span className="text-xl text-gray-500 line-through">
-                    KES {product.originalPrice.toLocaleString()}
+                    {formatPrice(product.originalPrice)}
                   </span>
                 )}
               </div>
@@ -258,10 +269,11 @@ const ProductDetailPage: React.FC = () => {
               </button>
               <button
                 onClick={handleAddToCart}
-                className="w-full bg-gray-100 text-gray-900 py-3 px-6 rounded-lg font-semibold hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2"
+                disabled={isAdding}
+                className="w-full bg-gray-100 text-gray-900 py-3 px-6 rounded-lg font-semibold hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2 disabled:cursor-not-allowed disabled:opacity-80"
               >
-                <ShoppingCart className="h-5 w-5" />
-                <span>{t('productDetail.addToCart')}</span>
+                {isAdding ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShoppingCart className="h-5 w-5" />}
+                <span>{isAdding ? 'Adding...' : t('productDetail.addToCart')}</span>
               </button>
             </div>
 

@@ -1,13 +1,13 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ShoppingCart, Heart, Play, Star, Truck } from 'lucide-react'
+import { ShoppingCart, Heart, Play, Star, Truck, Loader2 } from 'lucide-react'
 import { formatCurrency } from '../utils/helpers'
 import { Product } from '../types/index'
 import { useLanguage } from '../contexts/LanguageContext'
 
 interface ProductCardProps {
   product: Product
-  onAddToCart?: (product: Product, quantity: number) => void
+  onAddToCart?: (product: Product, quantity: number) => Promise<void>
   onToggleWishlist?: (productId: string) => void
   isInWishlist?: boolean
 }
@@ -20,12 +20,18 @@ const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const { t } = useLanguage()
   const { id, name, description, price, image, inStock = true } = product
+  const [isAdding, setIsAdding] = useState(false)
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAddToCart = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
     e.stopPropagation()
-    if (onAddToCart && inStock) {
-      onAddToCart(product, 1)
+    if (!onAddToCart || !inStock || isAdding) return
+
+    setIsAdding(true)
+    try {
+      await onAddToCart(product, 1)
+    } finally {
+      setIsAdding(false)
     }
   }
 
@@ -122,15 +128,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
         <button
           onClick={handleAddToCart}
-          disabled={!inStock}
+          disabled={!inStock || isAdding}
           className={`w-full py-3 rounded-sm font-medium transition-colors flex items-center justify-center gap-2 ${
             inStock
               ? 'bg-black text-white hover:bg-gray-800'
               : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-          }`}
+          } ${isAdding ? 'cursor-not-allowed opacity-80' : ''}`}
         >
-          <ShoppingCart className="w-4 h-4" />
-          {inStock ? t('product.addToCart') : t('product.outOfStock')}
+          {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
+          {isAdding ? 'Adding...' : inStock ? t('product.addToCart') : t('product.outOfStock')}
         </button>
       </div>
     </Link>

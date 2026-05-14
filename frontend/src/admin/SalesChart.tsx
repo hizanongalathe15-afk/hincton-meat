@@ -16,6 +16,7 @@ import {
 import { Calendar, TrendingUp, DollarSign } from 'lucide-react'
 import { analyticsApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
+import { formatPrice } from '../utils/currency'
 
 interface SalesData {
   date: string
@@ -112,7 +113,7 @@ const SalesChart = ({
           <p className="font-medium text-gray-900 mb-2">{label}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: {entry.name === 'Revenue' ? `$${entry.value.toLocaleString()}` : entry.value}
+              {entry.name}: {entry.name === 'Revenue' ? formatPrice(entry.value) : entry.value}
             </p>
           ))}
         </div>
@@ -188,7 +189,7 @@ const SalesChart = ({
               <span className="text-sm text-gray-600">Total Revenue</span>
             </div>
             <p className="text-2xl font-bold text-gray-900">
-              ${totalRevenue.toLocaleString()}
+              {formatPrice(totalRevenue)}
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-4">
@@ -206,7 +207,7 @@ const SalesChart = ({
               <span className="text-sm text-gray-600">Avg Order Value</span>
             </div>
             <p className="text-2xl font-bold text-gray-900">
-              ${avgOrderValue.toFixed(2)}
+              {formatPrice(avgOrderValue)}
             </p>
           </div>
         </div>

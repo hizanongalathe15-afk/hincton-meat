@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
-import { RefreshCw, Plus } from 'lucide-react'
+import { RefreshCw, Plus, X, ExternalLink } from 'lucide-react'
 import ProductTable from './ProductTable'
 import ProductModal from './ProductModal'
 import { productsApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog'
 import ConfirmationDialog from '../components/ui/ConfirmationDialog'
+import { formatPrice } from '../utils/currency'
+import { getApiHost } from '../services/api'
 
 interface ProductsPageProps {
   onEditProduct?: (product: any) => void
@@ -47,12 +49,14 @@ const ProductsPage = ({
 }: ProductsPageProps) => {
   const [products, setProducts] = useState<Product[]>([])
   const [selectedProduct, setSelectedProduct] = useState<any>(null)
+  const [viewProduct, setViewProduct] = useState<Product | null>(null)
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(true)
   const { isOpen, options, confirm, handleConfirm, handleCancel } = useConfirmationDialog()
+  const API_HOST = getApiHost()
 
   const fetchProducts = async () => {
       try {
@@ -143,7 +147,7 @@ const ProductsPage = ({
   }
 
   const handleView = (product: any) => {
-    console.log('View product:', product)
+    setViewProduct(product)
     onViewProduct?.(product)
   }
 
@@ -476,6 +480,78 @@ const ProductsPage = ({
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveProduct}
       />
+
+      {viewProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">{viewProduct.name}</h2>
+                <p className="text-sm text-gray-500">SKU: {viewProduct.sku || 'Not set'}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewProduct(null)}
+                className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                aria-label="Close product preview"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="grid max-h-[calc(92vh-73px)] overflow-y-auto lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="bg-gray-100">
+                <img
+                  src={viewProduct.image?.startsWith('http') ? viewProduct.image : `${API_HOST}${viewProduct.image}`}
+                  alt={viewProduct.name}
+                  className="h-full min-h-[22rem] w-full object-contain"
+                />
+              </div>
+              <div className="space-y-5 p-6">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">Price</p>
+                  <p className="mt-1 text-3xl font-extrabold text-gray-950">{formatPrice(viewProduct.price)}</p>
+                  {viewProduct.originalPrice && (
+                    <p className="mt-1 text-sm text-gray-500 line-through">{formatPrice(viewProduct.originalPrice)}</p>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-lg bg-gray-50 p-4">
+                    <p className="text-xs font-bold uppercase text-gray-500">Category</p>
+                    <p className="mt-1 font-semibold text-gray-900">{viewProduct.category}</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 p-4">
+                    <p className="text-xs font-bold uppercase text-gray-500">Stock</p>
+                    <p className="mt-1 font-semibold text-gray-900">{viewProduct.stock} units</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 p-4">
+                    <p className="text-xs font-bold uppercase text-gray-500">Status</p>
+                    <p className="mt-1 font-semibold capitalize text-gray-900">{viewProduct.status.replace('_', ' ')}</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 p-4">
+                    <p className="text-xs font-bold uppercase text-gray-500">Sales</p>
+                    <p className="mt-1 font-semibold text-gray-900">{viewProduct.sales}</p>
+                  </div>
+                </div>
+                <p className="text-sm leading-6 text-gray-600">
+                  {viewProduct.raw?.description || viewProduct.raw?.shortDescription || 'No product description is saved yet.'}
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <button type="button" onClick={() => handleEdit(viewProduct)} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
+                    Edit product
+                  </button>
+                  <button type="button" onClick={() => handleRestock(viewProduct)} className="rounded-lg bg-green-600 px-4 py-2 text-sm font-bold text-white hover:bg-green-700">
+                    Restock
+                  </button>
+                  <a href={`/product/${viewProduct.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50">
+                    Open storefront <ExternalLink className="h-4 w-4" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmationDialog
         isOpen={isOpen}
