@@ -1,7 +1,7 @@
 import axios from 'axios'
-import { getApiErrorMessage } from './api'
+import { API_URL, getApiErrorMessage } from './api'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+const API_BASE_URL = API_URL
 
 // Create axios instance with auth
 const apiClient = axios.create({

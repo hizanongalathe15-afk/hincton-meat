@@ -1,15 +1,22 @@
 import axios from 'axios'
 
 export const VITE_API_URL = import.meta.env.VITE_API_URL || import.meta.env.NEXT_PUBLIC_API_URL
-export const API_URL = VITE_API_URL || '/api'
+
+export const normalizeApiUrl = (url?: string): string => {
+  const trimmed = url?.trim().replace(/\/+$/, '')
+  if (!trimmed) return '/api'
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`
+}
+
+export const API_URL = normalizeApiUrl(VITE_API_URL)
 
 export const getApiHost = (): string => {
   if (typeof window === 'undefined') {
-    return VITE_API_URL || ''
+    return API_URL === '/api' ? '' : API_URL.replace(/\/api\/?$/, '')
   }
 
-  if (VITE_API_URL) {
-    return VITE_API_URL.replace(/\/api\/?$/, '')
+  if (API_URL !== '/api') {
+    return API_URL.replace(/\/api\/?$/, '')
   }
 
   return window.location.origin
