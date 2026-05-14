@@ -98,7 +98,7 @@ const Navigation = () => {
             {/* Brand/Logo Section */}
             <Link to={homePath} className="flex items-center gap-3 flex-shrink-0">
               <img src={profile.images.logo || profile.brand.logo} alt={profile.brand.name} className="h-10 w-auto sm:h-12" />
-              <span className="text-base sm:text-lg font-extrabold uppercase tracking-normal text-gray-900 truncate max-w-[10rem]">
+              <span className="max-w-[10rem] truncate text-base font-extrabold uppercase tracking-normal text-gray-900 sm:text-lg lg:max-w-none lg:whitespace-nowrap">
                 {profile.brand.name}
               </span>
             </Link>

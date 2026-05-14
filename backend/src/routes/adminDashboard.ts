@@ -22,8 +22,11 @@ ensureDirectory(productUploadPath)
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => file.mimetype.startsWith('image/') ? cb(null, true) : cb(new Error('Only image files are allowed')),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) return cb(null, true)
+    cb(new Error('Only image, GIF, sticker, or video files are allowed'))
+  },
 })
 
 const slugify = (input: string) =>
@@ -51,6 +54,29 @@ const storeUploadedImages = async (files: Express.Multer.File[], folder = 'hinct
         urls.push(`/${localPath.replace(/\\/g, '/')}`)
       } catch (writeError) {
         console.warn(`Unable to write fallback local image ${localPath}:`, writeError)
+      }
+    }
+  }
+
+  return urls
+}
+
+const storeUploadedMedia = async (files: Express.Multer.File[], folder = 'hincton/products') => {
+  const urls: string[] = []
+
+  for (const file of files) {
+    try {
+      const uploaded = await uploadImage(file.buffer, folder)
+      urls.push(uploaded.url)
+    } catch (error) {
+      const filename = `${file.fieldname}-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`
+      ensureDirectory(productUploadPath)
+      const localPath = path.join(productUploadPath, filename)
+      try {
+        fs.writeFileSync(localPath, file.buffer)
+        urls.push(`/${localPath.replace(/\\/g, '/')}`)
+      } catch (writeError) {
+        console.warn(`Unable to write fallback local media ${localPath}:`, writeError)
       }
     }
   }
@@ -456,6 +482,7 @@ router.get('/products', async (req, res) => {
         include: {
           category: { select: { id: true, name: true } },
           productImages: { select: { id: true, url: true, alt: true } },
+          productVideos: { select: { id: true, url: true, provider: true, thumbnail: true, title: true, sortOrder: true }, orderBy: { sortOrder: 'asc' } },
           _count: { select: { orderItems: true } }
         }
       }),
@@ -479,6 +506,7 @@ router.get('/products/:id', async (req, res) => {
       include: {
         category: true,
         productImages: true,
+        productVideos: true,
         _count: { select: { orderItems: true } },
       },
     })
@@ -490,7 +518,7 @@ router.get('/products/:id', async (req, res) => {
   }
 })
 
-router.post('/products', upload.array('images', 8), async (req, res) => {
+router.post('/products', upload.fields([{ name: 'images', maxCount: 8 }, { name: 'videos', maxCount: 4 }]), async (req, res) => {
   try {
     const productData = z.object({
       name: z.string().min(1),
@@ -506,8 +534,9 @@ router.post('/products', upload.array('images', 8), async (req, res) => {
       unit: z.string().optional(),
     }).parse(req.body)
 
-    const files = (req.files ?? []) as Express.Multer.File[]
-    const imageUrls = await storeUploadedImages(files)
+    const uploadedFiles = (req.files ?? {}) as Record<string, Express.Multer.File[]>
+    const imageUrls = await storeUploadedImages(uploadedFiles.images || [])
+    const videoUrls = await storeUploadedMedia(uploadedFiles.videos || [], 'hincton/products/videos')
     const sku = productData.sku?.trim() || `HMP-${Date.now()}`
 
     const product = await prisma.product.create({
@@ -526,10 +555,12 @@ router.post('/products', upload.array('images', 8), async (req, res) => {
         weightUnit: productData.unit,
         brand: undefined,
         productImages: { create: imageUrls.map((url, index) => ({ url, sortOrder: index, isPrimary: index === 0 })) },
+        productVideos: { create: videoUrls.map((url, index) => ({ url, provider: 'upload', sortOrder: index, title: productData.name })) },
       } as any,
       include: {
         category: true,
-        productImages: true
+        productImages: true,
+        productVideos: true
       }
     })
 
@@ -542,7 +573,7 @@ router.post('/products', upload.array('images', 8), async (req, res) => {
   }
 })
 
-router.put('/products/:id', upload.array('images', 8), async (req, res) => {
+router.put('/products/:id', upload.fields([{ name: 'images', maxCount: 8 }, { name: 'videos', maxCount: 4 }]), async (req, res) => {
   try {
     const { id } = req.params
     const productData = z.object({
@@ -558,14 +589,20 @@ router.put('/products/:id', upload.array('images', 8), async (req, res) => {
       weight: z.coerce.number().optional(),
       unit: z.string().optional(),
       existingImages: z.string().optional(),
+      existingVideos: z.string().optional(),
     }).parse(req.body)
 
-    const files = (req.files ?? []) as Express.Multer.File[]
-    const imageUrls = await storeUploadedImages(files)
+    const uploadedFiles = (req.files ?? {}) as Record<string, Express.Multer.File[]>
+    const imageUrls = await storeUploadedImages(uploadedFiles.images || [])
+    const videoUrls = await storeUploadedMedia(uploadedFiles.videos || [], 'hincton/products/videos')
     const existingImages = productData.existingImages ? JSON.parse(productData.existingImages) as string[] : undefined
+    const existingVideos = productData.existingVideos ? JSON.parse(productData.existingVideos) as string[] : undefined
 
     if (existingImages) {
       await prisma.productImage.deleteMany({ where: { productId: id, url: { notIn: existingImages } } })
+    }
+    if (existingVideos) {
+      await prisma.productVideo.deleteMany({ where: { productId: id, url: { notIn: existingVideos } } })
     }
 
     const product = await prisma.product.update({
@@ -584,10 +621,12 @@ router.put('/products/:id', upload.array('images', 8), async (req, res) => {
         weight: productData.weight,
         weightUnit: productData.unit,
         ...(imageUrls.length ? { productImages: { create: imageUrls.map((url, index) => ({ url, sortOrder: index, isPrimary: index === 0 && !existingImages?.length })) } } : {}),
+        ...(videoUrls.length ? { productVideos: { create: videoUrls.map((url, index) => ({ url, provider: 'upload', sortOrder: index + (existingVideos?.length || 0), title: productData.name })) } } : {}),
       } as any,
       include: {
         category: true,
-        productImages: true
+        productImages: true,
+        productVideos: true
       }
     })
 

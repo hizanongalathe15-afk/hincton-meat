@@ -5,6 +5,8 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import fs from 'fs';
+import path from 'path';
 import { prisma } from './config/prisma'
 
 import authRoutes from './routes/auth';
@@ -104,14 +106,31 @@ const limiter = rateLimit({
   }
 });
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(limiter);
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/uploads', express.static('uploads'));
+const staticMediaHeaders = (res: express.Response) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+};
+
+const uploadStaticPath = path.resolve(process.env.UPLOAD_DIR || 'uploads');
+app.use('/uploads', express.static(uploadStaticPath, { setHeaders: staticMediaHeaders }));
+
+const hinctonStaticCandidates = [
+  path.resolve(process.cwd(), 'frontend/public/hincton'),
+  path.resolve(process.cwd(), '../frontend/public/hincton'),
+];
+const hinctonStaticPath = hinctonStaticCandidates.find((candidate) => fs.existsSync(candidate));
+if (hinctonStaticPath) {
+  app.use('/hincton', express.static(hinctonStaticPath, { setHeaders: staticMediaHeaders }));
+}
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);

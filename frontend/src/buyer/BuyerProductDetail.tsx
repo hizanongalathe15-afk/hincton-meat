@@ -3,7 +3,8 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import ProductDetails from './ProductDetails'
 import ProductCard from './ProductCard'
 import { Product } from '../types/index'
-import { productsApi } from '../services/buyerApi'
+import { productsApi, trackingApi } from '../services/buyerApi'
+import { resolveMediaUrl } from '../services/api'
 
 interface BuyerProductDetailProps {
   onAddToCart?: (product: Product, quantity: number) => Promise<void>
@@ -31,7 +32,7 @@ const BuyerProductDetail = ({
       try {
         const data = await productsApi.getProduct(id)
         const raw = data.product || data
-        const images = raw.images || raw.productImages?.map((img: any) => img.url) || []
+        const images = (raw.images || raw.productImages?.map((img: any) => img.url) || []).map((url: string) => resolveMediaUrl(url))
         setProduct({
           id: raw.id,
           name: raw.name,
@@ -52,7 +53,7 @@ const BuyerProductDetail = ({
           weightUnit: raw.weightUnit || undefined,
           origin: raw.brand || 'Hincton Meat Products',
           sku: raw.sku,
-          videos: raw.videos || raw.productVideos?.map((video: any) => video.url) || [],
+          videos: (raw.videos || raw.productVideos?.map((video: any) => video.url) || []).map((url: string) => resolveMediaUrl(url)),
           productVideos: raw.productVideos || [],
         })
       } catch {
@@ -67,10 +68,28 @@ const BuyerProductDetail = ({
 
   useEffect(() => {
     if (!id) return
+    const startedAt = Date.now()
+    productsApi.trackView(id).catch(() => {})
+    trackingApi.trackClick({
+      linkUrl: `/product/${id}`,
+      linkId: id,
+      label: product?.name || 'Product detail',
+      source: 'product-detail',
+      medium: 'page-view',
+      path: window.location.pathname,
+    }).catch(() => {})
+
+    return () => {
+      productsApi.trackView(id, { duration: Math.max(1, Math.round((Date.now() - startedAt) / 1000)) }).catch(() => {})
+    }
+  }, [id])
+
+  useEffect(() => {
+    if (!id) return
     productsApi.getRecommendations({ productId: id, limit: 4 })
       .then((data) => {
         const next = (data.products || []).map((raw: any) => {
-          const images = raw.images || raw.productImages?.map((img: any) => img.url) || []
+          const images = (raw.images || raw.productImages?.map((img: any) => img.url) || []).map((url: string) => resolveMediaUrl(url))
           return {
             id: raw.id,
             name: raw.name,
@@ -91,7 +110,7 @@ const BuyerProductDetail = ({
             weightUnit: raw.weightUnit || undefined,
             origin: raw.brand || 'Hincton Meat Products',
             sku: raw.sku,
-            videos: raw.videos || raw.productVideos?.map((video: any) => video.url) || [],
+            videos: (raw.videos || raw.productVideos?.map((video: any) => video.url) || []).map((url: string) => resolveMediaUrl(url)),
             productVideos: raw.productVideos || [],
           } as Product
         })

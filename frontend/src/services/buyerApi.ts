@@ -69,10 +69,31 @@ export const productsApi = {
     return response.data
   },
 
+  trackView: async (productId: string, data?: { duration?: number; sessionId?: string }) => {
+    const response = await apiClient.post(`/products/${productId}/view`, data || {})
+    return response.data
+  },
+
   getCategories: async () => {
     const response = await apiClient.get('/categories')
     return response.data
   }
+}
+
+export const trackingApi = {
+  trackClick: async (data: {
+    linkUrl: string
+    linkId?: string
+    label?: string
+    source?: string
+    medium?: string
+    campaign?: string
+    content?: string
+    path?: string
+  }) => {
+    const response = await apiClient.post('/analytics/click', data)
+    return response.data
+  },
 }
 
 export const profileApi = {
@@ -309,6 +330,7 @@ export const reviewsApi = {
   createReview: async (data: {
     productId: string
     orderId?: string
+    orderItemId?: string
     rating: number
     title: string
     content: string

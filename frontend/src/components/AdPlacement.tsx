@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ExternalLink, X } from 'lucide-react'
+import { API_URL, resolveMediaUrl } from '../services/api'
 
 interface AdPlacementProps {
   placementId: string
@@ -47,7 +48,7 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
         const device = getDeviceType()
         const userAgent = navigator.userAgent
 
-        const response = await fetch(`/api/ads/serve?placementId=${placementId}&location=${location}&device=${device}&userAgent=${encodeURIComponent(userAgent)}`)
+        const response = await fetch(`${API_URL}/ads/serve?placementId=${placementId}&location=${location}&device=${device}&userAgent=${encodeURIComponent(userAgent)}`)
         const data = await response.json()
 
         if (data.ad) {
@@ -102,7 +103,7 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
 
   const trackInteraction = async (type: 'click' | 'impression', impressionId: string, campaignId: string, placementId: string) => {
     try {
-      await fetch(`/api/ads/track/${type}`, {
+      await fetch(`${API_URL}/ads/track/${type}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ impressionId, campaignId, placementId })
@@ -132,6 +133,9 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
     if (!ad) return null
 
     const { placement } = ad
+    const mediaUrl = resolveMediaUrl(ad.mediaUrl || ad.imageUrl)
+    const imageUrl = resolveMediaUrl(ad.imageUrl || ad.mediaUrl)
+    const stickerUrl = resolveMediaUrl(ad.stickerUrl)
     const adStyle = {
       width: `${placement.size.width}px`,
       height: `${placement.size.height}px`
@@ -143,18 +147,18 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
         style={adStyle}
         onClick={handleClick}
       >
-        {ad.mediaType === 'video' && ad.mediaUrl ? (
-          <video src={ad.mediaUrl} className="h-full w-full object-cover" muted autoPlay loop playsInline />
-        ) : ad.imageUrl || ad.mediaUrl ? (
+        {ad.mediaType === 'video' && mediaUrl ? (
+          <video src={mediaUrl} className="h-full w-full object-cover" muted autoPlay loop playsInline />
+        ) : imageUrl ? (
           <img 
-            src={ad.imageUrl || ad.mediaUrl} 
+            src={imageUrl} 
             alt={ad.title}
             className="w-full h-full object-cover"
             loading="lazy"
           />
         ) : null}
-        {ad.stickerUrl && (
-          <img src={ad.stickerUrl} alt="" className="absolute right-3 top-3 h-12 w-12 object-contain" loading="lazy" />
+        {stickerUrl && (
+          <img src={stickerUrl} alt="" className="absolute right-3 top-3 h-12 w-12 object-contain" loading="lazy" />
         )}
         
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
@@ -189,6 +193,8 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
 
   const renderPopup = () => {
     if (!ad || !showPopup) return null
+    const mediaUrl = resolveMediaUrl(ad.mediaUrl || ad.imageUrl)
+    const imageUrl = resolveMediaUrl(ad.imageUrl || ad.mediaUrl)
 
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -204,11 +210,11 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
               </button>
             </div>
             
-            {ad.mediaType === 'video' && ad.mediaUrl ? (
-              <video src={ad.mediaUrl} controls className="mb-4 h-48 w-full rounded-lg object-cover" />
-            ) : (ad.imageUrl || ad.mediaUrl) && (
+            {ad.mediaType === 'video' && mediaUrl ? (
+              <video src={mediaUrl} controls className="mb-4 h-48 w-full rounded-lg object-cover" />
+            ) : imageUrl && (
               <img 
-                src={ad.imageUrl || ad.mediaUrl} 
+                src={imageUrl} 
                 alt={ad.title}
                 className="w-full h-48 object-cover rounded-lg mb-4"
               />

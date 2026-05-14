@@ -4,9 +4,24 @@ import { z } from 'zod'
 import { authenticate } from '../middleware/auth'
 import { authorize } from '../middleware/auth'
 import multer from 'multer'
+import fs from 'fs'
+import path from 'path'
 import { uploadImage } from '../config/cloudinary'
 
 const router = express.Router()
+const uploadBasePath = process.env.UPLOAD_DIR || (process.env.VERCEL ? '/tmp/uploads' : 'uploads')
+const adUploadPath = path.join(uploadBasePath, 'ads')
+const ensureDirectory = (dir: string) => fs.mkdirSync(dir, { recursive: true })
+
+const saveLocalMedia = (file: Express.Multer.File) => {
+  ensureDirectory(adUploadPath)
+  const extension = path.extname(file.originalname) || `.${file.mimetype.split('/')[1] || 'bin'}`
+  const filename = `${file.fieldname}-${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`
+  const localPath = path.join(adUploadPath, filename)
+  fs.writeFileSync(localPath, file.buffer)
+  return `/${localPath.replace(/\\/g, '/')}`
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
@@ -93,12 +108,19 @@ router.post('/upload-media', authenticate, authorize('ADMIN'), upload.single('me
     const file = req.file
     if (!file) return res.status(400).json({ error: 'No media file uploaded' })
 
-    const uploaded = await uploadImage(file.buffer, 'hincton/ads')
     const mediaType = file.mimetype.startsWith('video/')
       ? 'video'
       : file.mimetype === 'image/gif'
         ? 'gif'
         : 'image'
+    let uploaded: { url: string; publicId: string }
+
+    try {
+      uploaded = await uploadImage(file.buffer, 'hincton/ads')
+    } catch (error) {
+      const url = saveLocalMedia(file)
+      uploaded = { url, publicId: url }
+    }
 
     res.status(201).json({
       url: uploaded.url,

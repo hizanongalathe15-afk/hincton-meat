@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog'
 import ConfirmationDialog from '../components/ui/ConfirmationDialog'
 import { formatPrice } from '../utils/currency'
-import { getApiHost } from '../services/api'
+import { resolveMediaUrl } from '../services/api'
 
 interface ProductsPageProps {
   onEditProduct?: (product: any) => void
@@ -56,7 +56,7 @@ const ProductsPage = ({
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(true)
   const { isOpen, options, confirm, handleConfirm, handleCancel } = useConfirmationDialog()
-  const API_HOST = getApiHost()
+  const productImageUrl = (url?: string) => resolveMediaUrl(url) || 'https://via.placeholder.com/120x120'
 
   const fetchProducts = async () => {
       try {
@@ -77,7 +77,7 @@ const ProductsPage = ({
             originalPrice: product.comparePrice ? Number(product.comparePrice) : undefined,
             stock: stockQuantity,
             status,
-            image: product.productImages?.[0]?.url || 'https://via.placeholder.com/120x120',
+            image: productImageUrl(product.productImages?.[0]?.url),
             sku: product.sku || '',
             createdAt: product.createdAt,
             sales: product._count?.orderItems || 0,
@@ -504,7 +504,7 @@ const ProductsPage = ({
             <div className="grid max-h-[calc(92vh-73px)] overflow-y-auto lg:grid-cols-[1.2fr_0.8fr]">
               <div className="bg-gray-100">
                 <img
-                  src={viewProduct.image?.startsWith('http') ? viewProduct.image : `${API_HOST}${viewProduct.image}`}
+                  src={resolveMediaUrl(viewProduct.image)}
                   alt={viewProduct.name}
                   className="h-full min-h-[22rem] w-full object-contain"
                 />

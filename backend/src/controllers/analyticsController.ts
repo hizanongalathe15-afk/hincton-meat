@@ -15,6 +15,69 @@ const safeNumber = (value: unknown) => {
 
 const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
 
+const getSessionId = (req: AuthRequest) => {
+  const bodySession = typeof req.body?.sessionId === 'string' ? req.body.sessionId.trim() : ''
+  const headerSession = typeof req.header('X-Guest-Session-Id') === 'string' ? String(req.header('X-Guest-Session-Id')).trim() : ''
+  return bodySession || headerSession || `guest-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+const getDeviceType = (userAgent = '') => {
+  if (/mobile|android|iphone|ipod/i.test(userAgent)) return 'MOBILE'
+  if (/tablet|ipad/i.test(userAgent)) return 'TABLET'
+  return 'DESKTOP'
+}
+
+export const trackClick = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const linkUrl = String(req.body?.linkUrl || '').trim()
+    if (!linkUrl) return res.status(400).json({ error: 'linkUrl is required' })
+
+    const sessionId = getSessionId(req)
+    const userAgent = req.get('User-Agent') || ''
+    await prisma.analyticsSession.upsert({
+      where: { sessionId },
+      update: {
+        userId: req.user?.id,
+        ipAddress: req.ip,
+        userAgent,
+        path: req.body?.path || req.path,
+        exitPage: req.body?.path || undefined,
+      },
+      create: {
+        sessionId,
+        userId: req.user?.id,
+        ipAddress: req.ip,
+        userAgent,
+        path: req.body?.path || req.path,
+        landingPage: req.body?.path || req.path,
+        referrer: req.get('Referer') || undefined,
+        deviceType: getDeviceType(userAgent),
+      },
+    })
+
+    const click = await prisma.click.create({
+      data: {
+        sessionId,
+        userId: req.user?.id,
+        linkId: req.body?.linkId,
+        linkUrl,
+        label: req.body?.label,
+        source: req.body?.source,
+        medium: req.body?.medium,
+        campaign: req.body?.campaign,
+        content: req.body?.content,
+        ipAddress: req.ip,
+        userAgent,
+        deviceType: getDeviceType(userAgent),
+      },
+    })
+
+    res.status(201).json({ success: true, clickId: click.id })
+  } catch (error) {
+    next(error)
+  }
+}
+
 export const getDashboardStats = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const today = startOfDay(new Date())
@@ -23,7 +86,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
     const previousMonthAgo = new Date(monthAgo)
     previousMonthAgo.setDate(previousMonthAgo.getDate() - 30)
 
-    const [orders, products, userResult, newCustomersThisMonth] = await Promise.all([
+    const [orders, products, userResult, newCustomersThisMonth, sessions, pageViews, clickRows, productViews] = await Promise.all([
       OrderModel.findAll(),
       ProductModel.findAll(),
       UserModel.findAll({ page: 1, limit: 1 }),
@@ -32,7 +95,15 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
           deletedAt: null,
           createdAt: { gte: monthAgo }
         }
-      })
+      }),
+      prisma.analyticsSession.count({ where: { startedAt: { gte: monthAgo } } }),
+      prisma.pageView.count({ where: { viewedAt: { gte: monthAgo } } }),
+      prisma.click.groupBy({
+        by: ['linkUrl', 'label'],
+        where: { clickedAt: { gte: monthAgo } },
+        _count: { _all: true },
+      }),
+      prisma.productView.count({ where: { viewedAt: { gte: monthAgo } } }),
     ])
 
     const totalCustomers = userResult.total
@@ -102,6 +173,17 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
       totalOrders,
       totalProducts,
       totalCustomers,
+      totalVisitors: sessions,
+      uniqueVisitors: sessions,
+      returningVisitors: Math.max(0, sessions - newCustomersThisMonth),
+      sessions,
+      pageViews,
+      clickedLinks: clickRows.sort((a, b) => b._count._all - a._count._all).slice(0, 10).map((row) => ({
+        url: row.linkUrl,
+        label: row.label || row.linkUrl,
+        clicks: row._count._all,
+      })),
+      productViews,
       avgOrderValue,
       revenueChange,
       newCustomersThisMonth,
@@ -189,7 +271,37 @@ export const getSalesAnalytics = async (req: AuthRequest, res: Response, next: N
 
 export const getProductAnalytics = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    const period = Number(req.query.period) || 30
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - period)
+
+    const [views, productCount] = await Promise.all([
+      prisma.productView.groupBy({
+        by: ['productId'],
+        where: { viewedAt: { gte: startDate } },
+        _count: { _all: true },
+      }),
+      prisma.product.count({ where: { isPublished: true, deletedAt: null } }),
+    ])
+    const products = views.length
+      ? await prisma.product.findMany({
+          where: { id: { in: views.map((view) => view.productId) } },
+          select: { id: true, name: true, stockQuantity: true, category: { select: { name: true } } },
+        })
+      : []
+
     res.json({
+      productViewsPerSession: productCount > 0 ? Number((views.reduce((sum, view) => sum + view._count._all, 0) / Math.max(1, productCount)).toFixed(1)) : 0,
+      topViewedProducts: views.sort((a, b) => b._count._all - a._count._all).map((view) => {
+        const product = products.find((item) => item.id === view.productId)
+        return {
+          productId: view.productId,
+          name: product?.name || view.productId,
+          category: product?.category?.name || 'Uncategorized',
+          views: view._count._all,
+          stock: product?.stockQuantity || 0,
+        }
+      }),
       productsByCategory: [],
       lowStockProducts: [],
       outOfStockProducts: [],

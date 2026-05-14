@@ -15,6 +15,13 @@ export const getMyReviews = asyncHandler(async (req: Request, res: Response) => 
       deletedAt: null
     },
     include: {
+      product: {
+        select: {
+          name: true,
+          productImages: { orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }], take: 1, select: { url: true } }
+        }
+      },
+      orderItem: { select: { productName: true, productImage: true } },
       images: {
         select: {
           url: true,
@@ -29,8 +36,8 @@ export const getMyReviews = asyncHandler(async (req: Request, res: Response) => 
   const formattedReviews = reviews.map(review => ({
     id: review.id,
     productId: review.productId,
-    productName: 'Product Name', // Would need separate query to get product name
-    productImage: '/placeholder.jpg', // Would need separate query to get product image
+    productName: review.product?.name || review.orderItem?.productName || 'Product',
+    productImage: review.product?.productImages?.[0]?.url || review.orderItem?.productImage || '/hincton/hero-platter.jpg',
     rating: review.rating,
     title: review.title || '',
     content: review.comment || '',
@@ -60,63 +67,46 @@ export const getProductsToReview = asyncHandler(async (req: Request, res: Respon
     throw new AppError('User authentication required', 401, 'UNAUTHORIZED')
   }
 
-  // Get completed orders that haven't been reviewed yet
   const orders = await prisma.order.findMany({
     where: {
       userId,
-      status: 'DELIVERED',
+      status: { in: ['DELIVERED', 'COMPLETED'] as any },
       deletedAt: null
-    },
-    orderBy: { createdAt: 'desc' }
-  })
-
-  // Get order items for these orders
-  const orderItems = await prisma.orderItem.findMany({
-    where: {
-      orderId: {
-        in: orders.map(order => order.id)
-      }
-    },
+    } as any,
+    orderBy: { createdAt: 'desc' },
     include: {
-      product: {
-        select: {
-          id: true,
-          name: true,
-          productImages: {
-            where: { isPrimary: true },
-            take: 1,
-            select: { url: true }
-          }
+      orderItems: {
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              productImages: {
+                orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
+                take: 1,
+                select: { url: true }
+              }
+            }
+          },
+          review: { select: { id: true } }
         }
       }
     }
   })
 
-  // Get existing reviews to exclude already reviewed products
-  const existingReviews = await prisma.review.findMany({
-    where: {
-      userId,
-      deletedAt: null
-    },
-    select: {
-      productId: true
-    }
-  })
-
-  const reviewedProductIds = new Set(existingReviews.map(r => r.productId))
-
   const productsToReview = []
   
-  for (const item of orderItems) {
-    if (!reviewedProductIds.has(item.productId)) {
-      const order = orders.find(o => o.id === item.orderId)
+  for (const order of orders) {
+    for (const item of order.orderItems) {
+      if (!item.productId || item.review) continue
       productsToReview.push({
-        id: item.product.id,
-        name: item.product.name,
-        image: item.product.productImages[0]?.url || '/placeholder.jpg',
+        id: item.productId,
+        orderItemId: item.id,
+        name: item.product?.name || item.productName,
+        image: item.product?.productImages?.[0]?.url || item.productImage || '/hincton/hero-platter.jpg',
         orderId: item.orderId,
-        orderNumber: order?.orderNumber || '',
-        orderDate: order?.createdAt.toISOString() || '',
+        orderNumber: order.orderNumber || '',
+        orderDate: order.createdAt.toISOString(),
         canReview: true,
         hasReviewed: false
       })
@@ -131,7 +121,7 @@ export const getProductsToReview = asyncHandler(async (req: Request, res: Respon
 
 export const createReview = asyncHandler(async (req: Request, res: Response) => {
   const userId = (req as any).user?.id
-  const { productId, orderId, rating, title, content, images } = req.body
+  const { productId, orderId, orderItemId, rating, title, content, images } = req.body
   
   if (!userId) {
     throw new AppError('User authentication required', 401, 'UNAUTHORIZED')
@@ -145,11 +135,28 @@ export const createReview = asyncHandler(async (req: Request, res: Response) => 
     throw new ValidationError('Rating must be between 1 and 5')
   }
 
-  // Check if user has already reviewed this product
+  let verifiedOrderItem: any = null
+  if (orderItemId || orderId) {
+    verifiedOrderItem = await prisma.orderItem.findFirst({
+      where: {
+        ...(orderItemId ? { id: orderItemId } : {}),
+        ...(orderId ? { orderId } : {}),
+        productId,
+        order: {
+          userId,
+          status: { in: ['DELIVERED', 'COMPLETED'] as any },
+          deletedAt: null,
+        } as any,
+      },
+      include: { order: true },
+    })
+  }
+
   const existingReview = await prisma.review.findFirst({
     where: {
       userId,
       productId,
+      ...(verifiedOrderItem ? { orderItemId: verifiedOrderItem.id } : {}),
       deletedAt: null
     }
   })
@@ -163,11 +170,13 @@ export const createReview = asyncHandler(async (req: Request, res: Response) => 
     data: {
       userId,
       productId,
-      orderId: orderId || null,
+      orderId: verifiedOrderItem?.orderId || orderId || null,
+      orderItemId: verifiedOrderItem?.id || orderItemId || null,
       rating,
       title,
       comment: content,
-      status: 'PENDING'
+      isVerifiedPurchase: Boolean(verifiedOrderItem),
+      status: 'APPROVED'
     }
   })
 
@@ -186,6 +195,12 @@ export const createReview = asyncHandler(async (req: Request, res: Response) => 
   const createdReview = await prisma.review.findUnique({
     where: { id: review.id },
     include: {
+      product: {
+        select: {
+          name: true,
+          productImages: { orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }], take: 1, select: { url: true } }
+        }
+      },
       images: {
         select: {
           url: true,
@@ -196,11 +211,24 @@ export const createReview = asyncHandler(async (req: Request, res: Response) => 
     }
   })
 
+  const aggregate = await prisma.review.aggregate({
+    where: { productId, deletedAt: null, status: 'APPROVED' as any },
+    _avg: { rating: true },
+    _count: { rating: true }
+  })
+  await prisma.product.update({
+    where: { id: productId },
+    data: {
+      averageRating: Number(aggregate._avg.rating || 0),
+      totalReviews: aggregate._count.rating
+    }
+  }).catch((error) => console.error('Product rating aggregate update failed:', error))
+
   const formattedReview = {
     id: createdReview.id,
     productId: createdReview.productId,
-    productName: 'Product Name', // Would need separate query
-    productImage: '/placeholder.jpg', // Would need separate query
+    productName: createdReview.product?.name || 'Product',
+    productImage: createdReview.product?.productImages?.[0]?.url || '/hincton/hero-platter.jpg',
     rating: createdReview.rating,
     title: createdReview.title || '',
     content: createdReview.comment || '',
@@ -226,7 +254,7 @@ export const createReview = asyncHandler(async (req: Request, res: Response) => 
 
 export const updateReview = asyncHandler(async (req: Request, res: Response) => {
   const userId = (req as any).user?.id
-  const { reviewId } = req.params
+  const reviewId = req.params.reviewId || req.params.id
   const { rating, title, content, images } = req.body
   
   if (!userId) {
@@ -241,16 +269,32 @@ export const updateReview = asyncHandler(async (req: Request, res: Response) => 
     throw new ValidationError('Rating must be between 1 and 5')
   }
 
-  // For now, return mock response
-  const updatedReview = {
-    id: reviewId,
-    rating,
-    title,
-    content,
-    images: images || [],
-    updatedAt: new Date().toISOString(),
-    canEdit: true
+  const review = await prisma.review.findFirst({ where: { id: reviewId, userId, deletedAt: null } })
+  if (!review) throw new NotFoundError('Review', reviewId)
+
+  const updatedReview = await prisma.review.update({
+    where: { id: reviewId },
+    data: { rating, title, comment: content, status: 'APPROVED' as any },
+  })
+
+  if (Array.isArray(images)) {
+    await prisma.reviewImage.deleteMany({ where: { reviewId } })
+    if (images.length) {
+      await prisma.reviewImage.createMany({
+        data: images.map((url: string, index: number) => ({ reviewId, url, sortOrder: index }))
+      })
+    }
   }
+
+  const aggregate = await prisma.review.aggregate({
+    where: { productId: review.productId, deletedAt: null, status: 'APPROVED' as any },
+    _avg: { rating: true },
+    _count: { rating: true }
+  })
+  await prisma.product.update({
+    where: { id: review.productId },
+    data: { averageRating: Number(aggregate._avg.rating || 0), totalReviews: aggregate._count.rating }
+  })
 
   res.json({
     success: true,
@@ -261,13 +305,26 @@ export const updateReview = asyncHandler(async (req: Request, res: Response) => 
 
 export const deleteReview = asyncHandler(async (req: Request, res: Response) => {
   const userId = (req as any).user?.id
-  const { reviewId } = req.params
+  const reviewId = req.params.reviewId || req.params.id
   
   if (!userId) {
     throw new AppError('User authentication required', 401, 'UNAUTHORIZED')
   }
 
-  // For now, just return success
+  const review = await prisma.review.findFirst({ where: { id: reviewId, userId, deletedAt: null } })
+  if (!review) throw new NotFoundError('Review', reviewId)
+  await prisma.review.update({ where: { id: reviewId }, data: { deletedAt: new Date(), status: 'REMOVED' as any } })
+
+  const aggregate = await prisma.review.aggregate({
+    where: { productId: review.productId, deletedAt: null, status: 'APPROVED' as any },
+    _avg: { rating: true },
+    _count: { rating: true }
+  })
+  await prisma.product.update({
+    where: { id: review.productId },
+    data: { averageRating: Number(aggregate._avg.rating || 0), totalReviews: aggregate._count.rating }
+  })
+
   res.json({
     success: true,
     message: 'Review deleted successfully'
@@ -276,14 +333,18 @@ export const deleteReview = asyncHandler(async (req: Request, res: Response) => 
 
 export const markHelpful = asyncHandler(async (req: Request, res: Response) => {
   const userId = (req as any).user?.id
-  const { reviewId } = req.params
+  const reviewId = req.params.reviewId || req.params.id
   const { helpful } = req.body
   
   if (!userId) {
     throw new AppError('User authentication required', 401, 'UNAUTHORIZED')
   }
 
-  // For now, just return success
+  await prisma.review.update({
+    where: { id: reviewId },
+    data: helpful ? { helpfulCount: { increment: 1 } } : { notHelpfulCount: { increment: 1 } }
+  })
+
   res.json({
     success: true,
     message: 'Review marked as helpful'

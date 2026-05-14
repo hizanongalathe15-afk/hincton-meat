@@ -203,6 +203,12 @@ const getRecommendedProducts = async (productId?: string, limitNum = 8) => {
   return recommended.slice(0, limitNum).map(serializeProduct)
 }
 
+const getSessionId = (req: express.Request) => {
+  const header = req.header('X-Guest-Session-Id')
+  if (header && header.trim().length >= 8) return header.trim()
+  return `guest-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 // GET /api/products/featured
 router.get('/featured', async (req, res) => {
   try {
@@ -341,6 +347,33 @@ router.get('/:id', async (req, res) => {
   } catch (error) {
     console.error('Get product error:', error)
     res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// POST /api/products/:id/view
+router.post('/:id/view', async (req, res) => {
+  try {
+    const { id } = req.params
+    const exists = await prisma.product.findFirst({
+      where: { id, isPublished: true, deletedAt: null },
+      select: { id: true },
+    })
+    if (!exists) return res.status(404).json({ error: 'Product not found' })
+
+    const sessionId = String(req.body?.sessionId || getSessionId(req))
+    const duration = Number.isFinite(Number(req.body?.duration)) ? Number(req.body.duration) : undefined
+    await prisma.productView.create({
+      data: {
+        productId: id,
+        sessionId,
+        duration,
+      },
+    })
+
+    res.status(201).json({ success: true })
+  } catch (error) {
+    console.error('Track product view error:', error)
+    res.status(500).json({ error: 'Failed to track product view' })
   }
 })
 

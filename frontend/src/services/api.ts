@@ -23,6 +23,14 @@ export const getApiHost = (): string => {
   return window.location.origin
 }
 
+export const resolveMediaUrl = (url?: string): string => {
+  const fallback = ''
+  if (!url) return fallback
+  if (/^(https?:)?\/\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:')) return url
+  if (url.startsWith('/uploads')) return `${getApiHost()}${url}`
+  return url
+}
+
 export const getApiErrorMessage = (error: any, fallback = 'Something went wrong. Please try again.') => {
   if (!error.response) {
     if (error instanceof Error && error.message) return error.message

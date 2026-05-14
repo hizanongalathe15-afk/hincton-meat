@@ -23,13 +23,16 @@ const initiatePaymentSchema = z.object({
 })
 
 const MPESA_CONFIG = {
-  consumerKey: process.env.MPESA_CONSUMER_KEY || 'your_consumer_key',
-  consumerSecret: process.env.MPESA_CONSUMER_SECRET || 'your_consumer_secret',
-  shortcode: process.env.MPESA_SHORTCODE || '174379',
+  consumerKey: process.env.MPESA_CONSUMER_KEY || process.env.MPESA_CONSUMER_KEY_SANDBOX || '',
+  consumerSecret: process.env.MPESA_CONSUMER_SECRET || process.env.MPESA_CONSUMER_SECRET_SANDBOX || '',
+  shortcode: process.env.MPESA_SHORTCODE || process.env.MPESA_SHORT_CODE || '174379',
   passkey: process.env.MPESA_PASSKEY || 'your_passkey',
-  callbackUrl: process.env.MPESA_CALLBACK_URL || 'https://your-domain.com/api/mpesa/callback',
+  callbackUrl: process.env.MPESA_CALLBACK_URL || `${process.env.BACKEND_URL || process.env.API_URL || 'https://hincton-meat.onrender.com'}/api/mpesa/callback`,
   environment: process.env.MPESA_ENV || 'sandbox',
 }
+
+const isMpesaConfigured = () =>
+  Boolean(MPESA_CONFIG.consumerKey && MPESA_CONFIG.consumerSecret && MPESA_CONFIG.passkey && MPESA_CONFIG.passkey !== 'your_passkey')
 
 async function getMpesaToken() {
   const auth = Buffer.from(`${MPESA_CONFIG.consumerKey}:${MPESA_CONFIG.consumerSecret}`).toString('base64')
@@ -116,12 +119,14 @@ const initiateMpesaPayment = async (req: AuthRequest, res: any) => {
           },
         })
 
-    // If sandbox keys are not configured, return early (still API-valid)
-    if (MPESA_CONFIG.consumerKey === 'your_consumer_key') {
-      return res.json({
-        ...resolveMessage(meatShopMessages.payment.stkSent, { phone: phoneNumber }),
-        checkoutRequestID: payment.id,
-        payment: { id: payment.id, status: payment.status, paymentReference: payment.paymentReference },
+    if (!isMpesaConfigured()) {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: 'FAILED', errorMessage: 'M-Pesa credentials are not configured on the server' },
+      })
+      return res.status(503).json({
+        ...apiMessage(meatShopMessages.payment.mpesaUnavailable),
+        detail: 'M-Pesa sandbox credentials are missing. Set MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET, MPESA_PASSKEY, MPESA_SHORTCODE, and MPESA_CALLBACK_URL.',
       })
     }
 
@@ -156,7 +161,7 @@ const initiateMpesaPayment = async (req: AuthRequest, res: any) => {
     if (checkoutRequestID) {
       await prisma.payment.update({
         where: { id: payment.id },
-        data: { mpesaReceipt: checkoutRequestID },
+        data: { mpesaReceipt: checkoutRequestID, metadata: response.data },
       })
     }
 
@@ -182,6 +187,14 @@ router.post('/callback', async (req, res) => {
     const checkoutRequestId = stkCallback?.CheckoutRequestID
     const resultCode = stkCallback?.ResultCode
     const resultDesc = stkCallback?.ResultDesc
+    const metadataItems = stkCallback?.CallbackMetadata?.Item || []
+    const metadataValue = (name: string) => metadataItems.find((item: any) => item.Name === name)?.Value
+    const receipt = metadataValue('MpesaReceiptNumber')
+    const phone = metadataValue('PhoneNumber')
+    const transactionDate = String(metadataValue('TransactionDate') || '')
+    const parsedTransactionDate = transactionDate.length === 14
+      ? new Date(`${transactionDate.slice(0, 4)}-${transactionDate.slice(4, 6)}-${transactionDate.slice(6, 8)}T${transactionDate.slice(8, 10)}:${transactionDate.slice(10, 12)}:${transactionDate.slice(12, 14)}+03:00`)
+      : new Date()
 
     // Try match by paymentReference/accountReference if available, else skip order update
     const payment = checkoutRequestId
@@ -194,8 +207,11 @@ router.post('/callback', async (req, res) => {
       where: { id: payment.id },
       data: {
         status: resultCode === 0 ? 'PAID' : 'FAILED',
-        mpesaReceipt: checkoutRequestId,
-        mpesaTransactionDate: new Date(),
+        mpesaReceipt: receipt || checkoutRequestId,
+        mpesaPhone: phone ? String(phone) : payment.mpesaPhone,
+        mpesaTransactionDate: parsedTransactionDate,
+        errorMessage: resultCode === 0 ? null : resultDesc || 'M-Pesa payment failed',
+        metadata: stkCallback,
 
         completedAt: resultCode === 0 ? new Date() : null,
       },
@@ -218,7 +234,7 @@ router.post('/callback', async (req, res) => {
 router.get('/transaction/:checkoutRequestID', async (req, res) => {
   try {
     const { checkoutRequestID } = req.params
-    const payment = await prisma.payment.findFirst({
+    let payment = await prisma.payment.findFirst({
       where: {
         OR: [
           { id: checkoutRequestID },
@@ -228,6 +244,52 @@ router.get('/transaction/:checkoutRequestID', async (req, res) => {
     })
 
     if (!payment) return res.status(404).json(apiMessage(meatShopMessages.payment.mpesaTimeout))
+
+    if (payment.status === 'PENDING' && isMpesaConfigured() && payment.mpesaReceipt && payment.mpesaReceipt === checkoutRequestID) {
+      try {
+        const token = await getMpesaToken()
+        const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14)
+        const password = Buffer.from(`${MPESA_CONFIG.shortcode}${MPESA_CONFIG.passkey}${timestamp}`).toString('base64')
+        const queryResponse = await axios.post(
+          MPESA_CONFIG.environment === 'production'
+            ? 'https://api.safaricom.co.ke/mpesa/stkpushquery/v1/query'
+            : 'https://sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query',
+          {
+            BusinessShortCode: MPESA_CONFIG.shortcode,
+            Password: password,
+            Timestamp: timestamp,
+            CheckoutRequestID: checkoutRequestID,
+          },
+          { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } },
+        )
+        const resultCode = queryResponse.data?.ResultCode
+        if (String(resultCode) === '0') {
+          payment = await prisma.payment.update({
+            where: { id: payment.id },
+            data: {
+              status: 'PAID',
+              completedAt: new Date(),
+              metadata: queryResponse.data,
+            },
+          })
+          await prisma.order.update({
+            where: { id: payment.orderId },
+            data: { paymentStatus: 'PAID', status: 'CONFIRMED' },
+          })
+        } else if (resultCode !== undefined && String(resultCode) !== '1032') {
+          payment = await prisma.payment.update({
+            where: { id: payment.id },
+            data: {
+              status: 'FAILED',
+              errorMessage: queryResponse.data?.ResultDesc || 'M-Pesa payment failed',
+              metadata: queryResponse.data,
+            },
+          })
+        }
+      } catch (queryError: any) {
+        console.warn('M-PESA status query warning:', queryError?.response?.data || queryError?.message || queryError)
+      }
+    }
 
     const status = payment.status === 'PAID' ? 'COMPLETED' : payment.status
     res.json({

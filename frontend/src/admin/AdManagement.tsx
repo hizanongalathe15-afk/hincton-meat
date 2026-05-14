@@ -14,6 +14,9 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { adsApi } from '../services/adminApi'
+import { resolveMediaUrl } from '../services/api'
+import { useConfirmationDialog } from '../hooks/useConfirmationDialog'
+import ConfirmationDialog from '../components/ui/ConfirmationDialog'
 
 interface AdPlacement {
   id: string
@@ -95,6 +98,7 @@ const AdManagement = () => {
   const [editingPlacement, setEditingPlacement] = useState<AdPlacement | null>(null)
   const [editingCampaign, setEditingCampaign] = useState<AdCampaign | null>(null)
   const [saving, setSaving] = useState(false)
+  const { isOpen, options, confirm, handleConfirm, handleCancel } = useConfirmationDialog()
   const [placementForm, setPlacementForm] = useState({
     name: '',
     type: 'BANNER',
@@ -178,8 +182,16 @@ const AdManagement = () => {
   }
 
   const deletePlacement = async (placementId: string) => {
-    if (!confirm('Are you sure you want to delete this placement?')) return
-    
+    const confirmed = await confirm({
+      title: 'Delete ad placement',
+      message: 'This will permanently remove the placement from your ad system. Do you want to continue?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger',
+      icon: 'delete',
+    })
+    if (!confirmed) return
+
     try {
       await adsApi.deletePlacement(placementId)
       await fetchPlacements()
@@ -190,8 +202,16 @@ const AdManagement = () => {
   }
 
   const deleteCampaign = async (campaignId: string) => {
-    if (!confirm('Are you sure you want to delete this campaign?')) return
-    
+    const confirmed = await confirm({
+      title: 'Delete ad campaign',
+      message: 'This will permanently remove the campaign and all its active creatives. Do you want to continue?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger',
+      icon: 'delete',
+    })
+    if (!confirmed) return
+
     try {
       await adsApi.deleteCampaign(campaignId)
       await fetchCampaigns()
@@ -263,10 +283,11 @@ const AdManagement = () => {
     setSaving(true)
     try {
       const uploaded = await adsApi.uploadMedia(file)
+      const mediaUrl = resolveMediaUrl(uploaded.url)
       setCampaignForm((current) => ({
         ...current,
-        mediaUrl: uploaded.url,
-        imageUrl: uploaded.mediaType === 'video' ? current.imageUrl : uploaded.url,
+        mediaUrl,
+        imageUrl: uploaded.mediaType === 'video' ? current.imageUrl : mediaUrl,
         mediaType: uploaded.mediaType || (file.type.startsWith('video/') ? 'video' : file.type === 'image/gif' ? 'gif' : 'image'),
       }))
       toast.success('Ad media uploaded')
@@ -789,6 +810,18 @@ const AdManagement = () => {
           </form>
         </div>
       )}
+
+      <ConfirmationDialog
+        isOpen={isOpen}
+        onClose={handleCancel}
+        onConfirm={handleConfirm}
+        title={options?.title || ''}
+        message={options?.message || ''}
+        confirmText={options?.confirmText}
+        cancelText={options?.cancelText}
+        type={options?.type}
+        icon={options?.icon}
+      />
     </div>
   )
 }

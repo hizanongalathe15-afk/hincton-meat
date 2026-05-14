@@ -4,12 +4,14 @@ import {
   getSalesAnalytics,
   getProductAnalytics,
   getCustomerAnalytics,
-  getOrderAnalytics
+  getOrderAnalytics,
+  trackClick
 } from '../controllers/analyticsController';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate, authorize, optionalAuthenticate } from '../middleware/auth';
 
 const router = Router();
 
+router.post('/click', optionalAuthenticate, trackClick);
 router.get('/dashboard', authenticate, authorize('admin'), getDashboardStats);
 router.get('/sales', authenticate, authorize('admin'), getSalesAnalytics);
 router.get('/products', authenticate, authorize('admin'), getProductAnalytics);

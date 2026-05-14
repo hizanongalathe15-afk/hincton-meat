@@ -22,6 +22,7 @@ import adminDashboardRoutes from './adminDashboard'
 import adminRoutes from './admin'
 import deliveryRoutes from './deliveryRoutes'
 import messageCatalogRoutes from './messages'
+import adRoutes from './ads'
 // import messageRoutes from './message'
 // import helpRoutes from './help'
 
@@ -60,6 +61,7 @@ router.use('/api/admin/dashboard', adminDashboardRoutes)
 router.use('/api/admin/content', contentRoutes)
 router.use('/api/deliveries', deliveryRoutes)
 router.use('/api/messages', messageCatalogRoutes)
+router.use('/api/ads', adRoutes)
 // router.use('/api/messages', messageRoutes)
 // router.use('/api/help', helpRoutes)
 

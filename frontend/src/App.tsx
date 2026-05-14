@@ -35,6 +35,7 @@ import QRCodeManager from './admin/QRCodeManager'
 import SystemMetrics from './admin/SystemMetrics'
 import AdManagement from './admin/AdManagement'
 import CookieConsent from './components/CookieConsent'
+import ReviewPrompt from './components/ReviewPrompt'
 
 // Legacy Page Components (keeping for compatibility)
 import HomePage from './pages/HomePage'
@@ -195,6 +196,7 @@ function App() {
       </main>
       {!isAdminRoute && <Footer />}
       {!isAdminRoute && <LiveChatWidget />}
+      {!isAdminRoute && <ReviewPrompt />}
       <CookieConsent />
     </div>
   )

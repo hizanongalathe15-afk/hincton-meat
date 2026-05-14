@@ -4,7 +4,8 @@ import { Search } from 'lucide-react'
 import ProductCard from './ProductCard'
 import CategoryFilter from './CategoryFilter'
 import { Product } from '../types/index'
-import { productsApi as api } from '../services/buyerApi'
+import { productsApi as api, trackingApi } from '../services/buyerApi'
+import { resolveMediaUrl } from '../services/api'
 import { useLanguage } from '../contexts/LanguageContext'
 import { HINCTON_PRODUCTS } from '../utils/hinctonBrand'
 
@@ -96,7 +97,7 @@ const BuyerShop = ({
         
         // Transform API data to component format
         const transformedProducts = (productsData.products || []).map((product: any) => {
-          const images = product.images || product.productImages?.map((img: any) => img.url) || []
+          const images = (product.images || product.productImages?.map((img: any) => img.url) || []).map((url: string) => resolveMediaUrl(url))
           return {
             id: product.id,
             name: product.name,
@@ -117,7 +118,7 @@ const BuyerShop = ({
             weightUnit: product.weightUnit || undefined,
             origin: product.brand || 'Hincton Meat Products',
             sku: product.sku,
-            videos: product.videos || product.productVideos?.map((video: any) => video.url) || [],
+            videos: (product.videos || product.productVideos?.map((video: any) => video.url) || []).map((url: string) => resolveMediaUrl(url)),
             productVideos: product.productVideos || [],
           }
         })
@@ -202,6 +203,14 @@ const BuyerShop = ({
     }
 
   const handleProductClick = (product: Product) => {
+    trackingApi.trackClick({
+      linkUrl: `/product/${product.id}`,
+      linkId: product.id,
+      label: product.name,
+      source: 'shop',
+      medium: 'product-card',
+      path: window.location.pathname + window.location.search,
+    }).catch(() => {})
     navigate(`/product/${product.id}`, { state: { product } })
     onProductClick?.(product)
   }

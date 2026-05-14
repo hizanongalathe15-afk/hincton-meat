@@ -4,7 +4,8 @@ import { Award, ChevronLeft, ChevronRight, Globe2, Shield, Snowflake, Truck } fr
 import HeroSection from './HeroSection'
 import ProductCard from './ProductCard'
 import { Product } from '../types/index'
-import { productsApi as api } from '../services/buyerApi'
+import { productsApi as api, trackingApi } from '../services/buyerApi'
+import { resolveMediaUrl } from '../services/api'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useSiteContent } from '../contexts/SiteContentContext'
 import { HINCTON_BRAND, HINCTON_MARKETS, HINCTON_PRODUCTS, HINCTON_QUALITY_POINTS } from '../utils/hinctonBrand'
@@ -67,8 +68,8 @@ const BuyerHome = ({
           name: product.name,
           price: Number(product.price) || 0,
           originalPrice: product.comparePrice ? Number(product.comparePrice) : undefined,
-          image: product.productImages?.[0]?.url || 'https://via.placeholder.com/700x600',
-          images: product.productImages?.map((img: any) => img.url) || [],
+          image: resolveMediaUrl(product.productImages?.[0]?.url) || 'https://via.placeholder.com/700x600',
+          images: product.productImages?.map((img: any) => resolveMediaUrl(img.url)) || [],
           rating: 4.5, // Would need reviews API
           reviews: 0, // Would need reviews API
           category: product.category?.name || t('category.uncategorized'),
@@ -89,7 +90,7 @@ const BuyerHome = ({
           name: product.name,
           category: product.category?.slug || product.categoryId || product.category?.id || '',
           description: product.shortDescription || product.description || product.category?.name || t('buyerHome.products.fallbackProductDescription'),
-          image: product.productImages?.[0]?.url || product.images?.[0] || 'https://via.placeholder.com/800x650',
+          image: resolveMediaUrl(product.productImages?.[0]?.url || product.images?.[0]) || 'https://via.placeholder.com/800x650',
           href: `/product/${product.id}`,
           cta: t('buyerHome.products.viewProduct'),
         }))
@@ -154,6 +155,14 @@ const BuyerHome = ({
   }
 
   const handleProductClick = (product: Product) => {
+    trackingApi.trackClick({
+      linkUrl: `/product/${product.id}`,
+      linkId: product.id,
+      label: product.name,
+      source: 'home',
+      medium: 'featured-product-card',
+      path: window.location.pathname,
+    }).catch(() => {})
     onProductClick?.(product)
     navigate(`/product/${product.id}`)
   }
@@ -268,6 +277,14 @@ const BuyerHome = ({
                   <Link
                     key={`${row.label}-${category.href}-${category.name}`}
                     to={category.href}
+                    onClick={() => trackingApi.trackClick({
+                      linkUrl: category.href,
+                      linkId: category.category || category.href,
+                      label: category.name,
+                      source: 'home',
+                      medium: productTiles.length ? 'product-tile' : 'category-tile',
+                      path: window.location.pathname,
+                    }).catch(() => {})}
                     className="group block w-[82vw] shrink-0 sm:w-[24rem] lg:w-[30rem]"
                   >
                     <div className="relative mb-4 aspect-[4/3] overflow-hidden rounded-lg shadow-lg">

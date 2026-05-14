@@ -9,7 +9,9 @@ import {
   AlertCircle,
   Share2,
   Download,
-  Upload
+  Upload,
+  Grid3X3,
+  List
 } from 'lucide-react'
 import { formatPrice } from '../utils/currency'
 
@@ -59,10 +61,11 @@ const ProductTable = ({
   const [selectedStatus, setSelectedStatus] = useState<Product['status'] | ''>('')
   const [sortField, setSortField] = useState<keyof Product>('createdAt')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
 
   const productsData = products || []
 
-  const categories = Array.from(new Set(productsData.map(p => p.category)))
+  const categories = Array.from(new Set(productsData.map(p => p.category))).sort((a, b) => a.localeCompare(b))
   const statuses = ['active', 'inactive', 'out_of_stock']
 
   const filteredProducts = productsData
@@ -76,14 +79,14 @@ const ProductTable = ({
       const aValue = a[sortField]
       const bValue = b[sortField]
 
-      const aN = typeof aValue === 'number' ? aValue : 0
-      const bN = typeof bValue === 'number' ? bValue : 0
-
-      if (sortDirection === 'asc') {
-        return aN > bN ? 1 : -1
+      let result = 0
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        result = aValue - bValue
       } else {
-        return aN < bN ? 1 : -1
+        result = String(aValue || '').localeCompare(String(bValue || ''), undefined, { numeric: true, sensitivity: 'base' })
       }
+
+      return sortDirection === 'asc' ? result : -result
     })
 
   const handleSort = (field: keyof Product) => {
@@ -188,10 +191,86 @@ const ProductTable = ({
               </option>
             ))}
           </select>
+
+          <select
+            value={`${sortField}:${sortDirection}`}
+            onChange={(e) => {
+              const [field, direction] = e.target.value.split(':') as [keyof Product, 'asc' | 'desc']
+              setSortField(field)
+              setSortDirection(direction)
+            }}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+            aria-label="Sort products"
+          >
+            <option value="name:asc">A-Z</option>
+            <option value="name:desc">Z-A</option>
+            <option value="createdAt:desc">Newest first</option>
+            <option value="createdAt:asc">Oldest first</option>
+            <option value="price:asc">Price low to high</option>
+            <option value="price:desc">Price high to low</option>
+            <option value="stock:asc">Stock low to high</option>
+            <option value="stock:desc">Stock high to low</option>
+          </select>
+
+          <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`rounded-md p-2 ${viewMode === 'table' ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+              title="Table view"
+              aria-label="Table view"
+            >
+              <List className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={`rounded-md p-2 ${viewMode === 'grid' ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+              title="Grid view"
+              aria-label="Grid view"
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Table */}
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2 xl:grid-cols-3">
+          {filteredProducts.map((product) => (
+            <div key={product.id} className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+              <div className="aspect-[4/3] bg-gray-100">
+                <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+              </div>
+              <div className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="line-clamp-2 text-base font-bold text-gray-900">{product.name}</h3>
+                    <p className="text-sm text-gray-500">SKU: {product.sku || 'Not set'}</p>
+                  </div>
+                  <span className={`shrink-0 px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(product.status)}`}>
+                    {product.status.replace('_', ' ')}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2 text-sm">
+                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">{product.category}</span>
+                  <span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold text-gray-900">{formatPrice(product.price)}</span>
+                  <span className={`rounded-full bg-gray-100 px-2.5 py-1 ${getStockColor(product.stock)}`}>{product.stock} units</span>
+                </div>
+                <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-3">
+                  <button onClick={() => onView?.(product)} className="p-2 text-gray-600 hover:text-gray-900" title="View Product"><Eye className="w-4 h-4" /></button>
+                  <button onClick={() => onRestock?.(product)} className="p-2 text-green-600 hover:text-green-900" title="Restock Product"><Package className="w-4 h-4" /></button>
+                  <button onClick={() => onShare?.(product)} className="p-2 text-green-600 hover:text-green-900" title="Share Product"><Share2 className="w-4 h-4" /></button>
+                  <button onClick={() => onDownload?.(product)} className="p-2 text-purple-600 hover:text-purple-900" title="Download Product"><Download className="w-4 h-4" /></button>
+                  <button onClick={() => onEdit?.(product)} className="p-2 text-blue-600 hover:text-blue-900" title="Edit Product"><Edit className="w-4 h-4" /></button>
+                  <button onClick={() => onDelete?.(product.id)} className="p-2 text-red-600 hover:text-red-900" title="Delete Product"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-gray-50">
@@ -352,6 +431,7 @@ const ProductTable = ({
           </tbody>
         </table>
       </div>
+      )}
 
       {/* Empty State */}
       {filteredProducts.length === 0 && (
