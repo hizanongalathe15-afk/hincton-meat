@@ -773,6 +773,61 @@ router.get('/profile', async (req, res) => {
   }
 })
 
+router.get('/linked-accounts', async (req, res) => {
+  try {
+    const userId = await getUserIdFromRequest(req)
+    if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+
+    const accounts = await prisma.socialAccount.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        provider: true,
+        providerAccountId: true,
+        expiresAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    })
+
+    const providers = [
+      { provider: 'google', label: 'Google', configured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) },
+      { provider: 'github', label: 'GitHub', configured: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) },
+      { provider: 'facebook', label: 'Facebook', configured: Boolean(process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) },
+    ]
+
+    res.json({
+      accounts,
+      providers: providers.map((provider) => ({
+        ...provider,
+        connected: accounts.some((account) => account.provider.toLowerCase() === provider.provider),
+        connectUrl: provider.configured ? `/api/auth/${provider.provider}` : null,
+      })),
+    })
+  } catch (error) {
+    console.error('Get linked accounts error:', error)
+    res.status(500).json({ error: 'Could not load linked accounts' })
+  }
+})
+
+router.delete('/linked-accounts/:id', async (req, res) => {
+  try {
+    const userId = await getUserIdFromRequest(req)
+    if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+
+    const result = await prisma.socialAccount.deleteMany({
+      where: { id: req.params.id, userId },
+    })
+
+    if (result.count === 0) return res.status(404).json({ error: 'Linked account not found' })
+    res.json({ message: 'Linked account removed successfully' })
+  } catch (error) {
+    console.error('Delete linked account error:', error)
+    res.status(500).json({ error: 'Could not remove linked account' })
+  }
+})
+
 router.get('/me', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '')

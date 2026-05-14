@@ -23,10 +23,29 @@ export const getApiHost = (): string => {
   return window.location.origin
 }
 
+const isCloudinaryUrl = (url: string) => {
+  return /^https?:\/\/res\.cloudinary\.com\//i.test(url)
+}
+
+const withCloudinaryAutoOptimization = (url: string) => {
+  if (!isCloudinaryUrl(url) || url.includes('/q_auto') || url.includes('/f_auto')) return url
+
+  if (url.includes('/image/upload/')) {
+    return url.replace('/image/upload/', '/image/upload/q_auto,f_auto/')
+  }
+
+  if (url.includes('/video/upload/')) {
+    return url.replace('/video/upload/', '/video/upload/q_auto/')
+  }
+
+  return url
+}
+
 export const resolveMediaUrl = (url?: string): string => {
   const fallback = ''
   if (!url) return fallback
-  if (/^(https?:)?\/\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:')) return url
+  if (/^https?:\/\//i.test(url)) return withCloudinaryAutoOptimization(url)
+  if (/^\/\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:')) return url
   if (url.startsWith('/uploads')) return `${getApiHost()}${url}`
   return url
 }

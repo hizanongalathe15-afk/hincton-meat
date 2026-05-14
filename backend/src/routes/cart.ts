@@ -2,6 +2,8 @@ import express from 'express'
 import { prisma } from '../config/prisma'
 import { z } from 'zod'
 import { meatShopMessages, resolveMessage } from '../messages/meatShopMessages'
+import { authenticate, authorize } from '../middleware/auth'
+import { runCartReminderSweep } from '../services/cartReminderService'
 
 const router = express.Router()
 
@@ -103,6 +105,40 @@ const getActiveReservations = (notes?: string | null) => {
   })
 }
 
+const getCartReminder = (cart: any, items: any[], reservationExpiresAt: string | null) => {
+  const notes = parseCartNotes(cart?.notes)
+  const lowStockItems = items.filter((item) => {
+    const stockQuantity = Number(item.product?.stockQuantity || 0)
+    return stockQuantity <= Math.max(Number(item.quantity || 0), 3)
+  })
+
+  if (lowStockItems.length > 0) {
+    return {
+      type: 'stock_pressure',
+      message: `Some items in your cart are selling quickly: ${lowStockItems.slice(0, 3).map((item) => item.product?.name).filter(Boolean).join(', ')}. Checkout when ready so stock can be confirmed for you.`,
+      productIds: lowStockItems.map((item) => item.productId),
+    }
+  }
+
+  if (reservationExpiresAt) {
+    return {
+      type: 'reservation_active',
+      message: `Your checkout stock reservation is active until ${new Date(reservationExpiresAt).toLocaleTimeString()}.`,
+      productIds: [],
+    }
+  }
+
+  if (notes.stockReminderMessage) {
+    return {
+      type: 'cart_waiting',
+      message: notes.stockReminderMessage,
+      productIds: notes.stockReminderLowStockProductIds || [],
+    }
+  }
+
+  return null
+}
+
 const writeReservations = async (tx: any, cartId: string, notes: string | null | undefined, reservations: CartReservation[]) => {
   const existing = parseCartNotes(notes)
   await tx.cart.update({
@@ -199,6 +235,7 @@ router.get('/', async (req, res) => {
       cart: {
         items,
         reservationExpiresAt: reservationExpiresAt ? new Date(reservationExpiresAt).toISOString() : null,
+        reminder: getCartReminder(cart, items, reservationExpiresAt ? new Date(reservationExpiresAt).toISOString() : null),
         summary: {
           totalItems: items.reduce((s, i) => s + i.quantity, 0),
           subtotal,
@@ -425,6 +462,22 @@ router.post('/checkout-lock', async (req, res) => {
     console.error('Checkout lock error:', error)
     const message = error instanceof Error ? error.message : resolveMessage(meatShopMessages.system.serverBusy).message
     res.status(400).json({ ...apiMessage(meatShopMessages.system.serverBusy), message, error: message })
+  }
+})
+
+router.post('/reminders/run', authenticate, authorize('ADMIN'), async (req, res) => {
+  try {
+    const olderThanMinutes = Number(req.body?.olderThanMinutes)
+    const result = await runCartReminderSweep({
+      olderThanMinutes: Number.isFinite(olderThanMinutes) ? olderThanMinutes : 30,
+      lowStockOnly: req.body?.lowStockOnly !== false,
+      limit: Number(req.body?.limit) || 100,
+    })
+
+    res.json({ message: 'Cart reminder sweep completed', ...result })
+  } catch (error) {
+    console.error('Cart reminder sweep error:', error)
+    res.status(500).json(apiMessage(meatShopMessages.system.serverBusy))
   }
 })
 

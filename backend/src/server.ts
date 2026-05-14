@@ -2,12 +2,14 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import fs from 'fs';
 import path from 'path';
 import { prisma } from './config/prisma'
+import { cacheService } from './services/cacheService'
 
 import authRoutes from './routes/auth';
 import productRoutes from './routes/products';
@@ -80,7 +82,7 @@ const corsOptions: cors.CorsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Guest-Session-Id'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Guest-Session-Id', 'Idempotency-Key'],
 };
 
 if (!process.env.VERCEL) {
@@ -109,6 +111,7 @@ const limiter = rateLimit({
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
+app.use(compression({ threshold: 1024 }));
 app.use(limiter);
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
@@ -133,7 +136,7 @@ if (hinctonStaticPath) {
 }
 
 app.use('/api/auth', authRoutes);
-app.use('/api/products', productRoutes);
+app.use('/api/products', optionalAuthenticate, productRoutes);
 app.use('/api/orders', optionalAuthenticate, orderRoutes);
 app.use('/api/cart', optionalAuthenticate, cartRoutes);
 app.use('/api/mpesa', optionalAuthenticate, mpesaRoutes);
@@ -365,10 +368,10 @@ app.post('/api/content/contact/submit', optionalAuthenticate, async (req: any, r
 
 app.get('/api/categories', async (_req, res) => {
   try {
-    const categories = await prisma.category.findMany({
+    const categories = await cacheService.remember('categories:public:all', 300, () => prisma.category.findMany({
       where: { isActive: true, deletedAt: null },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-    });
+    }));
     res.json({ categories });
   } catch (error) {
     console.error('Public categories error:', error);

@@ -9,10 +9,10 @@ const slugify = (input: string) =>
   input.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 
 const categories = [
-  { name: 'Sausages', image: '/hincton/hero-platter.jpg' },
-  { name: 'Beef Cuts', image: '/hincton/beef-cuts.jpg' },
-  { name: 'Lamb/Goat Cuts', image: '/hincton/lamb-mutton.jpg' },
-  { name: 'Capon', image: '/hincton/chicken.jpg' },
+  { name: 'Sausages', image: '/hincton/hero-platter.webp' },
+  { name: 'Beef Cuts', image: '/hincton/beef-cuts.webp' },
+  { name: 'Lamb/Goat Cuts', image: '/hincton/lamb-mutton.webp' },
+  { name: 'Capon', image: '/hincton/chicken.webp' },
 ]
 
 const products = [
@@ -93,10 +93,10 @@ async function main() {
     const slug = slugify(name)
     const categoryId = categoryMap.get(categoryName)
     const image =
-      categoryName === 'Capon' ? '/hincton/chicken.jpg' :
-      categoryName === 'Lamb/Goat Cuts' ? '/hincton/lamb-mutton.jpg' :
-      categoryName === 'Beef Cuts' ? '/hincton/beef-cuts.jpg' :
-      '/hincton/hero-platter.jpg'
+      categoryName === 'Capon' ? '/hincton/chicken.webp' :
+      categoryName === 'Lamb/Goat Cuts' ? '/hincton/lamb-mutton.webp' :
+      categoryName === 'Beef Cuts' ? '/hincton/beef-cuts.webp' :
+      '/hincton/hero-platter.webp'
 
     const saved = await prisma.product.upsert({
       where: { slug },

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import DashboardStats from './DashboardStats'
 import SalesChart from './SalesChart'
 import AnalyticsCards from './AnalyticsCards'
+import RealtimeVisitsPanel from './RealtimeVisitsPanel'
 
 interface AnalyticsPageProps {
   timeRange?: 'week' | 'month' | 'quarter' | 'year'
@@ -21,6 +22,8 @@ const AnalyticsPage = ({
 
   return (
     <div className="space-y-6">
+      <RealtimeVisitsPanel />
+
       {/* Dashboard Stats */}
       <DashboardStats loading={false} />
 

@@ -2,9 +2,12 @@ import express from 'express'
 import { z } from 'zod'
 import multer from 'multer'
 import path from 'path'
+import fs from 'fs/promises'
+import sharp from 'sharp'
 
 import { prisma } from '../config/prisma'
 import { authenticate, authorize } from '../middleware/auth'
+import { cacheService } from '../services/cacheService'
 
 const router = express.Router()
 
@@ -27,6 +30,25 @@ const upload = multer({
   },
 })
 
+const optimizeProductUpload = async (file: Express.Multer.File) => {
+  const parsed = path.parse(file.filename)
+  const webpName = `${parsed.name}.webp`
+  const webpPath = path.join(path.dirname(file.path), webpName)
+
+  await sharp(file.path)
+    .rotate()
+    .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 78, effort: 5 })
+    .toFile(webpPath)
+
+  await fs.unlink(file.path).catch(() => undefined)
+  return `/uploads/products/${webpName}`
+}
+
+const optimizeProductUploads = async (files: Express.Multer.File[]) => {
+  return Promise.all(files.map(optimizeProductUpload))
+}
+
 const slugify = (input: string) =>
   input
     .toLowerCase()
@@ -38,6 +60,24 @@ const parsePageInt = (value: unknown, fallback: number) => {
   const s = typeof value === 'string' ? value : undefined
   const n = s ? parseInt(s, 10) : NaN
   return Number.isFinite(n) ? n : fallback
+}
+
+const parseCursor = (value: unknown) => {
+  if (typeof value !== 'string' || !value.trim()) return null
+  try {
+    const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'))
+    if (parsed && typeof parsed === 'object' && typeof parsed.id === 'string') return parsed as { id: string; createdAt?: string }
+  } catch {
+    return null
+  }
+  return null
+}
+
+const encodeCursor = (product: { id: string; createdAt?: Date | string }) => {
+  return Buffer.from(JSON.stringify({
+    id: product.id,
+    createdAt: product.createdAt instanceof Date ? product.createdAt.toISOString() : product.createdAt,
+  })).toString('base64url')
 }
 
 const getProductOrderBy = (sortBy: unknown, sortOrder: unknown): any[] => {
@@ -215,14 +255,17 @@ router.get('/featured', async (req, res) => {
     const { limit = '8' } = req.query
     const limitNum = parsePageInt(limit, 8)
 
-    const products = await prisma.product.findMany({
-      where: { isFeatured: true, isPublished: true, deletedAt: null, stockQuantity: { gt: 0 } },
-      take: limitNum,
-      orderBy: { createdAt: 'desc' },
-      include: productInclude,
+    const products = await cacheService.remember(`products:featured:${limitNum}`, 60, async () => {
+      const rows = await prisma.product.findMany({
+        where: { isFeatured: true, isPublished: true, deletedAt: null, stockQuantity: { gt: 0 } },
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        include: productInclude,
+      })
+      return rows.map(serializeProduct)
     })
 
-    res.json({ products: products.map(serializeProduct) })
+    res.json({ products })
   } catch (error) {
     console.error('Get featured products error:', error)
     if (isDatabaseUnavailable(error)) {
@@ -246,15 +289,69 @@ router.get('/recommendations', async (req, res) => {
   }
 })
 
+// GET /api/products/recently-viewed
+router.get('/recently-viewed', async (req: any, res) => {
+  try {
+    const limitNum = Math.min(parsePageInt(req.query.limit, 8), 24)
+    const sessionId = getSessionId(req)
+    const where: any = req.user?.id
+      ? { OR: [{ userId: req.user.id }, { sessionId }] }
+      : { sessionId }
+
+    const views = await prisma.productView.findMany({
+      where,
+      orderBy: { viewedAt: 'desc' },
+      take: 100,
+      select: { productId: true, viewedAt: true, duration: true },
+    })
+
+    const latestByProduct = new Map<string, { viewedAt: Date; duration?: number | null }>()
+    views.forEach((view) => {
+      if (!view.productId || latestByProduct.has(view.productId)) return
+      latestByProduct.set(view.productId, { viewedAt: view.viewedAt, duration: view.duration })
+    })
+
+    const ids = Array.from(latestByProduct.keys()).slice(0, limitNum)
+    const products = ids.length
+      ? await prisma.product.findMany({
+          where: { id: { in: ids }, isPublished: true, deletedAt: null },
+          include: productInclude,
+        })
+      : []
+
+    const byId = new Map(products.map((product) => [product.id, product]))
+    res.json({
+      products: ids
+        .map((id) => {
+          const product = byId.get(id)
+          if (!product) return null
+          const meta = latestByProduct.get(id)
+          return {
+            ...serializeProduct(product),
+            viewedAt: meta?.viewedAt.toISOString(),
+            viewDuration: meta?.duration || null,
+          }
+        })
+        .filter(Boolean),
+    })
+  } catch (error) {
+    console.error('Get recently viewed products error:', error)
+    if (isDatabaseUnavailable(error)) return res.json({ products: [] })
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 // GET /api/products
 router.get('/', async (req, res) => {
   try {
-    const { page = '1', limit = '20', category, categoryId, minPrice, maxPrice, search, sortBy = 'featured', sortOrder = 'desc' } = req.query
+    const { page = '1', limit = '20', cursor, category, categoryId, minPrice, maxPrice, search, sortBy = 'featured', sortOrder = 'desc' } = req.query
 
     const pageNum = parsePageInt(page, 1)
     const limitNum = parsePageInt(limit, 20)
-    const skip = (pageNum - 1) * limitNum
+    const safeLimit = Math.min(Math.max(limitNum, 1), 60)
+    const parsedCursor = parseCursor(cursor)
     const orderBy = getProductOrderBy(sortBy, sortOrder)
+    const useCursor = Boolean(parsedCursor || cursor === undefined || cursor === '')
 
     const where: any = { isPublished: true, deletedAt: null }
     const andFilters: any[] = []
@@ -289,26 +386,36 @@ router.get('/', async (req, res) => {
     }
     if (andFilters.length) where.AND = andFilters
 
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        skip,
-        take: limitNum,
-        orderBy,
-        include: productInclude,
-      }),
-      prisma.product.count({ where }),
-    ])
-
-    res.json({
-      products: products.map(serializeProduct),
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum),
-      },
+    const cacheKey = `products:list:${JSON.stringify({ limit: safeLimit, cursor: parsedCursor, category, categoryId, minPrice, maxPrice, search, sortBy, sortOrder, useCursor })}`
+    const payload = await cacheService.remember(cacheKey, 45, async () => {
+      const [rows, total] = await Promise.all([
+        prisma.product.findMany({
+          where,
+          ...(parsedCursor ? { cursor: { id: parsedCursor.id }, skip: 1 } : useCursor ? {} : { skip: (pageNum - 1) * safeLimit }),
+          take: safeLimit + 1,
+          orderBy,
+          include: productInclude,
+        }),
+        prisma.product.count({ where }),
+      ])
+      const hasMore = rows.length > safeLimit
+      const products = rows.slice(0, safeLimit).map(serializeProduct)
+      const last = rows[Math.min(rows.length, safeLimit) - 1]
+      return {
+        products,
+        pagination: {
+          page: pageNum,
+          limit: safeLimit,
+          total,
+          pages: Math.ceil(total / safeLimit),
+          hasMore,
+          nextCursor: hasMore && last ? encodeCursor(last) : null,
+          mode: useCursor ? 'cursor' : 'offset',
+        },
+      }
     })
+
+    res.json(payload)
   } catch (error) {
     console.error('Get products error:', error)
     if (isDatabaseUnavailable(error)) {
@@ -343,7 +450,8 @@ router.get('/:id', async (req, res) => {
 
     if (!product) return res.status(404).json({ error: 'Product not found' })
 
-    res.json(serializeProduct(product))
+    const serialized = await cacheService.remember(`products:detail:${id}`, 60, async () => serializeProduct(product))
+    res.json(serialized)
   } catch (error) {
     console.error('Get product error:', error)
     res.status(500).json({ error: 'Internal server error' })
@@ -365,6 +473,7 @@ router.post('/:id/view', async (req, res) => {
     await prisma.productView.create({
       data: {
         productId: id,
+        userId: (req as any).user?.id,
         sessionId,
         duration,
       },
@@ -382,7 +491,7 @@ router.post('/', authenticate, authorize('ADMIN'), upload.array('images', 5), as
   try {
     const productData = createProductSchema.parse(req.body)
     const files = (req.files ?? []) as Express.Multer.File[]
-    const imageUrls = files.map((file) => `/uploads/products/${file.filename}`)
+    const imageUrls = await optimizeProductUploads(files)
 
     const created = await prisma.product.create({
       data: {
@@ -409,6 +518,7 @@ router.post('/', authenticate, authorize('ADMIN'), upload.array('images', 5), as
     })
 
     const { averageRating, reviewCount } = deriveRating((created as any).reviews)
+    await cacheService.deleteByPrefix('products:')
 
     res.status(201).json({
       message: 'Product created successfully',
@@ -431,7 +541,7 @@ router.put('/:id', authenticate, authorize('ADMIN'), upload.array('images', 5), 
     const { id } = req.params
     const updateData = updateProductSchema.parse(req.body)
     const files = (req.files ?? []) as Express.Multer.File[]
-    const imageUrls = files.map((file) => `/uploads/products/${file.filename}`)
+    const imageUrls = await optimizeProductUploads(files)
 
     const existing = await prisma.product.findUnique({ where: { id } })
     if (!existing) return res.status(404).json({ error: 'Product not found' })
@@ -457,6 +567,7 @@ router.put('/:id', authenticate, authorize('ADMIN'), upload.array('images', 5), 
     })
 
     const { averageRating, reviewCount } = deriveRating((updated as any).reviews)
+    await cacheService.deleteByPrefix('products:')
 
 
     res.json({
@@ -485,6 +596,7 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
       where: { id },
       data: { deletedAt: new Date(), isPublished: false },
     })
+    await cacheService.deleteByPrefix('products:')
 
     res.json({ message: 'Product deleted successfully' })
   } catch (error) {

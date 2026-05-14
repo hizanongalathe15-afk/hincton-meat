@@ -130,6 +130,8 @@ const ProductDetails = ({
               <img
                 src={selectedItem.url}
                 alt={selectedItem.alt}
+                loading="eager"
+                decoding="async"
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 onClick={() => setShowZoom(true)}
               />
@@ -217,6 +219,8 @@ const ProductDetails = ({
                   <img
                     src={item.thumbnail}
                     alt={item.alt}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -224,6 +228,8 @@ const ProductDetails = ({
                     <img
                       src={item.thumbnail}
                       alt={item.alt}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center">

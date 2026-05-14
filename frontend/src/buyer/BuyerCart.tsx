@@ -16,6 +16,11 @@ interface BuyerCartProps {
   onRemoveItem: (itemId: string) => void
   onToggleWishlist?: (itemId: string) => void
   wishlistItems?: Set<string>
+  reminder?: {
+    type: string
+    message: string
+    productIds?: string[]
+  } | null
 }
 
 const BuyerCart = ({ 
@@ -23,7 +28,8 @@ const BuyerCart = ({
   onUpdateQuantity, 
   onRemoveItem, 
   onToggleWishlist,
-  wishlistItems = new Set()
+  wishlistItems = new Set(),
+  reminder = null
 }: BuyerCartProps) => {
   const navigate = useNavigate()
   const { isOpen, options, confirm, handleConfirm, handleCancel } = useConfirmationDialog()
@@ -71,6 +77,11 @@ const BuyerCart = ({
           ) : (
             <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
               <div className="space-y-4">
+                {reminder && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    {reminder.message}
+                  </div>
+                )}
                 {items.map((item) => (
                   <div key={item.id} className="grid gap-4 rounded-lg bg-white p-4 shadow-sm sm:grid-cols-[120px_1fr_auto] sm:items-center">
                     <img src={item.image} alt={item.name} className="h-28 w-full rounded-lg object-cover sm:w-28" />

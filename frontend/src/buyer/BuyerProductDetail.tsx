@@ -38,8 +38,8 @@ const BuyerProductDetail = ({
           name: raw.name,
           price: Number(raw.price) || 0,
           originalPrice: raw.comparePrice ? Number(raw.comparePrice) : undefined,
-          image: images[0] || '/hincton/hero-platter.jpg',
-          images: images.length ? images : ['/hincton/hero-platter.jpg'],
+          image: images[0] || '/hincton/hero-platter.webp',
+          images: images.length ? images : ['/hincton/hero-platter.webp'],
           rating: Number(raw.averageRating || raw.rating || 0),
           reviews: Number(raw.reviewCount || raw.totalReviews || 0),
           category: raw.category?.name || 'Uncategorized',
@@ -95,8 +95,8 @@ const BuyerProductDetail = ({
             name: raw.name,
             price: Number(raw.price) || 0,
             originalPrice: raw.comparePrice ? Number(raw.comparePrice) : undefined,
-            image: images[0] || '/hincton/hero-platter.jpg',
-            images: images.length ? images : ['/hincton/hero-platter.jpg'],
+            image: images[0] || '/hincton/hero-platter.webp',
+            images: images.length ? images : ['/hincton/hero-platter.webp'],
             rating: Number(raw.averageRating || raw.rating || 0),
             reviews: Number(raw.reviewCount || raw.totalReviews || 0),
             category: raw.category?.name || 'Uncategorized',
@@ -157,7 +157,7 @@ const BuyerProductDetail = ({
           <div className="mb-5 flex items-end justify-between">
             <div>
               <p className="text-sm font-bold uppercase text-red-700">Recommended</p>
-              <h2 className="text-2xl font-extrabold text-gray-950">Customers also consider</h2>
+              <h2 className="text-2xl font-extrabold text-gray-950">You may also like</h2>
             </div>
           </div>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">

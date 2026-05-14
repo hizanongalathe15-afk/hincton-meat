@@ -83,9 +83,9 @@ const defaultSiteProfile = {
     'Temperature-controlled storage and efficient dispatch systems.',
   ],
   images: {
-    hero: '/hincton/hero-platter.jpg',
-    about: '/hincton/beef-fresh.jpg',
-    market: '/hincton/cattle-market.jpg',
+    hero: '/hincton/hero-platter.webp',
+    about: '/hincton/beef-fresh.webp',
+    market: '/hincton/cattle-market.webp',
     logo: '/hincton/logo.png',
   },
   terms: [

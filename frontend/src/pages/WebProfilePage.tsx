@@ -187,7 +187,7 @@ const WebProfilePage = () => {
                 <Link key={product.id} to={`/product/${product.id}`} className="group overflow-hidden rounded bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
                   <div className="aspect-[4/3] overflow-hidden bg-gray-200">
                     <img
-                      src={product.productImages?.[0]?.url || '/hincton/beef-cuts.jpg'}
+                      src={product.productImages?.[0]?.url || '/hincton/beef-cuts.webp'}
                       alt={product.productImages?.[0]?.alt || product.name}
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                     />

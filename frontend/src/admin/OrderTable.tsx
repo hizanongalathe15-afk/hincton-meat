@@ -15,8 +15,8 @@ interface Order {
   customerName: string
   customerEmail: string
   customerPhone: string
-  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
-  paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded'
+  status: string
+  paymentStatus: string
   total: number
   items: number
   createdAt: string
@@ -37,6 +37,11 @@ interface OrderTableProps {
   onView?: (order: Order) => void
   onUpdateStatus?: (orderId: string, status: string) => void
   onAssignTracking?: (orderId: string, trackingNumber: string) => void
+  onAccept?: (orderId: string) => void
+  onMarkPaid?: (orderId: string) => void
+  onCancel?: (orderId: string) => void
+  onRefund?: (orderId: string) => void
+  onInternalNotes?: (orderId: string) => void
   loading?: boolean
 }
 
@@ -45,6 +50,11 @@ const OrderTable = ({
   onView,
   onUpdateStatus,
   onAssignTracking,
+  onAccept,
+  onMarkPaid,
+  onCancel,
+  onRefund,
+  onInternalNotes,
   loading = false
 }: OrderTableProps) => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -56,8 +66,22 @@ const OrderTable = ({
 
   const ordersData = orders || []
 
-  const statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled']
-  const paymentStatuses = ['pending', 'paid', 'failed', 'refunded']
+  const statuses = [
+    'pending',
+    'confirmed',
+    'processing',
+    'shipped',
+    'out_for_delivery',
+    'delivered',
+    'cancelled',
+    'refunded',
+    'returned',
+    'partially_shipped',
+    'on_hold',
+    'awaiting_payment',
+    'payment_failed'
+  ]
+  const paymentStatuses = ['unpaid', 'pending', 'paid', 'failed', 'refunded', 'partially_refunded', 'authorized', 'voided', 'expired']
   const dateRanges = [
     { value: '', label: 'All Time' },
     { value: 'today', label: 'Today' },
@@ -106,10 +130,18 @@ const OrderTable = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800'
+      case 'confirmed': return 'bg-cyan-100 text-cyan-800'
       case 'processing': return 'bg-blue-100 text-blue-800'
+      case 'out_for_delivery': return 'bg-indigo-100 text-indigo-800'
       case 'shipped': return 'bg-purple-100 text-purple-800'
       case 'delivered': return 'bg-green-100 text-green-800'
       case 'cancelled': return 'bg-red-100 text-red-800'
+      case 'refunded': return 'bg-gray-100 text-gray-800'
+      case 'returned': return 'bg-orange-100 text-orange-800'
+      case 'partially_shipped': return 'bg-violet-100 text-violet-800'
+      case 'on_hold': return 'bg-amber-100 text-amber-800'
+      case 'awaiting_payment': return 'bg-yellow-100 text-yellow-800'
+      case 'payment_failed': return 'bg-red-100 text-red-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
@@ -117,9 +149,14 @@ const OrderTable = ({
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
       case 'paid': return 'bg-green-100 text-green-800'
+      case 'unpaid': return 'bg-yellow-100 text-yellow-800'
       case 'pending': return 'bg-yellow-100 text-yellow-800'
       case 'failed': return 'bg-red-100 text-red-800'
       case 'refunded': return 'bg-gray-100 text-gray-800'
+      case 'partially_refunded': return 'bg-gray-100 text-gray-800'
+      case 'authorized': return 'bg-blue-100 text-blue-800'
+      case 'voided': return 'bg-gray-100 text-gray-800'
+      case 'expired': return 'bg-red-100 text-red-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
@@ -127,10 +164,13 @@ const OrderTable = ({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending': return <Clock className="w-4 h-4" />
+      case 'confirmed': return <CheckCircle className="w-4 h-4" />
       case 'processing': return <Clock className="w-4 h-4" />
       case 'shipped': return <Truck className="w-4 h-4" />
+      case 'out_for_delivery': return <Truck className="w-4 h-4" />
       case 'delivered': return <CheckCircle className="w-4 h-4" />
       case 'cancelled': return <XCircle className="w-4 h-4" />
+      case 'payment_failed': return <XCircle className="w-4 h-4" />
       default: return <Clock className="w-4 h-4" />
     }
   }
@@ -297,7 +337,7 @@ const OrderTable = ({
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.status)}`}>
-                      {order.status}
+                      {order.status.replace(/_/g, ' ')}
                     </span>
                     {getStatusIcon(order.status)}
                   </div>
@@ -309,7 +349,7 @@ const OrderTable = ({
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getPaymentStatusColor(order.paymentStatus)}`}>
-                    {order.paymentStatus}
+                    {order.paymentStatus.replace(/_/g, ' ')}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -317,6 +357,14 @@ const OrderTable = ({
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex items-center justify-end gap-2">
+                    {['pending', 'awaiting_payment'].includes(order.status) && (
+                      <button
+                        onClick={() => onAccept?.(order.id)}
+                        className="text-cyan-700 hover:text-cyan-900"
+                      >
+                        Accept
+                      </button>
+                    )}
                     <button
                       onClick={() => onView?.(order)}
                       className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
@@ -331,7 +379,7 @@ const OrderTable = ({
                       aria-label={`Update status for ${order.orderNumber}`}
                     >
                       {statuses.map((status) => (
-                        <option key={status} value={status}>{status}</option>
+                        <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>
                       ))}
                     </select>
                     <button
@@ -345,6 +393,24 @@ const OrderTable = ({
                     >
                       Track
                     </button>
+                    {order.paymentStatus !== 'paid' && (
+                      <button onClick={() => onMarkPaid?.(order.id)} className="text-emerald-700 hover:text-emerald-900">
+                        Paid
+                      </button>
+                    )}
+                    <button onClick={() => onInternalNotes?.(order.id)} className="text-gray-700 hover:text-gray-900">
+                      Notes
+                    </button>
+                    {!['cancelled', 'delivered', 'refunded'].includes(order.status) && (
+                      <button onClick={() => onCancel?.(order.id)} className="text-red-700 hover:text-red-900">
+                        Cancel
+                      </button>
+                    )}
+                    {order.paymentStatus === 'paid' && (
+                      <button onClick={() => onRefund?.(order.id)} className="text-orange-700 hover:text-orange-900">
+                        Refund
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

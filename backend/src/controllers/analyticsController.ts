@@ -27,6 +27,97 @@ const getDeviceType = (userAgent = '') => {
   return 'DESKTOP'
 }
 
+const getBrowser = (userAgent = '') => {
+  if (/edg/i.test(userAgent)) return 'Edge'
+  if (/chrome|crios/i.test(userAgent)) return 'Chrome'
+  if (/firefox|fxios/i.test(userAgent)) return 'Firefox'
+  if (/safari/i.test(userAgent)) return 'Safari'
+  return 'Other'
+}
+
+const getOs = (userAgent = '') => {
+  if (/windows/i.test(userAgent)) return 'Windows'
+  if (/android/i.test(userAgent)) return 'Android'
+  if (/iphone|ipad|ipod/i.test(userAgent)) return 'iOS'
+  if (/mac os/i.test(userAgent)) return 'macOS'
+  if (/linux/i.test(userAgent)) return 'Linux'
+  return 'Other'
+}
+
+export const trackPageView = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const path = String(req.body?.path || '').trim()
+    if (!path) return res.status(400).json({ error: 'path is required' })
+
+    const sessionId = getSessionId(req)
+    const userAgent = req.get('User-Agent') || ''
+    const existingSession = await prisma.analyticsSession.findUnique({ where: { sessionId } })
+    const referrer = String(req.body?.referrer || req.get('Referer') || '').trim() || undefined
+
+    await prisma.analyticsSession.upsert({
+      where: { sessionId },
+      update: {
+        userId: req.user?.id,
+        ipAddress: req.ip,
+        userAgent,
+        path,
+        exitPage: path,
+        referrer,
+        deviceType: getDeviceType(userAgent),
+      },
+      create: {
+        sessionId,
+        userId: req.user?.id,
+        ipAddress: req.ip,
+        userAgent,
+        path,
+        landingPage: path,
+        exitPage: path,
+        referrer,
+        source: req.body?.source,
+        medium: req.body?.medium,
+        campaign: req.body?.campaign,
+        term: req.body?.term,
+        content: req.body?.content,
+        deviceType: getDeviceType(userAgent),
+      },
+    })
+
+    const pageView = await prisma.pageView.create({
+      data: {
+        sessionId,
+        userId: req.user?.id,
+        path,
+        url: req.body?.url,
+        title: req.body?.title,
+        referrer,
+        source: req.body?.source,
+        medium: req.body?.medium,
+        campaign: req.body?.campaign,
+        term: req.body?.term,
+        content: req.body?.content,
+        loadTimeMs: Number.isFinite(Number(req.body?.loadTimeMs)) ? Number(req.body.loadTimeMs) : undefined,
+        viewportWidth: Number.isFinite(Number(req.body?.viewportWidth)) ? Number(req.body.viewportWidth) : undefined,
+        viewportHeight: Number.isFinite(Number(req.body?.viewportHeight)) ? Number(req.body.viewportHeight) : undefined,
+        screenWidth: Number.isFinite(Number(req.body?.screenWidth)) ? Number(req.body.screenWidth) : undefined,
+        screenHeight: Number.isFinite(Number(req.body?.screenHeight)) ? Number(req.body.screenHeight) : undefined,
+        language: req.body?.language,
+        timezone: req.body?.timezone,
+        ipAddress: req.ip,
+        userAgent,
+        deviceType: getDeviceType(userAgent),
+        browser: getBrowser(userAgent),
+        os: getOs(userAgent),
+        isFirstVisit: !existingSession,
+      },
+    })
+
+    res.status(201).json({ success: true, pageViewId: pageView.id })
+  } catch (error) {
+    next(error)
+  }
+}
+
 export const trackClick = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const linkUrl = String(req.body?.linkUrl || '').trim()
@@ -195,6 +286,75 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
     next(error)
   }
 };
+
+export const getRealtimeVisits = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const now = new Date()
+    const today = startOfDay(now)
+    const hourAgo = new Date(now.getTime() - 60 * 60 * 1000)
+    const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000)
+
+    const [todayViews, todayUnique, activeNow, linkClicksToday, topPages, topLinks, recentViews] = await Promise.all([
+      prisma.pageView.count({ where: { viewedAt: { gte: today } } }),
+      prisma.pageView.groupBy({
+        by: ['sessionId'],
+        where: { viewedAt: { gte: today } },
+        _count: { _all: true },
+      }),
+      prisma.pageView.groupBy({
+        by: ['sessionId'],
+        where: { viewedAt: { gte: fiveMinutesAgo } },
+        _count: { _all: true },
+      }),
+      prisma.click.count({ where: { clickedAt: { gte: today } } }),
+      prisma.pageView.groupBy({
+        by: ['path'],
+        where: { viewedAt: { gte: today } },
+        _count: { _all: true },
+        orderBy: { _count: { path: 'desc' } },
+        take: 10,
+      }),
+      prisma.click.groupBy({
+        by: ['linkUrl', 'label'],
+        where: { clickedAt: { gte: today } },
+        _count: { _all: true },
+        orderBy: { _count: { linkUrl: 'desc' } },
+        take: 10,
+      }),
+      prisma.pageView.findMany({
+        where: { viewedAt: { gte: hourAgo } },
+        orderBy: { viewedAt: 'desc' },
+        take: 12,
+        select: {
+          id: true,
+          path: true,
+          title: true,
+          referrer: true,
+          deviceType: true,
+          browser: true,
+          os: true,
+          language: true,
+          viewedAt: true,
+        },
+      }),
+    ])
+
+    res.json({
+      generatedAt: now.toISOString(),
+      today: {
+        visits: todayViews,
+        uniqueVisitors: todayUnique.length,
+        activeNow: activeNow.length,
+        linkClicks: linkClicksToday,
+      },
+      topPages: topPages.map((row) => ({ path: row.path, visits: row._count._all })),
+      topLinks: topLinks.map((row) => ({ url: row.linkUrl, label: row.label || row.linkUrl, clicks: row._count._all })),
+      recentViews: recentViews.map((view) => ({ ...view, viewedAt: view.viewedAt.toISOString() })),
+    })
+  } catch (error) {
+    next(error)
+  }
+}
 
 export const getSalesAnalytics = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

@@ -14,6 +14,7 @@
     "seed": "ts-node src/utils/seedData.ts",
     "seed:hincton": "ts-node src/utils/seedHinctonPricelist.ts",
     "seed:admins": "ts-node src/utils/seedAdmins.ts",
+    "cart:reminders": "ts-node scripts/run-cart-reminders.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

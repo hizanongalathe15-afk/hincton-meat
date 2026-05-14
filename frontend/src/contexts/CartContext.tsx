@@ -7,6 +7,11 @@ import { getApiErrorMessage } from '../services/api'
 
 interface CartContextType {
   items: CartItem[]
+  reminder: {
+    type: string
+    message: string
+    productIds?: string[]
+  } | null
   addItem: (product: Product, quantity: number) => Promise<void>
   removeItem: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
@@ -47,6 +52,7 @@ export const useCart = () => {
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([])
+  const [reminder, setReminder] = useState<CartContextType['reminder']>(null)
   const { user } = useAuth()
 
   useEffect(() => {
@@ -57,6 +63,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const data = await cartApi.getCart()
         if (cancelled) return
         setItems(mapBackendCartItems(data))
+        setReminder(data.cart?.reminder || null)
       } catch (error) {
         console.error('Failed to load backend cart:', error)
         setItems([])
@@ -81,6 +88,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.success(response?.message || `Added ${quantity} ${product.name} to cart.`)
       const data = await cartApi.getCart()
       setItems(mapBackendCartItems(data))
+      setReminder(data.cart?.reminder || null)
     } catch (error) {
       console.error('Failed to save cart item:', error)
       toast.error(getApiErrorMessage(error, 'Could not save cart item.'))
@@ -100,6 +108,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
       .then((data) => {
         setItems(mapBackendCartItems(data))
+        setReminder(data.cart?.reminder || null)
       })
       .catch((error) => {
         console.error('Failed to remove backend cart item:', error)
@@ -119,7 +128,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (item?.id) return cartApi.updateCartItem(item.id, quantity)
       })
       .then(() => cartApi.getCart())
-      .then((data) => setItems(mapBackendCartItems(data)))
+      .then((data) => {
+        setItems(mapBackendCartItems(data))
+        setReminder(data.cart?.reminder || null)
+      })
       .catch((error) => {
         console.error('Failed to update backend cart quantity:', error)
         toast.error(getApiErrorMessage(error, 'Could not update cart quantity.'))
@@ -134,6 +146,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     cartApi.clearCart()
       .then(() => {
         setItems([])
+        setReminder(null)
         toast.success('Cart cleared successfully.')
       })
       .catch((error) => {
@@ -152,6 +165,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value = {
     items,
+    reminder,
     addItem,
     removeItem,
     updateQuantity,

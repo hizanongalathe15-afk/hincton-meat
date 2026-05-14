@@ -64,6 +64,7 @@ import LegalPage from './pages/LegalPage'
 import AuthSlider from './components/AuthSlider'
 import LoadingSpinner from './components/ui/LoadingSpinner'
 import LiveChatWidget from './buyer/LiveChatWidget'
+import VisitTracker from './components/VisitTracker'
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { user } = useAuth()
@@ -105,6 +106,7 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <VisitTracker />
       {!isAdminRoute && <Navigation />}
       <main className="flex-1">
         <Routes>
@@ -160,6 +162,7 @@ function App() {
             element={
               <BuyerCart
                 items={cart.items}
+                reminder={cart.reminder}
                 onUpdateQuantity={cart.updateQuantity}
                 onRemoveItem={cart.removeItem}
                 onToggleWishlist={wishlist.toggleWishlist}

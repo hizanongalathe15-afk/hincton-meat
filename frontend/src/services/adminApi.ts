@@ -73,11 +73,37 @@ export const ordersApi = {
 
   updateOrderStatus: async (id: string, data: {
     status: string
+    paymentStatus?: string
     notes?: string
     trackingNumber?: string
     courier?: string
   }) => {
     const response = await apiClient.put(`/admin/orders/${id}/status`, data)
+    return response.data
+  },
+
+  acceptOrder: async (id: string, notes?: string) => {
+    const response = await apiClient.post(`/admin/orders/${id}/accept`, { notes })
+    return response.data
+  },
+
+  saveInternalNotes: async (id: string, notes: string) => {
+    const response = await apiClient.put(`/admin/orders/${id}/internal-notes`, { notes })
+    return response.data
+  },
+
+  cancelOrder: async (id: string, reason: string) => {
+    const response = await apiClient.post(`/admin/orders/${id}/cancel`, { reason })
+    return response.data
+  },
+
+  markPaid: async (id: string) => {
+    const response = await apiClient.post(`/admin/orders/${id}/mark-paid`)
+    return response.data
+  },
+
+  refundOrder: async (id: string, data: { amount?: number; reason: string }) => {
+    const response = await apiClient.post(`/admin/orders/${id}/refund`, data)
     return response.data
   }
 }
@@ -350,6 +376,11 @@ export const qrCodesApi = {
 export const analyticsApi = {
   getDashboardStats: async () => {
     const response = await apiClient.get('/analytics/dashboard')
+    return response.data
+  },
+
+  getRealtimeVisits: async () => {
+    const response = await apiClient.get('/analytics/realtime-visits')
     return response.data
   },
 

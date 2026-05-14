@@ -405,6 +405,431 @@ router.get('/orders/:id', async (req, res) => {
   }
 })
 
+const adminOrderStatusSchema = z.object({
+  status: z.enum([
+    'PENDING',
+    'CONFIRMED',
+    'PROCESSING',
+    'SHIPPED',
+    'OUT_FOR_DELIVERY',
+    'DELIVERED',
+    'CANCELLED',
+    'REFUNDED',
+    'RETURNED',
+    'PARTIALLY_SHIPPED',
+    'ON_HOLD',
+    'AWAITING_PAYMENT',
+    'PAYMENT_FAILED',
+  ]),
+  paymentStatus: z.enum([
+    'UNPAID',
+    'PAID',
+    'FAILED',
+    'REFUNDED',
+    'PARTIALLY_REFUNDED',
+    'PENDING',
+    'AUTHORIZED',
+    'VOIDED',
+    'EXPIRED',
+  ]).optional(),
+  notes: z.string().max(1000).optional(),
+  trackingNumber: z.string().max(120).optional(),
+  courier: z.string().max(120).optional(),
+})
+
+const adminOrderNoteSchema = z.object({
+  notes: z.string().trim().min(1).max(2000),
+})
+
+const adminOrderReasonSchema = z.object({
+  reason: z.string().trim().min(3).max(1000),
+})
+
+const adminRefundSchema = z.object({
+  amount: z.number().positive().optional(),
+  reason: z.string().trim().min(3).max(1000),
+})
+
+const allowedOrderTransitions: Record<string, string[]> = {
+  PENDING: ['CONFIRMED', 'PROCESSING', 'AWAITING_PAYMENT', 'ON_HOLD', 'CANCELLED', 'PAYMENT_FAILED'],
+  AWAITING_PAYMENT: ['PENDING', 'CONFIRMED', 'PROCESSING', 'PAYMENT_FAILED', 'ON_HOLD', 'CANCELLED'],
+  PAYMENT_FAILED: ['AWAITING_PAYMENT', 'PENDING', 'CANCELLED'],
+  CONFIRMED: ['PROCESSING', 'ON_HOLD', 'CANCELLED'],
+  PROCESSING: ['SHIPPED', 'PARTIALLY_SHIPPED', 'OUT_FOR_DELIVERY', 'ON_HOLD', 'CANCELLED', 'REFUNDED'],
+  PARTIALLY_SHIPPED: ['SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'ON_HOLD'],
+  SHIPPED: ['OUT_FOR_DELIVERY', 'DELIVERED', 'RETURNED'],
+  OUT_FOR_DELIVERY: ['DELIVERED', 'RETURNED', 'ON_HOLD'],
+  DELIVERED: ['RETURNED', 'REFUNDED'],
+  ON_HOLD: ['PENDING', 'CONFIRMED', 'PROCESSING', 'CANCELLED'],
+  CANCELLED: [],
+  REFUNDED: [],
+  RETURNED: ['REFUNDED'],
+}
+
+const orderStatusDescription = (status: string, orderNumber: string, notes?: string) => {
+  if (notes) return notes
+  const label = status.replace(/_/g, ' ').toLowerCase()
+  return `Order ${orderNumber} is now ${label}.`
+}
+
+const notifyOrderBuyer = (order: any, title: string, message: string) => notifyRecipients({
+  type: 'ORDER',
+  title,
+  message,
+  actionUrl: `/order-tracking/${order.orderNumber}`,
+  channels: ['inApp', 'email', 'sms', 'whatsapp'],
+  recipients: order.user ? [{
+    id: order.user.id,
+    email: order.user.email,
+    phone: order.user.phone || order.user.profile?.mpesaPhone,
+  }] : [{
+    email: order.guestEmail || undefined,
+    phone: order.guestPhone || undefined,
+  }],
+  data: { orderId: order.id, orderNumber: order.orderNumber, status: order.status },
+})
+
+const createOrderAudit = (tx: any, req: any, action: string, orderId: string, oldValues: any, newValues: any) => tx.auditLog.create({
+  data: {
+    userId: req.user?.id,
+    action,
+    entityType: 'Order',
+    entityId: orderId,
+    oldValues,
+    newValues,
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+  },
+})
+
+router.put('/orders/:id/status', async (req: any, res) => {
+  try {
+    const adminId = req.user?.id
+    const data = adminOrderStatusSchema.parse(req.body)
+
+    const existing = await prisma.order.findFirst({
+      where: { id: req.params.id, deletedAt: null },
+      include: {
+        user: { select: { id: true, email: true, phone: true, profile: { select: { mpesaPhone: true, fullName: true } } } },
+        payments: { orderBy: { createdAt: 'desc' }, take: 1 },
+        orderItems: true,
+      },
+    })
+
+    if (!existing) return res.status(404).json({ error: 'Order not found' })
+
+    const allowedNext = allowedOrderTransitions[existing.status] || []
+    const isSameStatus = data.status === existing.status
+    if (!isSameStatus && !allowedNext.includes(data.status)) {
+      return res.status(400).json({
+        error: `Invalid order status change from ${existing.status} to ${data.status}`,
+        allowedNext,
+      })
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.update({
+        where: { id: existing.id },
+        data: {
+          status: data.status,
+          paymentStatus: data.paymentStatus,
+          trackingNumber: data.trackingNumber || undefined,
+          courier: data.courier || undefined,
+          notes: data.notes ?? existing.notes,
+          deliveredAt: data.status === 'DELIVERED' && !existing.deliveredAt ? new Date() : undefined,
+          cancelledAt: data.status === 'CANCELLED' && !existing.cancelledAt ? new Date() : undefined,
+          refundedAt: data.status === 'REFUNDED' && !existing.refundedAt ? new Date() : undefined,
+        },
+        include: {
+          user: { select: { id: true, email: true, phone: true, profile: { select: { mpesaPhone: true, fullName: true } } } },
+          orderItems: true,
+          payments: true,
+          statusHistory: { orderBy: { createdAt: 'desc' }, take: 10 },
+          trackingHistory: { orderBy: { timestamp: 'desc' }, take: 10 },
+        },
+      })
+
+      if (!isSameStatus || data.notes) {
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: existing.id,
+            status: data.status,
+            notes: data.notes || `Admin changed status from ${existing.status} to ${data.status}`,
+            createdBy: adminId || 'admin',
+          },
+        })
+      }
+
+      await tx.trackingHistory.create({
+        data: {
+          orderId: existing.id,
+          trackingNumber: data.trackingNumber || existing.trackingNumber || existing.orderNumber,
+          status: data.status,
+          location: data.status === 'OUT_FOR_DELIVERY' ? 'Delivery route' : 'Hincton Meat Products',
+          description: orderStatusDescription(data.status, existing.orderNumber, data.notes),
+          rawData: {
+            previousStatus: existing.status,
+            newStatus: data.status,
+            previousPaymentStatus: existing.paymentStatus,
+            newPaymentStatus: data.paymentStatus || existing.paymentStatus,
+            courier: data.courier || existing.courier,
+          },
+        },
+      })
+
+      if (data.paymentStatus && existing.payments[0]) {
+        await tx.payment.update({
+          where: { id: existing.payments[0].id },
+          data: { status: data.paymentStatus },
+        })
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId: adminId,
+          action: 'ORDER_STATUS_UPDATE',
+          entityType: 'Order',
+          entityId: existing.id,
+          oldValues: {
+            status: existing.status,
+            paymentStatus: existing.paymentStatus,
+            trackingNumber: existing.trackingNumber,
+            courier: existing.courier,
+          },
+          newValues: {
+            status: data.status,
+            paymentStatus: data.paymentStatus || existing.paymentStatus,
+            trackingNumber: data.trackingNumber || existing.trackingNumber,
+            courier: data.courier || existing.courier,
+            notes: data.notes,
+          },
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+        },
+      })
+
+      return order
+    })
+
+    await notifyRecipients({
+      type: 'ORDER',
+      title: `Order update ${updated.orderNumber}`,
+      message: orderStatusDescription(updated.status, updated.orderNumber, data.notes),
+      actionUrl: `/order-tracking/${updated.orderNumber}`,
+      channels: ['inApp', 'email', 'sms', 'whatsapp'],
+      recipients: updated.user ? [{
+        id: updated.user.id,
+        email: updated.user.email,
+        phone: updated.user.phone || updated.user.profile?.mpesaPhone,
+      }] : [{
+        email: updated.guestEmail || undefined,
+        phone: updated.guestPhone || undefined,
+      }],
+      data: { orderId: updated.id, orderNumber: updated.orderNumber, status: updated.status },
+    }).catch((error) => console.error('Order status communication error:', error))
+
+    res.json({ message: 'Order status updated successfully', order: updated })
+  } catch (error) {
+    console.error('Admin update order status error:', error)
+    if (error instanceof z.ZodError) return res.status(400).json({ error: 'Invalid order update payload', details: error.issues })
+    res.status(500).json({ error: 'Failed to update order status' })
+  }
+})
+
+router.post('/orders/:id/accept', async (req: any, res) => {
+  try {
+    const existing = await prisma.order.findFirst({
+      where: { id: req.params.id, deletedAt: null },
+      include: { user: { select: { id: true, email: true, phone: true, profile: { select: { mpesaPhone: true } } } } },
+    })
+    if (!existing) return res.status(404).json({ error: 'Order not found' })
+    if (!['PENDING', 'AWAITING_PAYMENT'].includes(existing.status)) {
+      return res.status(400).json({ error: `Order cannot be accepted from ${existing.status}` })
+    }
+
+    const order = await prisma.$transaction(async (tx) => {
+      const updated = await tx.order.update({
+        where: { id: existing.id },
+        data: { status: 'CONFIRMED', adminNotes: req.body?.notes || existing.adminNotes },
+        include: { user: { select: { id: true, email: true, phone: true, profile: { select: { mpesaPhone: true } } } } },
+      })
+      await tx.orderStatusHistory.create({
+        data: { orderId: existing.id, status: 'CONFIRMED', notes: 'Admin accepted order', createdBy: req.user?.id || 'admin' },
+      })
+      await tx.trackingHistory.create({
+        data: {
+          orderId: existing.id,
+          trackingNumber: existing.trackingNumber || existing.orderNumber,
+          status: 'CONFIRMED',
+          location: 'Hincton Meat Products',
+          description: `Order ${existing.orderNumber} has been accepted and confirmed.`,
+        },
+      })
+      await createOrderAudit(tx, req, 'ORDER_ACCEPTED', existing.id, { status: existing.status }, { status: 'CONFIRMED' })
+      return updated
+    })
+
+    await notifyOrderBuyer(order, `Order accepted ${order.orderNumber}`, `Your Hincton order ${order.orderNumber} has been accepted and is being prepared.`)
+      .catch((error) => console.error('Order accept notification error:', error))
+    res.json({ message: 'Order accepted successfully', order })
+  } catch (error) {
+    console.error('Accept order error:', error)
+    res.status(500).json({ error: 'Failed to accept order' })
+  }
+})
+
+router.put('/orders/:id/internal-notes', async (req: any, res) => {
+  try {
+    const data = adminOrderNoteSchema.parse(req.body)
+    const existing = await prisma.order.findFirst({ where: { id: req.params.id, deletedAt: null } })
+    if (!existing) return res.status(404).json({ error: 'Order not found' })
+
+    const order = await prisma.$transaction(async (tx) => {
+      const updated = await tx.order.update({ where: { id: existing.id }, data: { adminNotes: data.notes } })
+      await createOrderAudit(tx, req, 'ORDER_INTERNAL_NOTES_UPDATE', existing.id, { adminNotes: existing.adminNotes }, { adminNotes: data.notes })
+      return updated
+    })
+
+    res.json({ message: 'Internal notes saved', order })
+  } catch (error) {
+    console.error('Update internal notes error:', error)
+    if (error instanceof z.ZodError) return res.status(400).json({ error: 'Notes are required', details: error.issues })
+    res.status(500).json({ error: 'Failed to save internal notes' })
+  }
+})
+
+router.post('/orders/:id/cancel', async (req: any, res) => {
+  try {
+    const data = adminOrderReasonSchema.parse(req.body)
+    const existing = await prisma.order.findFirst({
+      where: { id: req.params.id, deletedAt: null },
+      include: {
+        user: { select: { id: true, email: true, phone: true, profile: { select: { mpesaPhone: true } } } },
+        orderItems: true,
+      },
+    })
+    if (!existing) return res.status(404).json({ error: 'Order not found' })
+    if (!['PENDING', 'CONFIRMED', 'PROCESSING', 'AWAITING_PAYMENT', 'ON_HOLD', 'PAYMENT_FAILED'].includes(existing.status)) {
+      return res.status(400).json({ error: `Order cannot be cancelled from ${existing.status}` })
+    }
+
+    const order = await prisma.$transaction(async (tx) => {
+      for (const item of existing.orderItems) {
+        if (!item.productId) continue
+        if (item.variantId) {
+          await tx.productVariant.update({ where: { id: item.variantId }, data: { stockQuantity: { increment: item.quantity } } })
+        } else {
+          await tx.product.update({ where: { id: item.productId }, data: { stockQuantity: { increment: item.quantity } } })
+        }
+      }
+      const updated = await tx.order.update({
+        where: { id: existing.id },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: new Date(),
+          adminNotes: `${existing.adminNotes || ''}\nCancellation reason: ${data.reason}`.trim(),
+        },
+        include: { user: { select: { id: true, email: true, phone: true, profile: { select: { mpesaPhone: true } } } } },
+      })
+      await tx.orderStatusHistory.create({
+        data: { orderId: existing.id, status: 'CANCELLED', notes: data.reason, createdBy: req.user?.id || 'admin' },
+      })
+      await createOrderAudit(tx, req, 'ORDER_CANCELLED', existing.id, { status: existing.status }, { status: 'CANCELLED', reason: data.reason })
+      return updated
+    })
+
+    await notifyOrderBuyer(order, `Order cancelled ${order.orderNumber}`, `Your Hincton order ${order.orderNumber} was cancelled. Reason: ${data.reason}`)
+      .catch((error) => console.error('Order cancel notification error:', error))
+    res.json({ message: 'Order cancelled successfully', order })
+  } catch (error) {
+    console.error('Admin cancel order error:', error)
+    if (error instanceof z.ZodError) return res.status(400).json({ error: 'Cancellation reason is required', details: error.issues })
+    res.status(500).json({ error: 'Failed to cancel order' })
+  }
+})
+
+router.post('/orders/:id/mark-paid', async (req: any, res) => {
+  try {
+    const existing = await prisma.order.findFirst({
+      where: { id: req.params.id, deletedAt: null },
+      include: {
+        user: { select: { id: true, email: true, phone: true, profile: { select: { mpesaPhone: true } } } },
+        payments: { orderBy: { createdAt: 'desc' }, take: 1 },
+      },
+    })
+    if (!existing) return res.status(404).json({ error: 'Order not found' })
+
+    const order = await prisma.$transaction(async (tx) => {
+      const updated = await tx.order.update({
+        where: { id: existing.id },
+        data: { paymentStatus: 'PAID', status: existing.status === 'PENDING' ? 'CONFIRMED' : existing.status },
+        include: { user: { select: { id: true, email: true, phone: true, profile: { select: { mpesaPhone: true } } } } },
+      })
+      if (existing.payments[0]) {
+        await tx.payment.update({ where: { id: existing.payments[0].id }, data: { status: 'PAID', completedAt: new Date() } })
+      }
+      await createOrderAudit(tx, req, 'ORDER_MARKED_PAID', existing.id, { paymentStatus: existing.paymentStatus }, { paymentStatus: 'PAID' })
+      return updated
+    })
+
+    await notifyOrderBuyer(order, `Payment confirmed ${order.orderNumber}`, `Payment for your Hincton order ${order.orderNumber} has been confirmed.`)
+      .catch((error) => console.error('Manual paid notification error:', error))
+    res.json({ message: 'Order marked as paid', order })
+  } catch (error) {
+    console.error('Mark paid error:', error)
+    res.status(500).json({ error: 'Failed to mark order as paid' })
+  }
+})
+
+router.post('/orders/:id/refund', async (req: any, res) => {
+  try {
+    const data = adminRefundSchema.parse(req.body)
+    const existing = await prisma.order.findFirst({
+      where: { id: req.params.id, deletedAt: null },
+      include: {
+        user: { select: { id: true, email: true, phone: true, profile: { select: { mpesaPhone: true } } } },
+        payments: { orderBy: { createdAt: 'desc' }, take: 1 },
+      },
+    })
+    if (!existing) return res.status(404).json({ error: 'Order not found' })
+    const payment = existing.payments[0]
+    if (!payment) return res.status(400).json({ error: 'No payment exists for this order' })
+
+    const refundAmount = data.amount || Number(payment.amount)
+    const isPartial = refundAmount < Number(payment.amount)
+    const order = await prisma.$transaction(async (tx) => {
+      await tx.refund.create({
+        data: {
+          paymentId: payment.id,
+          orderId: existing.id,
+          amount: refundAmount as any,
+          reason: data.reason,
+          status: 'REFUNDED',
+          refundReference: `MANUAL-${Date.now()}`,
+          processedBy: req.user?.id || 'admin',
+          completedAt: new Date(),
+        },
+      })
+      await tx.payment.update({ where: { id: payment.id }, data: { status: isPartial ? 'PARTIALLY_REFUNDED' : 'REFUNDED' } })
+      const updated = await tx.order.update({
+        where: { id: existing.id },
+        data: { paymentStatus: isPartial ? 'PARTIALLY_REFUNDED' : 'REFUNDED', status: isPartial ? existing.status : 'REFUNDED', refundedAt: isPartial ? existing.refundedAt : new Date() },
+        include: { user: { select: { id: true, email: true, phone: true, profile: { select: { mpesaPhone: true } } } } },
+      })
+      await createOrderAudit(tx, req, 'ORDER_REFUND_PROCESSED', existing.id, { paymentStatus: existing.paymentStatus }, { amount: refundAmount, reason: data.reason, paymentStatus: isPartial ? 'PARTIALLY_REFUNDED' : 'REFUNDED' })
+      return updated
+    })
+
+    await notifyOrderBuyer(order, `Refund processed ${order.orderNumber}`, `A refund of ${refundAmount} has been recorded for your Hincton order ${order.orderNumber}.`)
+      .catch((error) => console.error('Refund notification error:', error))
+    res.json({ message: 'Refund recorded successfully', order })
+  } catch (error) {
+    console.error('Refund order error:', error)
+    if (error instanceof z.ZodError) return res.status(400).json({ error: 'Refund amount/reason is invalid', details: error.issues })
+    res.status(500).json({ error: 'Failed to process refund' })
+  }
+})
+
 router.get('/products', async (req, res) => {
   try {
     const page = Number(req.query.page || 1)

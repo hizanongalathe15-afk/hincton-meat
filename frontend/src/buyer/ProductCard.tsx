@@ -89,6 +89,8 @@ const ProductCard = ({
         <img
           src={product.image}
           alt={product.name}
+          loading="lazy"
+          decoding="async"
           onError={(event) => {
             event.currentTarget.src = fallbackImage
           }}

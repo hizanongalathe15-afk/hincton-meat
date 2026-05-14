@@ -8,7 +8,7 @@ const Hero: React.FC = () => {
     <section className="relative bg-black text-white">
       <div className="absolute inset-0 opacity-20">
         <img
-          src="/hincton/hero-platter.jpg"
+          src="/hincton/hero-platter.webp"
           alt="Hincton Meat Products background"
           className="w-full h-full object-cover"
         />

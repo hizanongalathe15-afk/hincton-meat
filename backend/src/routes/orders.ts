@@ -98,6 +98,11 @@ const getGuestSessionId = (req: AuthRequest): string | null => {
   return typeof value === 'string' && value.trim().length >= 12 ? value.trim() : null
 }
 
+const getIdempotencyKey = (req: AuthRequest): string | null => {
+  const value = req.header('Idempotency-Key')
+  return typeof value === 'string' && value.trim().length >= 12 ? value.trim().slice(0, 128) : null
+}
+
 const orderStatusMessage = (order: any) => {
   const orderNumber = order.orderNumber || order.id
   if (order.status === 'OUT_FOR_DELIVERY') return resolveMessage(meatShopMessages.order.outForDelivery, { driverName: 'your driver', eta: 45 }).message
@@ -109,12 +114,49 @@ const orderStatusMessage = (order: any) => {
   return `Your Hincton order ${orderNumber} status is now ${String(order.status).replace(/_/g, ' ').toLowerCase()}.`
 }
 
+const allowedOrderTransitions: Record<string, string[]> = {
+  PENDING: ['CONFIRMED', 'AWAITING_PAYMENT', 'ON_HOLD', 'CANCELLED', 'PAYMENT_FAILED'],
+  AWAITING_PAYMENT: ['CONFIRMED', 'PAYMENT_FAILED', 'CANCELLED', 'ON_HOLD'],
+  PAYMENT_FAILED: ['AWAITING_PAYMENT', 'CANCELLED'],
+  CONFIRMED: ['PROCESSING', 'ON_HOLD', 'CANCELLED'],
+  PROCESSING: ['SHIPPED', 'PARTIALLY_SHIPPED', 'ON_HOLD', 'CANCELLED'],
+  PARTIALLY_SHIPPED: ['SHIPPED', 'OUT_FOR_DELIVERY', 'RETURNED'],
+  SHIPPED: ['OUT_FOR_DELIVERY', 'DELIVERED', 'RETURNED'],
+  OUT_FOR_DELIVERY: ['DELIVERED', 'RETURNED'],
+  ON_HOLD: ['CONFIRMED', 'PROCESSING', 'CANCELLED'],
+  DELIVERED: ['RETURNED', 'REFUNDED'],
+  CANCELLED: ['REFUNDED'],
+  RETURNED: ['REFUNDED'],
+  REFUNDED: [],
+}
+
+const assertOrderTransition = (from: string, to: string) => {
+  if (from === to) return
+  if (!allowedOrderTransitions[from]?.includes(to)) {
+    throw new Error(`Illegal order status change from ${from} to ${to}`)
+  }
+}
+
 router.post('/', async (req: AuthRequest, res) => {
   try {
     const payload = createOrderSchema.parse(req.body)
     const productIds = payload.items.map((item) => item.productId)
     const userId = req.user?.id
     const guestSessionId = userId ? null : getGuestSessionId(req)
+    const idempotencyKey = getIdempotencyKey(req)
+
+    if (idempotencyKey) {
+      const existingOrder = await prisma.order.findUnique({
+        where: { idempotencyKey },
+        include: {
+          orderItems: true,
+          payments: true,
+        },
+      } as any)
+      if (existingOrder) {
+        return res.status(200).json({ ...resolveMessage(meatShopMessages.order.created, { orderNumber: existingOrder.orderNumber }), order: existingOrder, idempotent: true })
+      }
+    }
 
     const products = await prisma.product.findMany({
       where: { id: { in: productIds }, isPublished: true, deletedAt: null },
@@ -172,6 +214,7 @@ router.post('/', async (req: AuthRequest, res) => {
       const created = await tx.order.create({
         data: {
           orderNumber,
+          idempotencyKey: idempotencyKey || undefined,
           userId,
           guestEmail: userId ? undefined : payload.customer.email,
           guestPhone: userId ? undefined : payload.customer.phone,
@@ -467,28 +510,62 @@ router.patch('/:orderId/cancel', async (req: AuthRequest, res) => {
 // Admin update order status
 router.put('/:orderId/status', async (req, res) => {
   try {
+    const authReq = req as AuthRequest
+    const isAdmin = authReq.user?.roles?.some((role) => ['ADMIN', 'SUPER_ADMIN', 'SUPPORT'].includes(role))
+    if (!isAdmin) return res.status(403).json({ error: 'Admin access required' })
+
     const { orderId } = req.params
     const data = updateOrderStatusSchema.parse(req.body)
 
-    const updated = await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: data.status,
-        notes: data.notes,
-      },
-      include: {
-        user: { select: { id: true, email: true, phone: true } },
-      },
-    })
+    const current = await prisma.order.findUnique({ where: { id: orderId } })
+    if (!current) return res.status(404).json({ error: 'Order not found' })
+    assertOrderTransition(current.status, data.status)
 
-    await prisma.trackingHistory.create({
-      data: {
-        orderId,
-        trackingNumber: updated.trackingNumber || updated.orderNumber,
-        status: data.status,
-        location: data.status === 'OUT_FOR_DELIVERY' ? 'Delivery route' : 'Hincton Meat Products',
-        description: data.notes || orderStatusMessage(updated),
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: data.status,
+          notes: data.notes,
+          deliveredAt: data.status === 'DELIVERED' ? new Date() : undefined,
+          cancelledAt: data.status === 'CANCELLED' ? new Date() : undefined,
+        },
+        include: {
+          user: { select: { id: true, email: true, phone: true } },
+        },
+      })
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId,
+          status: data.status,
+          notes: data.notes || `Status changed from ${current.status} to ${data.status}`,
+          createdBy: authReq.user?.id || 'admin',
+        },
+      })
+
+      await tx.trackingHistory.create({
+        data: {
+          orderId,
+          trackingNumber: order.trackingNumber || order.orderNumber,
+          status: data.status,
+          location: data.status === 'OUT_FOR_DELIVERY' ? 'Delivery route' : 'Hincton Meat Products',
+          description: data.notes || orderStatusMessage(order),
+        },
+      })
+
+      await tx.auditLog.create({
+        data: {
+          userId: authReq.user?.id,
+          action: 'ORDER_STATUS_UPDATE',
+          entityType: 'Order',
+          entityId: orderId,
+          oldValues: { status: current.status } as any,
+          newValues: { status: data.status, notes: data.notes } as any,
+        },
+      })
+
+      return order
     })
 
     notifyOrderCustomer(updated, `Order update ${updated.orderNumber}`, orderStatusMessage(updated), ['inApp', 'email', 'sms', 'whatsapp'])
@@ -497,7 +574,8 @@ router.put('/:orderId/status', async (req, res) => {
     res.json({ ...resolveMessage(meatShopMessages.order.statusUpdated), order: updated })
   } catch (error) {
     console.error('Update order status error:', error)
-    res.status(500).json(apiMessage(meatShopMessages.system.serverBusy))
+    const message = error instanceof Error ? error.message : meatShopMessages.system.serverBusy.text
+    res.status(message.startsWith('Illegal order status change') ? 400 : 500).json({ message, error: message })
   }
 })
 

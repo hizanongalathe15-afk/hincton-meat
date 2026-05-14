@@ -69,6 +69,11 @@ export const productsApi = {
     return response.data
   },
 
+  getRecentlyViewed: async (params?: { limit?: number }) => {
+    const response = await apiClient.get('/products/recently-viewed', { params })
+    return response.data
+  },
+
   trackView: async (productId: string, data?: { duration?: number; sessionId?: string }) => {
     const response = await apiClient.post(`/products/${productId}/view`, data || {})
     return response.data
@@ -81,6 +86,28 @@ export const productsApi = {
 }
 
 export const trackingApi = {
+  trackPageView: async (data: {
+    path: string
+    url?: string
+    title?: string
+    referrer?: string
+    source?: string
+    medium?: string
+    campaign?: string
+    term?: string
+    content?: string
+    loadTimeMs?: number
+    viewportWidth?: number
+    viewportHeight?: number
+    screenWidth?: number
+    screenHeight?: number
+    language?: string
+    timezone?: string
+  }) => {
+    const response = await apiClient.post('/analytics/page-view', data)
+    return response.data
+  },
+
   trackClick: async (data: {
     linkUrl: string
     linkId?: string
@@ -162,6 +189,16 @@ export const ordersApi = {
 export const userApi = {
   getProfile: async () => {
     const response = await apiClient.get('/auth/profile')
+    return response.data
+  },
+
+  getLinkedAccounts: async () => {
+    const response = await apiClient.get('/auth/linked-accounts')
+    return response.data
+  },
+
+  unlinkAccount: async (id: string) => {
+    const response = await apiClient.delete(`/auth/linked-accounts/${id}`)
     return response.data
   },
 

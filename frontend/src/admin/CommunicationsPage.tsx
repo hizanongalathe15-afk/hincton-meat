@@ -87,6 +87,7 @@ const CommunicationsPage = () => {
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([])
   const [selectedContactMessage, setSelectedContactMessage] = useState<ContactMessage | null>(null)
   const [contactReply, setContactReply] = useState('')
+  const [lastInboxSync, setLastInboxSync] = useState<Date | null>(null)
 
   const selectedCount = useMemo(() => {
     if (target === 'all') return users.length
@@ -115,6 +116,7 @@ const CommunicationsPage = () => {
       const response = await api.get('/chat/sessions')
       const sessions = response.data.sessions || []
       setChatSessions(sessions)
+      setLastInboxSync(new Date())
       if (!activeSessionId && sessions.length > 0) {
         setActiveSessionId(sessions[0].sessionId)
       }
@@ -143,7 +145,8 @@ const CommunicationsPage = () => {
       const response = await contactMessagesApi.getAll(contactPage, 20, 'OPEN')
       const messages = response.messages || []
       setContactMessages(messages)
-      setSelectedContactMessage((current) => current || messages[0] || null)
+      setSelectedContactMessage((current) => messages.find((item: ContactMessage) => item.id === current?.id) || messages[0] || null)
+      setLastInboxSync(new Date())
     } catch {
       toast.error('Could not load contact messages')
     } finally {
@@ -156,6 +159,27 @@ const CommunicationsPage = () => {
     fetchChatSessions()
     fetchContactMessages()
   }, [])
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      fetchChatSessions()
+      fetchContactMessages()
+      if (activeSessionId) fetchChatMessages(activeSessionId)
+    }, 10000)
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) return
+      fetchChatSessions()
+      fetchContactMessages()
+      if (activeSessionId) fetchChatMessages(activeSessionId)
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [activeSessionId])
 
   useEffect(() => {
     fetchChatMessages(activeSessionId)
@@ -260,7 +284,7 @@ const CommunicationsPage = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Communications</h2>
-            <p className="text-gray-600">Send messages, manage support chats, and contact forms.</p>
+            <p className="text-gray-600">Send messages, manage support chats, and contact forms{lastInboxSync ? ` - synced ${lastInboxSync.toLocaleTimeString()}` : ''}.</p>
           </div>
           <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
             <Users className="h-4 w-4" />

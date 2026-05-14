@@ -5,8 +5,21 @@ import { ordersApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
 import { formatPrice } from '../utils/currency'
 
-type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
-type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
+type OrderStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'processing'
+  | 'shipped'
+  | 'out_for_delivery'
+  | 'delivered'
+  | 'cancelled'
+  | 'refunded'
+  | 'returned'
+  | 'partially_shipped'
+  | 'on_hold'
+  | 'awaiting_payment'
+  | 'payment_failed'
+type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'failed' | 'refunded' | 'partially_refunded' | 'authorized' | 'voided' | 'expired'
 
 type Order = {
   id: string
@@ -66,7 +79,7 @@ const OrdersPage = ({
             ? `${order.user.profile.firstName} ${order.user.profile.lastName}`
             : order.user?.username || order.guestEmail || 'Unknown',
           customerEmail: order.user?.email || order.guestEmail || '',
-          customerPhone: order.user?.profile?.mpesaPhone || '',
+          customerPhone: order.user?.phone || order.user?.profile?.mpesaPhone || order.guestPhone || '',
           status: String(order.status || 'pending').toLowerCase(),
           paymentStatus: String(order.paymentStatus || 'pending').toLowerCase(),
           total: Number(order.totalAmount) || 0,
@@ -75,12 +88,12 @@ const OrdersPage = ({
           estimatedDelivery: order.estimatedDelivery,
           trackingNumber: order.trackingNumber,
           shippingAddress: {
-            street: shippingAddress.addressLine1 || '',
+            street: shippingAddress.address || shippingAddress.addressLine1 || shippingAddress.street || '',
             city: shippingAddress.city || '',
             state: shippingAddress.state || '',
             zipCode: shippingAddress.zipCode || ''
           },
-          paymentMethod: order.payments?.[0]?.method || 'Unknown',
+          paymentMethod: order.payments?.[0]?.paymentMethod || order.paymentMethod || 'Unknown',
           notes: order.notes
         }
       })
@@ -97,8 +110,8 @@ const OrdersPage = ({
   useEffect(() => {
     fetchOrders()
     
-    // Auto-refresh every 30 seconds
-    const intervalId = isAutoRefreshing ? setInterval(fetchOrders, 30000) : undefined
+    // Auto-refresh every 10 seconds so newly placed orders reach the admin quickly.
+    const intervalId = isAutoRefreshing ? setInterval(fetchOrders, 10000) : undefined
     
     // Refresh when tab becomes visible
     const handleVisibilityChange = () => {
@@ -154,6 +167,67 @@ const OrdersPage = ({
     }
   }
 
+  const refreshAfterAction = async (message: string) => {
+    toast.success(message)
+    await fetchOrders()
+  }
+
+  const handleAcceptOrder = async (orderId: string) => {
+    try {
+      await ordersApi.acceptOrder(orderId)
+      await refreshAfterAction('Order accepted')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to accept order')
+    }
+  }
+
+  const handleMarkPaid = async (orderId: string) => {
+    if (!window.confirm('Mark this order as paid? Use this only after confirming payment.')) return
+    try {
+      await ordersApi.markPaid(orderId)
+      await refreshAfterAction('Order marked as paid')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to mark order as paid')
+    }
+  }
+
+  const handleCancelOrder = async (orderId: string) => {
+    const reason = window.prompt('Cancellation reason')
+    if (!reason?.trim()) return
+    try {
+      await ordersApi.cancelOrder(orderId, reason.trim())
+      await refreshAfterAction('Order cancelled')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to cancel order')
+    }
+  }
+
+  const handleRefundOrder = async (orderId: string) => {
+    const order = orders.find((item) => item.id === orderId)
+    const amountText = window.prompt('Refund amount', order ? String(order.total) : '')
+    if (!amountText) return
+    const reason = window.prompt('Refund reason')
+    if (!reason?.trim()) return
+    try {
+      await ordersApi.refundOrder(orderId, { amount: Number(amountText), reason: reason.trim() })
+      await refreshAfterAction('Refund recorded')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to record refund')
+    }
+  }
+
+  const handleInternalNotes = async (orderId: string) => {
+    const order = orders.find((item) => item.id === orderId)
+    const notes = window.prompt('Internal notes. Customers will not see this.', order?.notes || '')
+    if (!notes?.trim()) return
+    try {
+      await ordersApi.saveInternalNotes(orderId, notes.trim())
+      await refreshAfterAction('Internal notes saved')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save notes')
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-6">
@@ -178,7 +252,7 @@ const OrdersPage = ({
   const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
   const pendingOrders = orders.filter(o => o.status === 'pending').length
   const processingOrders = orders.filter(o => o.status === 'processing').length
-  const shippedOrders = orders.filter(o => o.status === 'shipped').length
+  const shippedOrders = orders.filter(o => ['shipped', 'out_for_delivery', 'partially_shipped'].includes(o.status)).length
   const deliveredOrders = orders.filter(o => o.status === 'delivered').length
   const paidOrders = orders.filter(o => o.paymentStatus === 'paid').length
   const pendingPayment = orders.filter(o => o.paymentStatus === 'pending').length
@@ -310,6 +384,11 @@ const OrdersPage = ({
         onView={handleView}
         onUpdateStatus={handleUpdateStatus}
         onAssignTracking={handleAssignTracking}
+        onAccept={handleAcceptOrder}
+        onMarkPaid={handleMarkPaid}
+        onCancel={handleCancelOrder}
+        onRefund={handleRefundOrder}
+        onInternalNotes={handleInternalNotes}
       />
     </div>
   )

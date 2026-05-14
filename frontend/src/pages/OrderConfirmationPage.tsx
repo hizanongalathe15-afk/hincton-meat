@@ -94,7 +94,7 @@ const OrderConfirmationPage: React.FC = () => {
                 {items.map((item: any) => (
                   <div key={item.id} className="flex items-center space-x-4 pb-4 border-b last:border-b-0">
                     <img
-                      src={item.productImage || '/hincton/hero-platter.jpg'}
+                      src={item.productImage || '/hincton/hero-platter.webp'}
                       alt={item.productName}
                       className="w-20 h-20 object-cover rounded-lg"
                     />

@@ -3,6 +3,7 @@ import { CategoryModel } from '../models'
 import { asyncHandler, AppError, NotFoundError, ValidationError } from '../middleware'
 import { validateBody } from '../middleware'
 import { categoryCreateSchema, categoryUpdateSchema } from '../middleware/validationSchemas'
+import { cacheService } from '../services/cacheService'
 
 const isDatabaseUnavailable = (error: unknown) => {
   const code = (error as any)?.code
@@ -12,20 +13,22 @@ const isDatabaseUnavailable = (error: unknown) => {
 export const getCategories = asyncHandler(async (req: Request, res: Response) => {
   const { page = 1, limit = 50, parentId, isActive, isFeatured } = req.query
 
-  let result: { categories: any[]; total: number }
-  try {
-    result = await CategoryModel.findAll({
-      page: Number(page),
-      limit: Number(limit),
-      parentId: parentId as string,
-      isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
-      isFeatured: isFeatured === 'true' ? true : isFeatured === 'false' ? false : undefined
-    })
-  } catch (error) {
-    if (!isDatabaseUnavailable(error)) throw error
-    console.error('Get categories database unavailable:', error)
-    result = { categories: [], total: 0 }
-  }
+  const cacheKey = `categories:list:${JSON.stringify({ page, limit, parentId, isActive, isFeatured })}`
+  const result = await cacheService.remember(cacheKey, 300, async () => {
+    try {
+      return await CategoryModel.findAll({
+        page: Number(page),
+        limit: Number(limit),
+        parentId: parentId as string,
+        isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+        isFeatured: isFeatured === 'true' ? true : isFeatured === 'false' ? false : undefined
+      })
+    } catch (error) {
+      if (!isDatabaseUnavailable(error)) throw error
+      console.error('Get categories database unavailable:', error)
+      return { categories: [], total: 0 }
+    }
+  })
   
   res.json({
     success: true,
@@ -55,7 +58,7 @@ export const getCategory = asyncHandler(async (req: Request, res: Response) => {
 
 export const getCategoryBySlug = asyncHandler(async (req: Request, res: Response) => {
   const { slug } = req.params
-  const category = await CategoryModel.findBySlug(slug)
+  const category = await cacheService.remember(`categories:slug:${slug}`, 300, () => CategoryModel.findBySlug(slug))
   
   if (!category) {
     throw new NotFoundError('Category', slug)
@@ -68,13 +71,15 @@ export const getCategoryBySlug = asyncHandler(async (req: Request, res: Response
 })
 
 export const getRootCategories = asyncHandler(async (req: Request, res: Response) => {
-  let categories: any[] = []
-  try {
-    categories = await CategoryModel.getRootCategories()
-  } catch (error) {
-    if (!isDatabaseUnavailable(error)) throw error
-    console.error('Get root categories database unavailable:', error)
-  }
+  const categories = await cacheService.remember('categories:root', 300, async () => {
+    try {
+      return await CategoryModel.getRootCategories()
+    } catch (error) {
+      if (!isDatabaseUnavailable(error)) throw error
+      console.error('Get root categories database unavailable:', error)
+      return []
+    }
+  })
   
   res.json({
     success: true,
@@ -84,13 +89,15 @@ export const getRootCategories = asyncHandler(async (req: Request, res: Response
 
 export const getFeaturedCategories = asyncHandler(async (req: Request, res: Response) => {
   const { limit = 6 } = req.query
-  let categories: any[] = []
-  try {
-    categories = await CategoryModel.getFeaturedCategories(Number(limit))
-  } catch (error) {
-    if (!isDatabaseUnavailable(error)) throw error
-    console.error('Get featured categories database unavailable:', error)
-  }
+  const categories = await cacheService.remember(`categories:featured:${limit}`, 300, async () => {
+    try {
+      return await CategoryModel.getFeaturedCategories(Number(limit))
+    } catch (error) {
+      if (!isDatabaseUnavailable(error)) throw error
+      console.error('Get featured categories database unavailable:', error)
+      return []
+    }
+  })
   
   res.json({
     success: true,
@@ -110,6 +117,7 @@ export const createCategory = [
     }
     
     const category = await CategoryModel.create(categoryData)
+    await cacheService.deleteByPrefix('categories:')
     
     res.status(201).json({
       success: true,
@@ -140,6 +148,7 @@ export const updateCategory = [
     }
     
     const category = await CategoryModel.update(id, updateData)
+    await cacheService.deleteByPrefix('categories:')
     
     res.json({
       success: true,
@@ -169,6 +178,7 @@ export const deleteCategory = asyncHandler(async (req: Request, res: Response) =
   }
   
   await CategoryModel.delete(id)
+  await cacheService.deleteByPrefix('categories:')
   
   res.json({
     success: true,

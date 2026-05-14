@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Star, Eye, ThumbsUp, ThumbsDown, Filter } from 'lucide-react'
+import { Star, Eye, ThumbsUp, ThumbsDown, Filter, RefreshCw } from 'lucide-react'
 import { reviewsApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
 import LinkifiedText from '../components/ui/LinkifiedText'
@@ -33,6 +33,8 @@ const AdminReviewsPage = () => {
     rating: '',
     productId: ''
   })
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [autoRefresh, setAutoRefresh] = useState(true)
 
   const loadReviews = async () => {
     try {
@@ -45,6 +47,7 @@ const AdminReviewsPage = () => {
       const response = await reviewsApi.getProductReviews(params)
       setReviews(response.data)
       setTotal(response.pagination.total)
+      setLastUpdated(new Date())
     } catch (error) {
       console.error('Failed to load reviews:', error)
       toast.error('Failed to load reviews')
@@ -56,6 +59,19 @@ const AdminReviewsPage = () => {
   useEffect(() => {
     loadReviews()
   }, [page, filters])
+
+  useEffect(() => {
+    if (!autoRefresh) return
+    const intervalId = window.setInterval(loadReviews, 15000)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) loadReviews()
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [autoRefresh, page, filters])
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }))
@@ -79,9 +95,22 @@ const AdminReviewsPage = () => {
 
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-950">Product Reviews</h1>
-        <p className="mt-1 text-gray-600">View and manage all product reviews from customers</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-950">Product Reviews</h1>
+          <p className="mt-1 text-gray-600">
+            View all historical product reviews from customers{lastUpdated ? ` - updated ${lastUpdated.toLocaleTimeString()}` : ''}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button type="button" onClick={loadReviews} className="inline-flex items-center gap-2 rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <button type="button" onClick={() => setAutoRefresh((value) => !value)} className={`rounded px-4 py-2 text-sm font-semibold ${autoRefresh ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+            {autoRefresh ? 'Live ON' : 'Live OFF'}
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

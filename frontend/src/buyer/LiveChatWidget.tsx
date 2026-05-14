@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useSiteContent } from '../contexts/SiteContentContext'
 import { chatApi } from '../services/buyerApi'
+import LinkifiedText from '../components/ui/LinkifiedText'
 
 interface Message {
   id: string
@@ -270,7 +271,7 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
                     {message.agentName && (
                       <div className="text-xs opacity-75 mb-1">{message.agentName}</div>
                     )}
-                    <div className="text-sm">{message.text}</div>
+                    <div className="text-sm"><LinkifiedText text={message.text} /></div>
                   </div>
                   <div className={`text-xs text-gray-500 mt-1 ${
                     message.sender === 'user' ? 'text-right' : 'text-left'

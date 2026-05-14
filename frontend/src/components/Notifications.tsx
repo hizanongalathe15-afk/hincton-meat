@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Bell, X, Check, ShoppingCart, Package, CreditCard, MessageSquare, Trash2, RefreshCw, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
+import LinkifiedText from './ui/LinkifiedText'
 
 interface Notification {
   id: string
@@ -263,7 +264,7 @@ const Notifications: React.FC = () => {
                           <p className={`text-sm font-medium ${!notification.isRead ? 'text-gray-900' : 'text-gray-600'}`}>
                             {notification.title}
                           </p>
-                          <p className="text-sm text-gray-500 mt-1">{notification.message}</p>
+                          <p className="text-sm text-gray-500 mt-1"><LinkifiedText text={notification.message} /></p>
                           <p className="text-xs text-gray-400 mt-1">{formatTime(notification.createdAt)}</p>
                         </div>
                         <div className="flex items-center space-x-1 ml-2">

@@ -103,7 +103,7 @@ const ReviewPrompt = () => {
       <div className="rounded-lg border border-gray-200 bg-white shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-gray-100 p-4">
           <div className="flex min-w-0 gap-3">
-            <img src={resolveMediaUrl(activeItem.image) || '/hincton/hero-platter.jpg'} alt={activeItem.name} className="h-14 w-14 rounded object-cover" />
+            <img src={resolveMediaUrl(activeItem.image) || '/hincton/hero-platter.webp'} alt={activeItem.name} className="h-14 w-14 rounded object-cover" />
             <div className="min-w-0">
               <p className="text-sm font-bold text-gray-950">Rate your delivered order</p>
               <p className="truncate text-sm text-gray-600">{activeItem.name}</p>

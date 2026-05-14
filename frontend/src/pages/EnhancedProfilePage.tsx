@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Camera, User, Mail, Phone, ShoppingBag, Heart, Package, Settings, MapPin, Eye, EyeOff, Save, Trash2, Plus, Bell, CreditCard, ShieldCheck, Monitor, LogOut } from 'lucide-react';
+import { Camera, User, Mail, Phone, ShoppingBag, Heart, Package, Settings, MapPin, Eye, EyeOff, Save, Trash2, Plus, Bell, CreditCard, ShieldCheck, Monitor, LogOut, Clock, Link2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
-import { ordersApi, userApi, wishlistApi } from '../services/buyerApi';
+import { ordersApi, productsApi, userApi, wishlistApi } from '../services/buyerApi';
 import { locationService, ProfileUpdateData } from '../services/locationService';
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog';
 import ConfirmationDialog from '../components/ui/ConfirmationDialog';
@@ -85,6 +85,27 @@ interface UserProfile {
     isRevoked: boolean;
     isCurrent: boolean;
   }>;
+  recentlyViewed?: Array<{
+    id: string;
+    name: string;
+    price: number;
+    images: string[];
+    viewedAt?: string;
+  }>;
+  linkedAccounts?: Array<{
+    id: string;
+    provider: string;
+    providerAccountId: string;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  linkedAccountProviders?: Array<{
+    provider: string;
+    label: string;
+    configured: boolean;
+    connected: boolean;
+    connectUrl: string | null;
+  }>;
 }
 
 const EnhancedProfilePage: React.FC = () => {
@@ -94,7 +115,7 @@ const EnhancedProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'settings' | 'addresses' | 'payments' | 'notifications' | 'security'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'recentlyViewed' | 'settings' | 'addresses' | 'payments' | 'notifications' | 'security'>('orders');
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -134,13 +155,15 @@ const EnhancedProfilePage: React.FC = () => {
 
     const fetchProfile = async () => {
       try {
-        const [profileResponse, ordersResponse, wishlistResponse, addressesResponse, paymentsResponse, sessionsResponse] = await Promise.all([
+        const [profileResponse, ordersResponse, wishlistResponse, recentlyViewedResponse, addressesResponse, paymentsResponse, sessionsResponse, linkedAccountsResponse] = await Promise.all([
           userApi.getProfile(),
           ordersApi.getMyOrders().catch(() => ({ orders: [] })),
           wishlistApi.getWishlist().catch(() => ({ wishlist: { items: [] } })),
+          productsApi.getRecentlyViewed({ limit: 12 }).catch(() => ({ products: [] })),
           userApi.getAddresses().catch(() => ({ addresses: [] })),
           userApi.getPaymentMethods().catch(() => ({ paymentMethods: [] })),
-          userApi.getSessions().catch(() => ({ sessions: [] }))
+          userApi.getSessions().catch(() => ({ sessions: [] })),
+          userApi.getLinkedAccounts().catch(() => ({ accounts: [], providers: [] }))
         ])
         
         const apiUser = profileResponse.user
@@ -170,9 +193,17 @@ const EnhancedProfilePage: React.FC = () => {
               images: item.product.images || []
             }
           })),
+          recentlyViewed: (recentlyViewedResponse.products || []).map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            price: Number(item.price) || 0,
+            images: item.images || item.productImages?.map((image: any) => image.url) || []
+          })),
           addresses: addressesResponse.addresses || [],
           paymentMethods: paymentsResponse.paymentMethods || [],
           sessions: sessionsResponse.sessions || [],
+          linkedAccounts: linkedAccountsResponse.accounts || [],
+          linkedAccountProviders: linkedAccountsResponse.providers || [],
           notifications: apiUser.notifications || {
             email: true,
             sms: false,
@@ -195,7 +226,7 @@ const EnhancedProfilePage: React.FC = () => {
 
   useEffect(() => {
     const tab = searchParams.get('tab')
-    if (tab === 'orders' || tab === 'wishlist' || tab === 'settings' || tab === 'addresses' || tab === 'payments' || tab === 'notifications' || tab === 'security') {
+    if (tab === 'orders' || tab === 'wishlist' || tab === 'recentlyViewed' || tab === 'settings' || tab === 'addresses' || tab === 'payments' || tab === 'notifications' || tab === 'security') {
       setActiveTab(tab)
     }
   }, [searchParams])
@@ -494,6 +525,25 @@ const EnhancedProfilePage: React.FC = () => {
     setProfile(prev => prev ? { ...prev, sessions: response.sessions || [] } : null)
   }
 
+  const refreshLinkedAccounts = async () => {
+    const response = await userApi.getLinkedAccounts()
+    setProfile(prev => prev ? { ...prev, linkedAccounts: response.accounts || [], linkedAccountProviders: response.providers || [] } : null)
+  }
+
+  const refreshRecentlyViewed = async () => {
+    const response = await productsApi.getRecentlyViewed({ limit: 12 })
+    setProfile(prev => prev ? {
+      ...prev,
+      recentlyViewed: (response.products || []).map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        price: Number(item.price) || 0,
+        images: item.images || item.productImages?.map((image: any) => image.url) || [],
+        viewedAt: item.viewedAt,
+      }))
+    } : null)
+  }
+
   const handleRevokeSession = async (sessionId: string) => {
     try {
       await userApi.revokeSession(sessionId)
@@ -521,6 +571,16 @@ const EnhancedProfilePage: React.FC = () => {
       await refreshSessions()
     } catch {
       toast.error('Could not log out other devices')
+    }
+  }
+
+  const handleUnlinkAccount = async (accountId: string) => {
+    try {
+      await userApi.unlinkAccount(accountId)
+      toast.success('Linked account removed')
+      await refreshLinkedAccounts()
+    } catch {
+      toast.error('Could not remove linked account')
     }
   }
 
@@ -637,6 +697,15 @@ const EnhancedProfilePage: React.FC = () => {
                 >
                   <Heart className="w-5 h-5" />
                   <span>Wishlist</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('recentlyViewed')}
+                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left ${
+                    activeTab === 'recentlyViewed' ? 'bg-red-50 text-red-700' : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <Clock className="w-5 h-5" />
+                  <span>Recently Viewed</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('settings')}
@@ -818,6 +887,58 @@ const EnhancedProfilePage: React.FC = () => {
                             <Heart className="w-4 h-4 fill-current" />
                           </button>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Recently Viewed Tab */}
+            {activeTab === 'recentlyViewed' && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">Recently Viewed</h2>
+                    <p className="text-sm text-gray-600">Products you opened from this account or browser session.</p>
+                  </div>
+                  <button
+                    onClick={refreshRecentlyViewed}
+                    className="text-red-600 hover:text-red-700 text-sm font-medium"
+                  >
+                    Refresh
+                  </button>
+                </div>
+
+                {(profile.recentlyViewed || []).length === 0 ? (
+                  <div className="text-center py-8">
+                    <Clock className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-4">No recently viewed products yet</p>
+                    <button
+                      onClick={() => navigate('/shop')}
+                      className="bg-red-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-red-700"
+                    >
+                      Browse Products
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {profile.recentlyViewed?.map((item) => (
+                      <div key={item.id} className="border border-gray-200 rounded-lg p-4">
+                        <img
+                          src={item.images?.[0] || '/hincton/hero-platter.webp'}
+                          alt={item.name}
+                          className="w-full h-40 object-cover rounded-lg mb-3"
+                        />
+                        <h3 className="font-medium text-gray-900 mb-2">{item.name}</h3>
+                        <p className="text-lg font-semibold text-gray-900 mb-1">{formatPrice(item.price)}</p>
+                        {item.viewedAt && <p className="text-xs text-gray-500 mb-3">Viewed {new Date(item.viewedAt).toLocaleString()}</p>}
+                        <button
+                          onClick={() => handleViewProduct(item.id)}
+                          className="w-full bg-red-600 text-white py-2 px-3 rounded-lg text-sm font-medium hover:bg-red-700"
+                        >
+                          View Product
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -1306,6 +1427,72 @@ const EnhancedProfilePage: React.FC = () => {
             )}
 
             {activeTab === 'security' && (
+              <div className="space-y-6">
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">Linked accounts</h2>
+                    <p className="mt-1 text-sm text-gray-600">Manage real social sign-in accounts connected to your profile.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={refreshLinkedAccounts}
+                    className="text-red-600 hover:text-red-700 text-sm font-medium"
+                  >
+                    Refresh
+                  </button>
+                </div>
+
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  {(profile.linkedAccountProviders || []).map((provider) => {
+                    const account = profile.linkedAccounts?.find((item) => item.provider.toLowerCase() === provider.provider)
+                    return (
+                      <div key={provider.provider} className="rounded-lg border border-gray-200 p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700">
+                              <Link2 className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900">{provider.label}</p>
+                              <p className="mt-1 text-sm text-gray-600">
+                                {account ? `Connected as ${account.providerAccountId}` : provider.configured ? 'Ready to connect' : 'Provider keys are not configured'}
+                              </p>
+                              {account && <p className="mt-1 text-xs text-gray-500">Linked {new Date(account.createdAt).toLocaleDateString()}</p>}
+                            </div>
+                          </div>
+                          {account ? (
+                            <button
+                              type="button"
+                              onClick={() => handleUnlinkAccount(account.id)}
+                              className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+                            >
+                              Unlink
+                            </button>
+                          ) : (
+                            <a
+                              href={provider.connectUrl || undefined}
+                              onClick={(event) => {
+                                if (!provider.connectUrl) {
+                                  event.preventDefault()
+                                  toast.error(`${provider.label} sign-in is not configured on this deployment`)
+                                }
+                              }}
+                              className={`rounded-lg px-3 py-2 text-sm font-semibold ${provider.connectUrl ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-100 text-gray-500'}`}
+                            >
+                              Connect
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {(profile.linkedAccountProviders || []).length === 0 && (
+                    <p className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600">No linked account providers are available.</p>
+                  )}
+                </div>
+              </div>
+
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -1367,6 +1554,7 @@ const EnhancedProfilePage: React.FC = () => {
                     ))
                   )}
                 </div>
+              </div>
               </div>
             )}
           </div>
