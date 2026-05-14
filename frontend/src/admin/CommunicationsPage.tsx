@@ -3,6 +3,7 @@ import { Bell, CheckCircle2, Mail, Mail as MailIcon, Megaphone, MessageCircle, P
 import toast from 'react-hot-toast'
 import api from '../services/api'
 import { contactMessagesApi, usersApi } from '../services/adminApi'
+import LinkifiedText from '../components/ui/LinkifiedText'
 
 interface AdminUser {
   id: string
@@ -24,9 +25,11 @@ interface ChatSession {
 
 interface ChatMessage {
   id: string
-  message: string
+  message?: string
+  content?: string
   isFromUser: boolean
   createdAt: string
+  timestamp?: string
 }
 
 interface ContactMessage {
@@ -452,9 +455,9 @@ const CommunicationsPage = () => {
               {chatMessages.length > 0 ? chatMessages.map((chatMessage) => (
                 <div key={chatMessage.id} className={`flex ${chatMessage.isFromUser ? 'justify-start' : 'justify-end'}`}>
                   <div className={`max-w-[78%] rounded-lg px-4 py-3 text-sm shadow-sm ${chatMessage.isFromUser ? 'bg-white text-gray-900' : 'bg-red-600 text-white'}`}>
-                    <p>{chatMessage.message}</p>
+                    <p><LinkifiedText text={chatMessage.message || chatMessage.content || ''} /></p>
                     <p className={`mt-1 text-xs ${chatMessage.isFromUser ? 'text-gray-500' : 'text-red-100'}`}>
-                      {new Date(chatMessage.createdAt).toLocaleString()}
+                      {new Date(chatMessage.createdAt || chatMessage.timestamp || '').toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -544,7 +547,7 @@ const CommunicationsPage = () => {
 
                 <div className="flex-1 space-y-3 overflow-y-auto bg-gray-50 p-5">
                   <div className="rounded-lg bg-white p-4">
-                    <p className="text-sm text-gray-900">{selectedContactMessage.message}</p>
+                    <p className="text-sm text-gray-900 whitespace-pre-wrap"><LinkifiedText text={selectedContactMessage.message} /></p>
                     <p className="mt-2 text-xs text-gray-500">
                       {new Date(selectedContactMessage.createdAt).toLocaleString()}
                     </p>
@@ -556,7 +559,7 @@ const CommunicationsPage = () => {
                       {selectedContactMessage.responses.map((response) => (
                         <div key={response.id} className="rounded-lg bg-red-50 p-4">
                           <p className="text-sm font-semibold text-gray-900">{response.respondent?.profile?.fullName || response.respondent?.email || 'Admin'}</p>
-                          <p className="mt-1 text-sm text-gray-700">{response.message}</p>
+                          <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap"><LinkifiedText text={response.message} /></p>
                           <p className="mt-1 text-xs text-gray-500">
                             {new Date(response.createdAt).toLocaleString()}
                           </p>

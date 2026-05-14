@@ -22,7 +22,8 @@ import {
   Loader,
   Clock,
   LogOut,
-  User
+  User,
+  Star
 } from 'lucide-react'
 import { useAdminSearch } from '../hooks/useAdminSearch'
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog'
@@ -83,6 +84,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { path: '/admin/dashboard', icon: LayoutDashboard, label: t('admin.dashboard') },
     { path: '/admin/products', icon: Package, label: t('admin.products') },
     { path: '/admin/orders', icon: ShoppingCart, label: t('admin.orders') },
+    { path: '/admin/reviews', icon: Star, label: 'Product Reviews' },
     { path: '/admin/users', icon: Users, label: t('admin.users') },
     { path: '/admin/analytics', icon: BarChart3, label: t('admin.analytics') },
     { path: '/admin/communications', icon: Megaphone, label: t('admin.communications') },

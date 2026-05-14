@@ -1,7 +1,34 @@
 import express from 'express'
 import { prisma } from '../config/prisma'
+import multer from 'multer'
+import path from 'path'
+import fs from 'fs'
+import { z } from 'zod'
 
 const router = express.Router()
+
+const uploadBasePath = process.env.UPLOAD_DIR || (process.env.VERCEL ? '/tmp/uploads' : 'uploads')
+const feedbackUploadPath = path.join(uploadBasePath, 'content')
+const ensureDirectory = (dir: string) => {
+  try {
+    fs.mkdirSync(dir, { recursive: true })
+  } catch (error) {
+    console.warn(`Unable to create directory ${dir}:`, error)
+  }
+}
+ensureDirectory(feedbackUploadPath)
+
+const feedbackUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      ensureDirectory(feedbackUploadPath)
+      cb(null, feedbackUploadPath)
+    },
+    filename: (_req, file, cb) => cb(null, `feedback-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`),
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => file.mimetype.startsWith('image/') ? cb(null, true) : cb(new Error('Only image files are allowed')),
+})
 
 const parseJsonValue = <T = any>(value: string | undefined, fallback: T): T => {
   try {
@@ -161,6 +188,61 @@ router.get('/commerce-settings', async (_req, res) => {
       return res.json({ settings: defaultCommerceSettings })
     }
     res.status(500).json({ error: 'Failed to get commerce settings' })
+  }
+})
+
+router.post('/contact/submit', feedbackUpload.single('screenshot'), async (req, res) => {
+  try {
+    const contactData = z.object({
+      name: z.string().min(1),
+      email: z.string().email(),
+      phone: z.string().optional(),
+      subject: z.string().min(1),
+      message: z.string().min(1),
+      category: z.string().optional(),
+    }).parse(req.body)
+
+    const user = await prisma.user.upsert({
+      where: { email: contactData.email },
+      update: {
+        profile: {
+          upsert: {
+            create: { fullName: contactData.name },
+            update: { fullName: contactData.name },
+          },
+        },
+      },
+      create: {
+        email: contactData.email,
+        roles: ['BUYER'] as any,
+        profile: { create: { fullName: contactData.name } },
+        security: { create: { is_active: true, isEmailVerified: false } },
+      },
+    })
+
+    const screenshotUrl = req.file ? `/uploads/content/${req.file.filename}` : null
+    const ticket = await prisma.supportTicket.create({
+      data: {
+        userId: user.id,
+        subject: contactData.subject,
+        message: [
+          `From: ${contactData.name} <${contactData.email}>`,
+          contactData.phone ? `Phone: ${contactData.phone}` : null,
+          contactData.category ? `Category: ${contactData.category}` : null,
+          screenshotUrl ? `Screenshot: ${screenshotUrl}` : null,
+          '',
+          contactData.message,
+        ].filter(Boolean).join('\n'),
+        category: contactData.category === 'feedback' ? 'FEEDBACK' : 'GENERAL_INQUIRY',
+        priority: contactData.category === 'feedback' ? 'MEDIUM' : 'LOW',
+        status: 'OPEN',
+      },
+    })
+
+    res.json({ message: 'Contact form submitted successfully', ticketId: ticket.id })
+  } catch (error) {
+    console.error('Public contact form submission error:', error)
+    res.status(500).json({ error: 'Failed to submit contact form' })
   }
 })
 

@@ -7,6 +7,7 @@ import { chatApi } from '../services/buyerApi';
 import { getApiHost } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmationDialog from '../components/ui/ConfirmationDialog';
+import LinkifiedText from '../components/ui/LinkifiedText';
 
 interface Message {
   id: string;
@@ -486,7 +487,7 @@ const BuyerMessages: React.FC = () => {
                                 : 'bg-gray-100 text-gray-900'
                             }`}
                           >
-                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                            <p className="text-sm whitespace-pre-wrap"><LinkifiedText text={message.content} /></p>
                             {(message.attachments || []).map((attachment) => (
                               <a key={attachment.url} href={attachment.url} target="_blank" rel="noreferrer" className="mt-2 flex items-center gap-2 text-sm underline">
                                 <Paperclip className="h-4 w-4" />

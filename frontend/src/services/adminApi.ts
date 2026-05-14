@@ -456,4 +456,18 @@ export const contactMessagesApi = {
   }
 }
 
+// Reviews API
+export const reviewsApi = {
+  getProductReviews: async (params?: {
+    page?: number
+    limit?: number
+    productId?: string
+    status?: string
+    rating?: number
+  }) => {
+    const response = await apiClient.get('/reviews/admin/product-reviews', { params })
+    return response.data
+  }
+}
+
 export default apiClient

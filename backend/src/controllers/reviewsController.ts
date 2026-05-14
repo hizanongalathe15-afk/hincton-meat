@@ -350,3 +350,77 @@ export const markHelpful = asyncHandler(async (req: Request, res: Response) => {
     message: 'Review marked as helpful'
   })
 })
+
+export const getAdminProductReviews = asyncHandler(async (req: Request, res: Response) => {
+  const { page = 1, limit = 20, productId, status, rating } = req.query
+  
+  const where: any = {}
+  
+  if (productId) where.productId = productId
+  if (status) where.status = status
+  if (rating) where.rating = parseInt(rating as string)
+  
+  where.deletedAt = null
+
+  const reviews = await prisma.review.findMany({
+    where,
+    include: {
+      product: {
+        select: {
+          id: true,
+          name: true,
+          vendorId: true
+        }
+      },
+      user: {
+        select: {
+          id: true,
+          profile: {
+            select: { fullName: true }
+          }
+        }
+      },
+      orderItem: { select: { productName: true } },
+      images: {
+        select: {
+          url: true
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' },
+    skip: (parseInt(page as string) - 1) * parseInt(limit as string),
+    take: parseInt(limit as string)
+  })
+
+  const total = await prisma.review.count({ where })
+
+  const formattedReviews = reviews.map(review => ({
+    id: review.id,
+    productId: review.productId,
+    productName: review.product?.name || review.orderItem?.productName || 'Product',
+    vendorId: review.product?.vendorId,
+    userId: review.userId,
+    userName: review.user?.profile?.fullName || 'Anonymous',
+    rating: review.rating,
+    title: review.title || '',
+    content: review.comment || '',
+    images: review.images.map(img => img.url),
+    helpful: review.helpfulCount,
+    notHelpful: review.notHelpfulCount,
+    isVerifiedPurchase: review.isVerifiedPurchase,
+    status: review.status.toLowerCase(),
+    createdAt: review.createdAt.toISOString(),
+    updatedAt: review.updatedAt.toISOString()
+  }))
+
+  res.json({
+    success: true,
+    data: formattedReviews,
+    pagination: {
+      page: parseInt(page as string),
+      limit: parseInt(limit as string),
+      total,
+      pages: Math.ceil(total / parseInt(limit as string))
+    }
+  })
+})

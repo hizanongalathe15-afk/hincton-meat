@@ -34,6 +34,7 @@ import ContentPage from './admin/ContentPage'
 import QRCodeManager from './admin/QRCodeManager'
 import SystemMetrics from './admin/SystemMetrics'
 import AdManagement from './admin/AdManagement'
+import AdminReviewsPage from './admin/ReviewsPage'
 import CookieConsent from './components/CookieConsent'
 import ReviewPrompt from './components/ReviewPrompt'
 
@@ -52,6 +53,9 @@ import BuyerWallet from './pages/BuyerWallet'
 import AboutPage from './pages/AboutPage'
 import WebProfilePage from './pages/WebProfilePage'
 import ContactPage from './pages/ContactPage'
+import FeedbackPage from './pages/FeedbackPage'
+import HelpCenterPage from './pages/HelpCenterPage'
+import AppInfoPage from './pages/AppInfoPage'
 import FarmsPage from './pages/FarmsPage'
 import SustainabilityPage from './pages/SustainabilityPage'
 import LegalPage from './pages/LegalPage'
@@ -131,6 +135,9 @@ function App() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/web-profile" element={<WebProfilePage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/feedback" element={<FeedbackPage />} />
+          <Route path="/help" element={<HelpCenterPage />} />
+          <Route path="/app-info" element={<AppInfoPage />} />
           <Route path="/terms" element={<LegalPage type="terms" />} />
           <Route path="/privacy" element={<LegalPage type="privacy" />} />
           <Route path="/farms" element={<FarmsPage />} />
@@ -171,6 +178,7 @@ function App() {
             <Route path="profile" element={<AdminProfilePage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="orders" element={<OrdersPage />} />
+            <Route path="reviews" element={<AdminReviewsPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="delivery" element={<DeliveryPage />} />

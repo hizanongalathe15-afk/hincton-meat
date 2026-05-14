@@ -40,29 +40,16 @@ router.post('/:id/helpful',
   reviewsController.markHelpful
 )
 
-router.get('/user', 
-  apiRateLimiter, 
-  ReviewController.getUserReviews
+// Admin review routes must come before the generic /:id route.
+router.get('/admin/product-reviews', 
+  authenticate, 
+  requireAdmin, 
+  reviewsController.getAdminProductReviews
 )
-router.get('/', 
-  apiRateLimiter, 
-  ReviewController.getReviews
-)
+
 router.get('/:id', 
   apiRateLimiter, 
   ReviewController.getReview
-)
-router.post('/', 
-  authRateLimiter, 
-  ReviewController.createReview
-)
-router.put('/:id', 
-  authRateLimiter, 
-  ReviewController.updateReview
-)
-router.delete('/:id', 
-  authRateLimiter, 
-  ReviewController.deleteReview
 )
 router.post('/:id/report', 
   authRateLimiter, 

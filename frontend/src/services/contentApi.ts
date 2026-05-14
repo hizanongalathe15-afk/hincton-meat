@@ -52,15 +52,24 @@ export const contentApi = {
     return response.data
   },
 
+  getSiteProfile: async () => {
+    const response = await api.get('/content/site-profile')
+    return response.data
+  },
+
   // Submit contact form
-  submitContactForm: async (formData: {
+  submitContactForm: async (formData: FormData | {
     name: string
     email: string
     phone?: string
     subject: string
     message: string
   }) => {
-    const response = await api.post('/content/contact/submit', formData)
+    const response = await api.post(
+      '/content/contact/submit',
+      formData,
+      formData instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined
+    )
     return response.data
   },
 

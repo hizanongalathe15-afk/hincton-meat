@@ -173,29 +173,7 @@ router.post('/messages', async (req, res) => {
   }
 })
 
-// Get messages by session
-router.get('/sessions/:sessionId/messages', async (req, res) => {
-  try {
-    const { sessionId } = req.params
-
-    const messages = await prisma.liveChatMessage.findMany({
-      where: { sessionId, roomId: sessionId },
-      include: {
-        user: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
-        admin: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
-      },
-      orderBy: { createdAt: 'asc' },
-    })
-
-    res.json({ sessionId, messages: messages.map((message) => serializeChatMessage(message, getAuthUserId(req))) })
-  } catch (error) {
-    console.error('Get chat messages error:', error)
-    res.status(500).json({ error: 'Failed to get messages' })
-  }
-})
-
-// Get all chat sessions for admin
-router.get('/admin/sessions', async (req, res) => {
+const getAdminChatSessions = async (req: any, res: any) => {
   try {
     const userId = getAuthUserId(req)
     if (!userId) return res.status(401).json({ error: 'Invalid token' })
@@ -230,7 +208,33 @@ router.get('/admin/sessions', async (req, res) => {
     console.error('Get admin chat sessions error:', error)
     res.status(500).json({ error: 'Failed to get sessions' })
   }
+}
+
+router.get('/sessions', getAdminChatSessions)
+
+// Get messages by session
+router.get('/sessions/:sessionId/messages', async (req, res) => {
+  try {
+    const { sessionId } = req.params
+
+    const messages = await prisma.liveChatMessage.findMany({
+      where: { sessionId, roomId: sessionId },
+      include: {
+        user: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
+        admin: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    res.json({ sessionId, messages: messages.map((message) => serializeChatMessage(message, getAuthUserId(req))) })
+  } catch (error) {
+    console.error('Get chat messages error:', error)
+    res.status(500).json({ error: 'Failed to get messages' })
+  }
 })
+
+// Get all chat sessions for admin
+router.get('/admin/sessions', getAdminChatSessions)
 
 // Get user's chat sessions
 router.get('/user/sessions', async (req, res) => {
