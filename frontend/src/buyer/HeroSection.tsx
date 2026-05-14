@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useLanguage } from '../contexts/LanguageContext'
 import { useSiteContent } from '../contexts/SiteContentContext'
 import { useTypewriter } from '../utils/animations'
 
@@ -8,6 +9,7 @@ interface HeroSectionProps {
 
 const HeroSection = ({ onSearch }: HeroSectionProps) => {
   void onSearch
+  const { t } = useLanguage()
   const { profile } = useSiteContent()
   const brand = profile.brand
   const { text: typedCompanyProfile, isTyping } = useTypewriter({
@@ -21,7 +23,7 @@ const HeroSection = ({ onSearch }: HeroSectionProps) => {
       <div className="absolute inset-0 z-10 bg-gradient-to-r from-black/80 via-black/55 to-[#9f2f20]/45" />
       <img
         src={profile.images.hero}
-        alt="Fresh Hincton Meat Products selection"
+        alt={t('hero.heroImageAlt')}
         className="absolute inset-0 h-full w-full object-cover"
       />
       <div className="absolute -bottom-36 right-[-8rem] z-10 hidden h-[34rem] w-[34rem] rounded-[7rem] border-[3rem] border-[#9f2f20] opacity-90 lg:block" />
@@ -35,12 +37,12 @@ const HeroSection = ({ onSearch }: HeroSectionProps) => {
                 {brand.tagline}
               </span>
             </div>
-            <h1 className="mb-6 text-5xl font-extrabold leading-tight text-white md:text-7xl">
-              Only
-              <span className="block text-[#c13a28]">Fresh Meat</span>
+            <h1 className="mb-6 text-4xl font-extrabold leading-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
+              {t('hero.title.main')}
+              <span className="block text-[#c13a28]">{t('hero.title.highlight')}</span>
             </h1>
             <p
-              className="relative mb-8 grid max-w-2xl text-xl leading-8 text-gray-100"
+              className="relative mb-8 grid max-w-2xl text-base leading-7 text-gray-100 sm:text-xl sm:leading-8"
               aria-label={profile.companyProfile}
             >
               <span className="invisible col-start-1 row-start-1" aria-hidden="true">
@@ -54,15 +56,15 @@ const HeroSection = ({ onSearch }: HeroSectionProps) => {
             <div className="flex flex-col gap-4 sm:flex-row">
               <Link
                 to="/shop"
-                className="inline-flex items-center justify-center rounded bg-[#9f2f20] px-8 py-3 font-semibold text-white transition-colors hover:bg-[#842719]"
+                className="inline-flex items-center justify-center rounded bg-[#9f2f20] px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#842719] sm:text-base"
               >
-                Shop Products
+                {t('hero.cta.shopProducts')}
               </Link>
               <Link
                 to="/web-profile"
-                className="inline-flex items-center justify-center rounded bg-white px-8 py-3 font-semibold text-gray-900 transition-colors hover:bg-gray-100"
+                className="inline-flex items-center justify-center rounded bg-white px-8 py-3 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-100 sm:text-base"
               >
-                View Profile
+                {t('hero.cta.viewProfile')}
               </Link>
             </div>
             <p className="mt-10 text-lg font-semibold italic text-white">"{brand.mantra}"</p>

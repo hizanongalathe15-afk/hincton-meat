@@ -1,10 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Award, ChevronLeft, ChevronRight, Globe2, Shield, Snowflake, Truck } from 'lucide-react'
 import HeroSection from './HeroSection'
 import ProductCard from './ProductCard'
 import { Product } from '../types/index'
 import { productsApi as api } from '../services/buyerApi'
+import { useLanguage } from '../contexts/LanguageContext'
 import { useSiteContent } from '../contexts/SiteContentContext'
 import { HINCTON_PRODUCTS } from '../utils/hinctonBrand'
 
@@ -22,13 +23,26 @@ const BuyerHome = ({
   wishlistItems = new Set(),
 }: BuyerHomeProps) => {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const { profile } = useSiteContent()
   const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<any[]>([...HINCTON_PRODUCTS])
+  const [categories, setCategories] = useState<any[]>([])
   const [productTiles, setProductTiles] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const topProductScrollerRef = useRef<HTMLDivElement>(null)
   const bottomProductScrollerRef = useRef<HTMLDivElement>(null)
+
+  const localizedFallbackCategories = useMemo(
+    () =>
+      HINCTON_PRODUCTS.map((category) => ({
+        ...category,
+        name: t(`category.${category.category}.name`) || category.name,
+        description:
+          t(`category.${category.category}.description`) || category.description,
+        cta: t('about.viewProducts'),
+      })),
+    [t],
+  )
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,12 +98,12 @@ const BuyerHome = ({
           image: category.image || 'https://via.placeholder.com/800x650',
         }))
         
-        setCategories(transformedCategories.length ? transformedCategories : [...HINCTON_PRODUCTS])
+        setCategories(transformedCategories.length ? transformedCategories : localizedFallbackCategories)
       } catch (error) {
         console.error('Failed to fetch home data:', error)
         // Set fallback data on error
         setProducts([])
-        setCategories([...HINCTON_PRODUCTS])
+        setCategories(localizedFallbackCategories)
       } finally {
         setLoading(false)
       }
@@ -98,28 +112,31 @@ const BuyerHome = ({
     fetchData()
   }, [])
 
-const features = [
-  {
-    icon: Award,
-    title: 'Only Fresh Meat',
-    description: 'Fresh, safe, and nutritious meat products handled with care.',
-  },
-  {
-    icon: Truck,
-    title: 'Efficient Dispatch',
-    description: 'Temperature-controlled storage and reliable dispatch systems.',
-  },
-  {
-    icon: Shield,
-    title: 'Food Safety',
-    description: 'Strict standards for safety, quality, and ethical sourcing.',
-  },
-  {
-    icon: Snowflake,
-    title: 'Cold Chain',
-    description: 'Advanced chilling and freezing technology preserves freshness.',
-  },
-]
+  const features = useMemo(
+    () => [
+      {
+        icon: Award,
+        title: t('buyerHome.features.freshMeat.title'),
+        description: t('buyerHome.features.freshMeat.description'),
+      },
+      {
+        icon: Truck,
+        title: t('buyerHome.features.efficientDispatch.title'),
+        description: t('buyerHome.features.efficientDispatch.description'),
+      },
+      {
+        icon: Shield,
+        title: t('buyerHome.features.foodSafety.title'),
+        description: t('buyerHome.features.foodSafety.description'),
+      },
+      {
+        icon: Snowflake,
+        title: t('buyerHome.features.coldChain.title'),
+        description: t('buyerHome.features.coldChain.description'),
+      },
+    ],
+    [t],
+  )
 
   const handleSearch = (query: string) => {
     const params = new URLSearchParams()
@@ -143,11 +160,13 @@ const features = [
     })
   }
 
-  const displayedTiles = productTiles.length ? productTiles : categories.map((category: any) => ({
-    ...category,
-    href: `/shop?category=${category.category}`,
-    cta: 'View Products',
-  }))
+  const displayedTiles = productTiles.length
+    ? productTiles
+    : categories.map((category: any) => ({
+        ...category,
+        href: `/shop?category=${category.category}`,
+        cta: t('about.viewProducts'),
+      }))
   const topProductTiles = displayedTiles.filter((_, index) => index % 2 === 0)
   const bottomProductTiles = displayedTiles.filter((_, index) => index % 2 === 1)
 
@@ -194,10 +213,12 @@ const features = [
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-12 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="text-center md:text-left">
-              <p className="text-sm font-bold uppercase tracking-wide text-red-700">Products offered</p>
-              <h2 className="mt-3 text-4xl font-extrabold text-gray-950">Fresh cuts and processed products</h2>
+              <p className="text-sm font-bold uppercase tracking-wide text-red-700">{t('buyerHome.products.offered')}</p>
+              <h2 className="mt-3 text-4xl font-extrabold text-gray-950">{t('buyerHome.products.title')}</h2>
               <p className="mt-4 text-lg text-gray-600">
-                {productTiles.length ? 'Browse products posted by admin.' : 'Goat, beef, chicken, lamb/mutton, fish, and pet food from the Hincton profile.'}
+                {productTiles.length
+                  ? t('buyerHome.products.descriptionAdmin')
+                  : t('buyerHome.products.descriptionFallback')}
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -268,8 +289,8 @@ const features = [
       <section className="bg-white py-20">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
           <div>
-            <p className="text-sm font-bold uppercase tracking-wide text-red-700">Market presence</p>
-            <h2 className="mt-3 text-4xl font-extrabold text-gray-950">Serving Kenya and export markets</h2>
+            <p className="text-sm font-bold uppercase tracking-wide text-red-700">{t('buyerHome.marketPresence')}</p>
+            <h2 className="mt-3 text-4xl font-extrabold text-gray-950">{t('buyerHome.marketPresenceTitle')}</h2>
             <div className="mt-8 space-y-5">
               {profile.markets.map((market) => (
                 <div key={market} className="flex gap-3 text-lg leading-8 text-gray-700">
@@ -280,11 +301,11 @@ const features = [
             </div>
           </div>
           <div className="overflow-hidden rounded bg-gray-950">
-            <img src={profile.images.market} alt="Livestock market presence" className="h-72 w-full object-cover opacity-90" />
+            <img src={profile.images.market} alt={t('buyerHome.marketImageAlt')} className="h-72 w-full object-cover opacity-90" />
             <div className="p-8">
-              <h3 className="text-3xl font-extrabold text-white">Commitment to Livestock Procurement</h3>
+              <h3 className="text-3xl font-extrabold text-white">{t('buyerHome.procurementTitle')}</h3>
               <p className="mt-4 text-lg leading-8 text-gray-200">
-                We prioritize ethical and sustainable livestock procurement by partnering with trusted farmers and suppliers who meet strict standards.
+                {t('buyerHome.procurementDescription')}
               </p>
             </div>
           </div>
@@ -294,8 +315,8 @@ const features = [
       <section className="bg-gray-50 py-20">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
           <div>
-            <p className="text-sm font-bold uppercase tracking-wide text-red-700">Processing and quality control</p>
-            <h2 className="mt-3 text-4xl font-extrabold text-gray-950">Freshness protected from storage to dispatch</h2>
+            <p className="text-sm font-bold uppercase tracking-wide text-red-700">{t('buyerHome.processing.header')}</p>
+            <h2 className="mt-3 text-4xl font-extrabold text-gray-950">{t('buyerHome.processing.title')}</h2>
           </div>
           <div className="space-y-4">
                 {profile.qualityPoints.map((point) => (
@@ -311,11 +332,11 @@ const features = [
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
-              <p className="text-sm font-bold uppercase tracking-wide text-red-700">Butcher picks</p>
-              <h2 className="mt-3 text-4xl font-extrabold text-gray-950">Featured products</h2>
+              <p className="text-sm font-bold uppercase tracking-wide text-red-700">{t('buyerHome.butchersPicks')}</p>
+              <h2 className="mt-3 text-4xl font-extrabold text-gray-950">{t('buyerHome.featuredProducts')}</h2>
             </div>
             <Link to="/shop" className="inline-flex rounded-lg bg-gray-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-gray-800">
-              Shop all products
+              {t('buyerHome.shopAllProducts')}
             </Link>
           </div>
 
@@ -338,13 +359,13 @@ const features = [
         <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
           <h2 className="text-4xl font-extrabold text-white">{profile.brand.mantra}</h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-red-100">
-            Order trusted meat products for homes, wholesalers, retailers, and foodservice operations.
+            {t('buyerHome.orderPrompt')}
           </p>
           <Link
             to="/shop"
             className="mt-8 inline-flex rounded-lg bg-white px-10 py-4 text-lg font-bold text-red-600 transition hover:bg-gray-100"
           >
-            Start Shopping Today
+            {t('buyerHome.startShopping')}
           </Link>
         </div>
       </section>

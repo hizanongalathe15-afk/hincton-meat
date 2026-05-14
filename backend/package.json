@@ -3,8 +3,11 @@
   "version": "1.0.0",
   "description": "Backend API for hincton Meat Shop E-commerce Platform",
   "main": "dist/server.js",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
-    "start": "node dist/server.js",
+    "start": "node scripts/start.js",
     "dev": "nodemon --legacy-watch --watch src --ext ts,json --ignore dist --ignore node_modules --ignore uploads src/server.ts",
     "build": "tsc",
     "render-build": "prisma generate && tsc",
