@@ -6,7 +6,10 @@
     "backend"
   ],
   "scripts": {
-    "render-build": "npm --prefix frontend run build && npm --prefix backend run render-build"
+    "start": "npm --prefix backend start",
+    "build": "npm --prefix backend run render-build",
+    "render-build": "npm --prefix backend run render-build",
+    "db:push": "npm --prefix backend run db:push"
   },
   "dependencies": {
     "serverless-http": "^3.0.0"
