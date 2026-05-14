@@ -2,18 +2,22 @@
   "name": "hincton-monorepo",
   "private": true,
   "engines": {
-    "node": "20.x"
+    "node": ">=20 <25"
   },
   "workspaces": [
     "frontend",
     "backend"
   ],
   "scripts": {
-    "postinstall": "npm --prefix backend run render-build",
+    "postinstall": "node scripts/render-backend-build.js",
     "start": "npm --prefix backend start",
     "build": "npm --prefix backend run render-build",
     "render-build": "npm --prefix backend run render-build",
     "db:push": "npm --prefix backend run db:push"
+  },
+  "resolutions": {
+    "@types/express": "4.17.25",
+    "@types/express-serve-static-core": "4.19.8"
   },
   "dependencies": {
     "serverless-http": "^3.0.0"
