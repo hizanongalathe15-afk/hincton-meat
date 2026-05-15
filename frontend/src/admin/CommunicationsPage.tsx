@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bell, CheckCircle2, Mail, Mail as MailIcon, Megaphone, MessageCircle, Phone, Send, Smartphone, Users } from 'lucide-react'
+import { Bell, CheckCircle2, Mail, Mail as MailIcon, MessageCircle, Phone, Send, Smartphone, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api, { getApiHost } from '../services/api'
 import { contactMessagesApi, usersApi } from '../services/adminApi'
