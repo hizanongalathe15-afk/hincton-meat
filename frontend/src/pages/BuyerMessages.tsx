@@ -154,7 +154,6 @@ const BuyerMessages: React.FC = () => {
       const newMsg: Message = response.message;
 
       setMessages(prev => [...prev, newMsg]);
-      socketRef.current?.emit('chat:message', { roomId: selectedConversation.id, message: newMsg });
       setNewMessage('');
 
       // Update conversation last message

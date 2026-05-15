@@ -46,7 +46,8 @@ router.get('/dashboard', async (req, res) => {
       totalUsers,
       newCustomers,
       previousMonthUsers,
-      recentOrders
+      recentOrders,
+      abandonedCarts
     ] = await Promise.all([
       // Total sales today
       prisma.order.aggregate({
@@ -148,6 +149,15 @@ router.get('/dashboard', async (req, res) => {
         include: {
           user: { select: { email: true, username: true } }
         }
+      }),
+
+      prisma.abandonedCart.findMany({
+        take: 10,
+        orderBy: { abandonedAt: 'desc' },
+        include: {
+          user: { select: { email: true, phone: true, profile: { select: { fullName: true } } } },
+          reminders: { select: { id: true }, take: 20 },
+        },
       })
     ])
 
@@ -190,6 +200,17 @@ router.get('/dashboard', async (req, res) => {
       topProducts: topProductsWithDetails,
       lowStockProducts,
       recentOrders,
+      abandonedCarts: abandonedCarts.map((cart) => ({
+        id: cart.id,
+        customerName: cart.user?.profile?.fullName || cart.user?.email || cart.guestEmail || cart.guestPhone || cart.guestSessionId || 'Guest buyer',
+        customerEmail: cart.user?.email || cart.guestEmail || '',
+        customerPhone: cart.user?.phone || cart.guestPhone || '',
+        items: Array.isArray(cart.cartItems) ? cart.cartItems : [],
+        totalAmount: Number(cart.cartValue || 0),
+        abandonedAt: cart.abandonedAt,
+        recoveryEmailsSent: cart.reminders.length,
+        recoveryStatus: cart.recoveryStatus,
+      })),
       generatedAt: new Date().toISOString()
     })
   } catch (error) {

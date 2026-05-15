@@ -64,6 +64,18 @@ const serializeChatMessage = (message: any, viewerId?: string | null) => {
   }
 }
 
+const emitPersistedChatMessage = (req: any, roomId: string, message: any) => {
+  const io = req.app?.get?.('io')
+  if (!io || !roomId) return
+
+  io.to(`chat-${roomId}`).emit('chat:message', message)
+  io.emit('chat:session-updated', {
+    sessionId: roomId,
+    roomId,
+    message,
+  })
+}
+
 const notifyAdminsOfCustomerMessage = async (sessionId: string, userId: string, message: string) => {
   const admins = await prisma.user.findMany({
     where: { roles: { hasSome: ['ADMIN', 'SUPER_ADMIN', 'SUPPORT'] as any } },
@@ -115,7 +127,7 @@ const getOrCreateGuestChatUser = async (sessionId: string) => {
   })
 }
 
-router.post('/messages', async (req, res) => {
+const sendLiveChatMessage = async (req: any, res: any) => {
   try {
     const { sessionId, message, attachments, from } = sendMessageSchema.parse(req.body)
 
@@ -166,12 +178,18 @@ router.post('/messages', async (req, res) => {
       })
     }
 
-    res.status(201).json({ message: 'Message sent', msg: serializeChatMessage(msg, authUserId) })
+    const serializedMessage = serializeChatMessage(msg, authUserId)
+    emitPersistedChatMessage(req, sessionId, serializedMessage)
+
+    res.status(201).json({ message: 'Message sent', msg: serializedMessage })
   } catch (error) {
     console.error('Send chat message error:', error)
     res.status(500).json({ error: 'Failed to send message' })
   }
-})
+}
+
+router.post('/messages', sendLiveChatMessage)
+router.post('/send', sendLiveChatMessage)
 
 const getAdminChatSessions = async (req: any, res: any) => {
   try {
@@ -233,6 +251,26 @@ router.get('/sessions/:sessionId/messages', async (req, res) => {
   }
 })
 
+router.get('/messages/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params
+
+    const messages = await prisma.liveChatMessage.findMany({
+      where: { sessionId, roomId: sessionId },
+      include: {
+        user: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
+        admin: { select: { id: true, username: true, email: true, phone: true, profile: { select: { fullName: true, firstName: true, lastName: true, avatar: true, mpesaPhone: true } } } },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    res.json({ sessionId, messages: messages.map((message) => serializeChatMessage(message, getAuthUserId(req))) })
+  } catch (error) {
+    console.error('Get chat messages error:', error)
+    res.status(500).json({ error: 'Failed to get messages' })
+  }
+})
+
 // Get all chat sessions for admin
 router.get('/admin/sessions', getAdminChatSessions)
 
@@ -260,8 +298,54 @@ router.get('/user/sessions', async (req, res) => {
   }
 })
 
+router.get('/my-sessions', async (req, res) => {
+  try {
+    const userId = getAuthUserId(req)
+    if (!userId) return res.status(401).json({ error: 'Invalid token' })
+
+    const sessions = await prisma.liveChatMessage.findMany({
+      where: { userId },
+      select: {
+        sessionId: true,
+        createdAt: true,
+        isRead: true,
+      },
+      distinct: ['sessionId'],
+      orderBy: { createdAt: 'desc' },
+    })
+
+    res.json({ sessions })
+  } catch (error) {
+    console.error('Get user chat sessions error:', error)
+    res.status(500).json({ error: 'Failed to get sessions' })
+  }
+})
+
 // Mark messages as read
 router.put('/sessions/:sessionId/read', async (req, res) => {
+  try {
+    const { sessionId } = req.params
+    const userId = getAuthUserId(req)
+    if (!userId) return res.status(401).json({ error: 'Invalid token' })
+
+    await prisma.liveChatMessage.updateMany({
+      where: { 
+        sessionId,
+        ...(isAdmin(req)
+          ? { isFromUser: true }
+          : { userId, isFromUser: false }),
+      },
+      data: { isRead: true },
+    })
+
+    res.json({ message: 'Messages marked as read' })
+  } catch (error) {
+    console.error('Mark messages as read error:', error)
+    res.status(500).json({ error: 'Failed to mark messages as read' })
+  }
+})
+
+router.put('/mark-read/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params
     const userId = getAuthUserId(req)
@@ -487,7 +571,10 @@ router.post('/conversations/message', async (req, res) => {
       },
     })
 
-    res.status(201).json({ success: true, message: serializeChatMessage(message, userId) })
+    const serializedMessage = serializeChatMessage(message, userId)
+    emitPersistedChatMessage(req, conversationId, serializedMessage)
+
+    res.status(201).json({ success: true, message: serializedMessage })
   } catch (error) {
     console.error('Send message error:', error)
     res.status(500).json({ error: 'Failed to send message' })
@@ -547,7 +634,14 @@ router.delete('/conversations/:conversationId', async (req, res) => {
     const { conversationId } = req.params
     if (!userId) return res.status(401).json({ error: 'Invalid token' })
 
-    res.json({ success: true, message: 'Conversation deleted successfully' })
+    const result = await prisma.liveChatMessage.deleteMany({
+      where: {
+        roomId: conversationId,
+        ...(isAdmin(req) ? {} : { userId }),
+      },
+    })
+
+    res.json({ success: true, message: 'Conversation deleted successfully', count: result.count })
   } catch (error) {
     console.error('Delete conversation error:', error)
     res.status(500).json({ error: 'Failed to delete conversation' })

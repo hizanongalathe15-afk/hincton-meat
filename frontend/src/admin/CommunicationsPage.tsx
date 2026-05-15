@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Bell, CheckCircle2, Mail, Mail as MailIcon, Megaphone, MessageCircle, Phone, RefreshCw, Send, Smartphone, Users } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Bell, CheckCircle2, Mail, Mail as MailIcon, Megaphone, MessageCircle, Phone, Send, Smartphone, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
-import api from '../services/api'
+import api, { getApiHost } from '../services/api'
 import { contactMessagesApi, usersApi } from '../services/adminApi'
 import LinkifiedText from '../components/ui/LinkifiedText'
+import { io, Socket } from 'socket.io-client'
 
 interface AdminUser {
   id: string
@@ -88,6 +89,7 @@ const CommunicationsPage = () => {
   const [selectedContactMessage, setSelectedContactMessage] = useState<ContactMessage | null>(null)
   const [contactReply, setContactReply] = useState('')
   const [lastInboxSync, setLastInboxSync] = useState<Date | null>(null)
+  const socketRef = useRef<Socket | null>(null)
 
   const selectedCount = useMemo(() => {
     if (target === 'all') return users.length
@@ -161,28 +163,49 @@ const CommunicationsPage = () => {
   }, [])
 
   useEffect(() => {
-    const intervalId = window.setInterval(() => {
+    const socket = io(getApiHost(), { withCredentials: true })
+    socketRef.current = socket
+
+    socket.on('connect', () => {
+      if (activeSessionId) socket.emit('chat:join', activeSessionId)
       fetchChatSessions()
       fetchContactMessages()
       if (activeSessionId) fetchChatMessages(activeSessionId)
-    }, 10000)
+    })
 
-    const handleVisibilityChange = () => {
-      if (document.hidden) return
+    socket.on('chat:session-updated', () => {
       fetchChatSessions()
-      fetchContactMessages()
-      if (activeSessionId) fetchChatMessages(activeSessionId)
-    }
+    })
 
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+    socket.on('chat:message', (message: any) => {
+      const roomId = message?.roomId || message?.sessionId
+      if (!roomId) return
+
+      if (roomId === activeSessionId) {
+        setChatMessages((current) => current.some((item) => item.id === message.id) ? current : [...current, message])
+        api.put(`/chat/sessions/${roomId}/read`).catch(() => undefined)
+      }
+
+      fetchChatSessions()
+    })
+
+    socket.on('contact:message-created', () => {
+      fetchContactMessages()
+    })
+
+    socket.on('contact:message-updated', () => {
+      fetchContactMessages()
+    })
+
     return () => {
-      window.clearInterval(intervalId)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      socket.disconnect()
+      socketRef.current = null
     }
   }, [activeSessionId])
 
   useEffect(() => {
     fetchChatMessages(activeSessionId)
+    if (activeSessionId) socketRef.current?.emit('chat:join', activeSessionId)
   }, [activeSessionId])
 
   const toggleUser = (userId: string) => {
@@ -284,7 +307,7 @@ const CommunicationsPage = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Communications</h2>
-            <p className="text-gray-600">Send messages, manage support chats, and contact forms{lastInboxSync ? ` - synced ${lastInboxSync.toLocaleTimeString()}` : ''}.</p>
+            <p className="text-gray-600">Send messages, manage support chats, and contact forms{lastInboxSync ? ` - live ${lastInboxSync.toLocaleTimeString()}` : ''}.</p>
           </div>
           <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
             <Users className="h-4 w-4" />
@@ -441,9 +464,9 @@ const CommunicationsPage = () => {
                 <MessageCircle className="h-5 w-5 text-red-600" />
                 Support Inbox
               </h3>
-              <button type="button" onClick={fetchChatSessions} className="rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800" aria-label="Refresh support chats">
-                <RefreshCw className={`h-4 w-4 ${chatLoading ? 'animate-spin' : ''}`} />
-              </button>
+              <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
+                {chatLoading ? 'Loading' : 'Live'}
+              </span>
             </div>
 
             <div className="max-h-96 overflow-y-auto">
@@ -519,9 +542,9 @@ const CommunicationsPage = () => {
                 <MailIcon className="h-5 w-5 text-red-600" />
                 Contact Messages
               </h3>
-              <button type="button" onClick={fetchContactMessages} className="rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800" aria-label="Refresh contact messages">
-                <RefreshCw className={`h-4 w-4 ${contactLoading ? 'animate-spin' : ''}`} />
-              </button>
+              <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
+                {contactLoading ? 'Loading' : 'Live'}
+              </span>
             </div>
 
             <div className="max-h-96 overflow-y-auto">

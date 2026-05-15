@@ -301,6 +301,26 @@ export const userApi = {
     return response.data
   },
 
+  clearSearchHistory: async () => {
+    const response = await apiClient.delete('/auth/search-history')
+    return response.data
+  },
+
+  clearChatHistory: async () => {
+    const response = await apiClient.delete('/auth/chat-history')
+    return response.data
+  },
+
+  clearDeviceHistory: async () => {
+    const response = await apiClient.delete('/auth/device-history')
+    return response.data
+  },
+
+  closeAccount: async (data: { identifier: string; agreed: boolean }) => {
+    const response = await apiClient.delete('/auth/account', { data })
+    return response.data
+  },
+
   getSessions: async () => {
     const response = await apiClient.get('/auth/sessions')
     return response.data

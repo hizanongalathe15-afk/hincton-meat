@@ -39,6 +39,18 @@ interface TopProduct {
   stock: number
 }
 
+interface AbandonedCart {
+  id: string
+  customerName: string
+  customerEmail?: string
+  customerPhone?: string
+  items: Array<{ name?: string; productName?: string; quantity?: number; price?: number }>
+  totalAmount: number
+  abandonedAt: string
+  recoveryEmailsSent: number
+  recoveryStatus: string
+}
+
 const AdminDashboard = () => {
   const navigate = useNavigate()
   const [stats, setStats] = useState<DashboardStats>({
@@ -53,6 +65,7 @@ const AdminDashboard = () => {
   })
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
   const [topProducts, setTopProducts] = useState<TopProduct[]>([])
+  const [abandonedCarts, setAbandonedCarts] = useState<AbandonedCart[]>([])
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
 
@@ -93,6 +106,17 @@ const AdminDashboard = () => {
           stock: Number(item.product?.stockQuantity || 0)
         }))
         setTopProducts(transformedProducts)
+        setAbandonedCarts((data.abandonedCarts || []).map((cart: any) => ({
+          id: cart.id,
+          customerName: cart.customerName,
+          customerEmail: cart.customerEmail,
+          customerPhone: cart.customerPhone,
+          items: cart.items || [],
+          totalAmount: Number(cart.totalAmount) || 0,
+          abandonedAt: cart.abandonedAt,
+          recoveryEmailsSent: Number(cart.recoveryEmailsSent) || 0,
+          recoveryStatus: cart.recoveryStatus || 'abandoned',
+        })))
         setLastUpdated(data.generatedAt || new Date().toISOString())
 
       } catch (error) {
@@ -222,6 +246,56 @@ const AdminDashboard = () => {
             </button>
           )
         })}
+      </div>
+
+      <div className="bg-white rounded-lg shadow">
+        <div className="flex items-center justify-between border-b border-gray-200 p-6">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Latest Abandoned Carts</h2>
+            <p className="text-sm text-gray-600">Buyer and guest carts with real items, age, reminder count, and stock-pressure status.</p>
+          </div>
+          <ShoppingCart className="h-5 w-5 text-gray-500" />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Buyer</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Products Left</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Value</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Abandoned</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 bg-white">
+              {abandonedCarts.map((cart) => (
+                <tr key={cart.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm">
+                    <div className="font-medium text-gray-900">{cart.customerName}</div>
+                    <div className="text-gray-500">{cart.customerEmail || cart.customerPhone || 'Guest session'}</div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {cart.items.length > 0 ? cart.items.slice(0, 3).map((item, index) => (
+                      <div key={`${cart.id}-${index}`}>{item.quantity || 1}x {item.name || item.productName || 'Product'}</div>
+                    )) : 'No item snapshot'}
+                  </td>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{formatPrice(cart.totalAmount)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{new Date(cart.abandonedAt).toLocaleString()}</td>
+                  <td className="px-6 py-4 text-sm">
+                    <span className="rounded-full bg-orange-100 px-2 py-1 text-xs font-semibold text-orange-800">
+                      {cart.recoveryStatus} · {cart.recoveryEmailsSent} reminders
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {abandonedCarts.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">No abandoned carts tracked yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

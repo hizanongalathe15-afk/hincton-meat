@@ -10,7 +10,8 @@ import {
   MousePointer,
   TrendingUp,
   Play,
-  Pause
+  Pause,
+  Upload
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { adsApi } from '../services/adminApi'
@@ -296,6 +297,11 @@ const AdManagement = () => {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleCampaignMediaDrop = (event: React.DragEvent<HTMLLabelElement>) => {
+    event.preventDefault()
+    uploadCampaignMedia(event.dataTransfer.files?.[0])
   }
 
   const savePlacement = async (event: FormEvent) => {
@@ -758,8 +764,17 @@ const AdManagement = () => {
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_12rem]">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Upload image, GIF, sticker, video, or audio</label>
-                <input type="file" accept="image/*,video/*,audio/*" onChange={(event) => uploadCampaignMedia(event.target.files?.[0])} className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <span className="block text-sm font-medium text-gray-700">Upload image, WebP, GIF, sticker, video, or audio</span>
+                <label
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={handleCampaignMediaDrop}
+                  className="mt-1 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center hover:border-blue-400 hover:bg-blue-50"
+                >
+                  <Upload className="mb-2 h-6 w-6 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-800">Drop media here or browse</span>
+                  <span className="mt-1 text-xs text-gray-500">Images, WebP, GIFs, stickers, MP4/WebM video, or audio up to 50MB</span>
+                  <input type="file" accept="image/*,image/webp,video/*,video/webm,audio/*" onChange={(event) => uploadCampaignMedia(event.target.files?.[0])} className="hidden" />
+                </label>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Media type</label>

@@ -11,7 +11,9 @@ import {
 } from 'lucide-react'
 import { useSiteContent } from '../contexts/SiteContentContext'
 import { chatApi } from '../services/buyerApi'
+import { getApiHost } from '../services/api'
 import LinkifiedText from '../components/ui/LinkifiedText'
+import { io, Socket } from 'socket.io-client'
 
 interface Message {
   id: string
@@ -19,6 +21,18 @@ interface Message {
   sender: 'user' | 'bot' | 'agent'
   timestamp: Date
   agentName?: string
+}
+
+interface SavedChatMessage {
+  id: string
+  roomId?: string
+  sessionId?: string
+  content?: string
+  message?: string
+  isFromUser?: boolean
+  senderName?: string
+  timestamp?: string
+  createdAt?: string
 }
 
 interface LiveChatWidgetProps {
@@ -58,6 +72,7 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
   const [unreadCount, setUnreadCount] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const socketRef = useRef<Socket | null>(null)
 
   const quickReplies = [
     'Track my order',
@@ -99,6 +114,58 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
     }
   }, [isOpen, isMinimized])
 
+  const toWidgetMessage = (message: SavedChatMessage): Message => ({
+    id: message.id,
+    text: message.content || message.message || '',
+    sender: message.isFromUser ? 'user' : 'agent',
+    timestamp: new Date(message.timestamp || message.createdAt || Date.now()),
+    agentName: message.isFromUser ? undefined : message.senderName || 'Customer Support',
+  })
+
+  useEffect(() => {
+    const socket = io(getApiHost(), { withCredentials: true })
+    socketRef.current = socket
+    socket.emit('chat:join', chatSessionId)
+
+    socket.on('chat:message', (message: SavedChatMessage) => {
+      if ((message.roomId || message.sessionId) !== chatSessionId) return
+
+      setMessages((current) => {
+        if (current.some((item) => item.id === message.id)) return current
+        return [...current, toWidgetMessage(message)]
+      })
+
+      if (!isOpen || isMinimized) {
+        setUnreadCount((current) => current + 1)
+      }
+    })
+
+    return () => {
+      socket.disconnect()
+      socketRef.current = null
+    }
+  }, [chatSessionId, isOpen, isMinimized])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    chatApi.getMessages(chatSessionId).then((response) => {
+      const savedMessages = (response.messages || []).map(toWidgetMessage)
+      if (!savedMessages.length) return
+
+      setMessages((current) => {
+        const greeting = current.filter((message) => message.sender === 'bot')
+        const merged = [...greeting]
+        for (const savedMessage of savedMessages) {
+          if (!merged.some((message) => message.id === savedMessage.id)) {
+            merged.push(savedMessage)
+          }
+        }
+        return merged
+      })
+    }).catch(() => undefined)
+  }, [chatSessionId, isOpen])
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
@@ -120,14 +187,6 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
   const handleSendMessage = async (text: string) => {
     if (!text.trim()) return
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: text.trim(),
-      sender: 'user',
-      timestamp: new Date()
-    }
-
-    setMessages(prev => [...prev, userMessage])
     setInputValue('')
     setIsTyping(true)
 
@@ -135,6 +194,11 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
       sessionId: chatSessionId,
       message: text.trim(),
       from: 'user',
+    }).then((response) => {
+      const savedMessage = response.msg ? toWidgetMessage(response.msg) : null
+      if (savedMessage) {
+        setMessages((current) => current.some((item) => item.id === savedMessage.id) ? current : [...current, savedMessage])
+      }
     }).catch(() => {
       setMessages(prev => [...prev, {
         id: `${Date.now()}-save-error`,
@@ -142,6 +206,7 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
         sender: 'bot',
         timestamp: new Date(),
       }])
+      setIsTyping(false)
     })
 
     setTimeout(() => {

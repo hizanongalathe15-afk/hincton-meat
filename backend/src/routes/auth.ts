@@ -80,6 +80,10 @@ const resetPasswordSchema = z.object({
   password: z.string().min(8),
 })
 
+const googleIdTokenSchema = z.object({
+  token: z.string().min(10),
+})
+
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
   newPassword: z.string().min(8),
@@ -107,6 +111,11 @@ const notificationSettingsSchema = z.object({
   orderUpdates: z.boolean().optional(),
   promotions: z.boolean().optional(),
   newsletter: z.boolean().optional(),
+})
+
+const closeAccountSchema = z.object({
+  identifier: z.string().min(3),
+  agreed: z.boolean().refine((value) => value === true),
 })
 
 const apiMessage = (message: Parameters<typeof resolveMessage>[0], values?: Parameters<typeof resolveMessage>[1]) => {
@@ -447,6 +456,108 @@ const sendPhoneOtp = async (phone: string, otp: string) => {
   }
 
   return { delivered: true }
+}
+
+const syncGoogleUser = async (googleProfile: any, tokenData: any = {}) => {
+  if (!googleProfile?.email || !googleProfile?.sub) {
+    throw new Error('Invalid Google profile')
+  }
+
+  const email = String(googleProfile.email).toLowerCase()
+  const providerAccountId = String(googleProfile.sub)
+  const existingSocialAccount = await prisma.socialAccount.findUnique({
+    where: { provider_providerAccountId: { provider: 'google', providerAccountId } },
+    include: { user: { include: { profile: true, security: true } } },
+  })
+
+  let user: any = existingSocialAccount?.user
+
+  if (!user) {
+    user = await prisma.user.findUnique({
+      where: { email },
+      include: { profile: true, security: true },
+    })
+  }
+
+  if (!user) {
+    const createdUser = await prisma.user.create({
+      data: {
+        email,
+        roles: [Role.BUYER],
+        profile: {
+          create: {
+            fullName: googleProfile.name || '',
+            firstName: googleProfile.given_name || undefined,
+            lastName: googleProfile.family_name || undefined,
+            avatar: googleProfile.picture || undefined,
+          },
+        },
+        security: {
+          create: {
+            isEmailVerified: true,
+            is_active: true,
+          },
+        },
+        settings: { create: {} },
+        wishlist: { create: {} },
+        cart: { create: {} },
+      },
+    })
+    user = await prisma.user.findUnique({
+      where: { id: createdUser.id },
+      include: { profile: true, security: true },
+    })
+  } else {
+    if (!user.profile) {
+      await prisma.userProfile.create({
+        data: {
+          userId: user.id,
+          fullName: googleProfile.name || '',
+          firstName: googleProfile.given_name || undefined,
+          lastName: googleProfile.family_name || undefined,
+          avatar: googleProfile.picture || undefined,
+        },
+      })
+    }
+
+    await prisma.userSecurity.upsert({
+      where: { userId: user.id },
+      create: {
+        userId: user.id,
+        isEmailVerified: true,
+        is_active: true,
+      },
+      update: {
+        isEmailVerified: true,
+      },
+    })
+    await ensureAccountShell(user.id)
+  }
+
+  const socialAccountData = {
+    userId: user.id,
+    provider: 'google',
+    providerAccountId,
+    accessToken: tokenData.access_token || null,
+    refreshToken: tokenData.refresh_token || null,
+    expiresAt: tokenData.expires_in
+      ? new Date(Date.now() + Number(tokenData.expires_in) * 1000)
+      : undefined,
+  }
+
+  if (existingSocialAccount) {
+    await prisma.socialAccount.update({
+      where: { id: existingSocialAccount.id },
+      data: socialAccountData,
+    })
+  } else {
+    await prisma.socialAccount.create({ data: socialAccountData })
+  }
+
+  return prisma.user.findUnique({
+    where: { id: user.id },
+    include: userInclude,
+  })
 }
 
 router.post('/register', async (req, res) => {
@@ -805,6 +916,48 @@ router.get('/google', async (req, res) => {
   }
 })
 
+router.post('/google', async (req, res) => {
+  try {
+    const clientId = process.env.GOOGLE_CLIENT_ID
+    if (!clientId) {
+      return res.status(500).json({ error: 'Google OAuth is not configured' })
+    }
+
+    const { token } = googleIdTokenSchema.parse(req.body)
+    const tokenInfoResponse = await axios.get('https://oauth2.googleapis.com/tokeninfo', {
+      params: { id_token: token },
+    })
+    const googleProfile = tokenInfoResponse.data
+
+    if (googleProfile.aud !== clientId) {
+      return res.status(401).json({ success: false, error: 'Invalid Google token audience' })
+    }
+
+    if (String(googleProfile.email_verified) !== 'true') {
+      return res.status(401).json({ success: false, error: 'Google email is not verified' })
+    }
+
+    const user = await syncGoogleUser(googleProfile)
+    if (!user?.security?.is_active) {
+      return res.status(403).json({ success: false, error: 'Account is disabled' })
+    }
+
+    const session = await createLoginSession(user, req, 'PASSWORD')
+    res.json({
+      success: true,
+      message: 'Google login successful',
+      user: serializeUser(user),
+      token: signToken(user, session.id),
+    })
+  } catch (error: any) {
+    console.error('Google token auth error:', error)
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, error: 'Google token is required', details: error.issues })
+    }
+    res.status(401).json({ success: false, error: 'Invalid Google token' })
+  }
+})
+
 router.get('/google/callback', async (req, res) => {
   try {
     const clientId = process.env.GOOGLE_CLIENT_ID
@@ -866,89 +1019,15 @@ router.get('/google/callback', async (req, res) => {
       return res.redirect(url.toString())
     }
 
-    const email = String(googleProfile.email).toLowerCase()
-    const providerAccountId = String(googleProfile.sub)
-    const existingSocialAccount = await prisma.socialAccount.findUnique({
-      where: { provider_providerAccountId: { provider: 'google', providerAccountId } },
-      include: { user: { include: { profile: true, security: true } } },
-    })
-
-    let user: any = existingSocialAccount?.user
-
-    if (!user) {
-      user = await prisma.user.findUnique({
-        where: { email },
-        include: { profile: true, security: true },
-      })
+    const user = await syncGoogleUser(googleProfile, tokenResponse.data)
+    if (!user?.security?.is_active) {
+      const url = new URL(redirect)
+      url.searchParams.set('error', 'account_disabled')
+      return res.redirect(url.toString())
     }
 
-    if (!user) {
-      const createdUser = await prisma.user.create({
-        data: {
-          email,
-          profile: {
-            create: {
-              fullName: googleProfile.name || '',
-              avatar: googleProfile.picture || undefined,
-            },
-          },
-          security: {
-            create: {
-              isEmailVerified: true,
-              is_active: true,
-            },
-          },
-        },
-      })
-      user = await prisma.user.findUnique({
-        where: { id: createdUser.id },
-        include: { profile: true, security: true },
-      })
-    } else {
-      if (!user.profile) {
-        await prisma.userProfile.create({
-          data: {
-            userId: user.id,
-            fullName: googleProfile.name || '',
-            avatar: googleProfile.picture || undefined,
-          },
-        })
-      }
-
-      await prisma.userSecurity.upsert({
-        where: { userId: user.id },
-        create: {
-          userId: user.id,
-          isEmailVerified: true,
-          is_active: true,
-        },
-        update: {
-          isEmailVerified: true,
-        },
-      })
-    }
-
-    const socialAccountData = {
-      userId: user.id,
-      provider: 'google',
-      providerAccountId,
-      accessToken: accessToken || null,
-      refreshToken: tokenResponse.data.refresh_token || null,
-      expiresAt: tokenResponse.data.expires_in
-        ? new Date(Date.now() + Number(tokenResponse.data.expires_in) * 1000)
-        : undefined,
-    }
-
-    if (existingSocialAccount) {
-      await prisma.socialAccount.update({
-        where: { id: existingSocialAccount.id },
-        data: socialAccountData,
-      })
-    } else {
-      await prisma.socialAccount.create({ data: socialAccountData })
-    }
-
-    const token = signToken(user)
+    const session = await createLoginSession(user, req, 'PASSWORD')
+    const token = signToken(user, session.id)
     const url = new URL(redirect)
     url.searchParams.set('token', token)
     res.redirect(url.toString())
@@ -1590,6 +1669,104 @@ router.put('/notification-settings', async (req, res) => {
     console.error('Update notification settings error:', error)
     if (error instanceof z.ZodError) return res.status(400).json({ error: 'Invalid notification settings', details: error.issues })
     res.status(500).json({ error: 'Could not update notification settings' })
+  }
+})
+
+router.delete('/search-history', async (req, res) => {
+  try {
+    const userId = await getUserIdFromRequest(req)
+    if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+
+    const result = await prisma.searchHistory.deleteMany({ where: { userId } })
+    res.json({ message: 'Search history cleared', count: result.count })
+  } catch (error) {
+    console.error('Clear search history error:', error)
+    res.status(500).json({ error: 'Could not clear search history' })
+  }
+})
+
+router.delete('/chat-history', async (req, res) => {
+  try {
+    const userId = await getUserIdFromRequest(req)
+    if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+
+    const result = await prisma.liveChatMessage.deleteMany({
+      where: {
+        OR: [
+          { userId },
+          { adminId: userId },
+        ],
+      },
+    })
+    res.json({ message: 'Chat history cleared', count: result.count })
+  } catch (error) {
+    console.error('Clear chat history error:', error)
+    res.status(500).json({ error: 'Could not clear chat history' })
+  }
+})
+
+router.delete('/device-history', async (req, res) => {
+  try {
+    const userId = await getUserIdFromRequest(req)
+    const currentSessionId = getSessionIdFromRequest(req)
+    if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+
+    const result = await prisma.userSession.updateMany({
+      where: { userId, id: currentSessionId ? { not: currentSessionId } : undefined },
+      data: { isRevoked: true },
+    })
+    res.json({ message: 'Device history cleared', count: result.count })
+  } catch (error) {
+    console.error('Clear device history error:', error)
+    res.status(500).json({ error: 'Could not clear device history' })
+  }
+})
+
+router.delete('/account', async (req, res) => {
+  try {
+    const userId = await getUserIdFromRequest(req)
+    if (!userId) return res.status(401).json(apiMessage(meatShopMessages.system.sessionExpired))
+
+    const data = closeAccountSchema.parse(req.body || {})
+    const user = await prisma.user.findUnique({ where: { id: userId }, include: { profile: true } })
+    if (!user) return res.status(404).json({ error: 'Account not found' })
+
+    const identifier = data.identifier.trim().toLowerCase()
+    const phone = String(user.phone || user.profile?.mpesaPhone || '').trim().toLowerCase()
+    if (identifier !== user.email.toLowerCase() && identifier !== phone) {
+      return res.status(400).json({ error: 'Enter the email or phone number on this account to confirm deletion.' })
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.liveChatMessage.deleteMany({ where: { OR: [{ userId }, { adminId: userId }] } })
+      await tx.reviewImage.deleteMany({ where: { review: { userId } } })
+      await tx.review.deleteMany({ where: { userId } })
+      await tx.searchHistory.deleteMany({ where: { userId } })
+      await tx.searchQuery.deleteMany({ where: { userId } }).catch(() => undefined)
+      await tx.productView.deleteMany({ where: { userId } })
+      await tx.notification.deleteMany({ where: { userId } })
+      await tx.loginHistory.deleteMany({ where: { userId } })
+      await tx.loginAttempt.deleteMany({ where: { userId } }).catch(() => undefined)
+      await tx.userSession.deleteMany({ where: { userId } })
+      await tx.paymentMethod.deleteMany({ where: { userId } })
+      await tx.address.deleteMany({ where: { userId } })
+      await tx.socialAccount.deleteMany({ where: { userId } })
+      await tx.userSettings.deleteMany({ where: { userId } })
+      await tx.userSecurity.deleteMany({ where: { userId } })
+      await tx.userProfile.deleteMany({ where: { userId } })
+      await tx.wishlistItem.deleteMany({ where: { wishlist: { userId } } })
+      await tx.wishlist.deleteMany({ where: { userId } })
+      await tx.cartItem.deleteMany({ where: { cart: { userId } } })
+      await tx.cart.deleteMany({ where: { userId } })
+      await tx.order.updateMany({ where: { userId }, data: { userId: null, deletedAt: new Date() } })
+      await tx.user.delete({ where: { id: userId } })
+    })
+
+    res.json({ message: 'Account permanently deleted' })
+  } catch (error: any) {
+    console.error('Close account error:', error)
+    if (error instanceof z.ZodError) return res.status(400).json({ error: 'You must confirm with your email or phone and agree before closing the account.', details: error.issues })
+    res.status(500).json({ error: 'Could not close account' })
   }
 })
 

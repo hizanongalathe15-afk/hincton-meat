@@ -1,7 +1,9 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react'
-import { Camera, Mail, Save, ShieldCheck, User } from 'lucide-react'
+import { Camera, Mail, Save, ShieldCheck, Trash2, User } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { getApiHost } from '../services/api'
+import { userApi } from '../services/buyerApi'
+import toast from 'react-hot-toast'
 
 type ProfileForm = {
   name: string
@@ -98,6 +100,17 @@ const AdminProfilePage = () => {
     } finally {
       setUploading(false)
       event.target.value = ''
+    }
+  }
+
+  const clearAdminHistory = async (type: 'search' | 'chat' | 'devices') => {
+    try {
+      if (type === 'search') await userApi.clearSearchHistory()
+      if (type === 'chat') await userApi.clearChatHistory()
+      if (type === 'devices') await userApi.clearDeviceHistory()
+      toast.success(`${type === 'devices' ? 'Device' : type === 'chat' ? 'Chat' : 'Search'} history cleared`)
+    } catch {
+      toast.error('Could not clear history')
     }
   }
 
@@ -198,6 +211,23 @@ const AdminProfilePage = () => {
           </button>
         </div>
       </form>
+
+      <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-lg bg-gray-100 text-gray-700">
+            <Trash2 className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-gray-950">Admin Privacy Controls</h2>
+            <p className="text-sm text-gray-600">Clear search history, support chat history, or old signed-in device sessions for this admin account.</p>
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <button type="button" onClick={() => clearAdminHistory('search')} className="rounded-lg border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50">Clear search history</button>
+          <button type="button" onClick={() => clearAdminHistory('chat')} className="rounded-lg border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50">Clear chat history</button>
+          <button type="button" onClick={() => clearAdminHistory('devices')} className="rounded-lg border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50">Clear device history</button>
+        </div>
+      </section>
     </div>
   )
 }

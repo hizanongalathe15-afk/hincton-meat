@@ -11,7 +11,8 @@ import {
   Printer,
   Share2,
 
-  BarChart3
+  BarChart3,
+  X
 } from 'lucide-react'
 import QRCodeLib from 'qrcode'
 import { qrCodesApi } from '../services/adminApi'
@@ -53,12 +54,26 @@ const QRCodeManager: FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [selectedQR, setSelectedQR] = useState<QRCode | null>(null)
+  const [sharingQR, setSharingQR] = useState<QRCode | null>(null)
   const [activeTab, setActiveTab] = useState<'list' | 'analytics'>('list')
   const { isOpen, options, confirm, handleConfirm, handleCancel } = useConfirmationDialog()
 
   useEffect(() => {
     fetchQRCodes()
   }, [])
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      fetchQRCodes()
+    }, 10000)
+    return () => window.clearInterval(intervalId)
+  }, [])
+
+  useEffect(() => {
+    if (!selectedQR) return
+    const refreshed = qrCodes.find((qrCode) => qrCode.id === selectedQR.id)
+    if (refreshed && refreshed !== selectedQR) setSelectedQR(refreshed)
+  }, [qrCodes, selectedQR])
 
   const normalizeQRCode = (qr: any): QRCode => ({
     id: qr.id,
@@ -177,7 +192,7 @@ const QRCodeManager: FC = () => {
       await navigator.share({ title: qrCode.name, text: qrCode.name, url })
       return
     }
-    await copyToClipboard(url)
+    setSharingQR(qrCode)
   }
 
   const copyToClipboard = async (text: string) => {
@@ -422,7 +437,7 @@ const QRCodeManager: FC = () => {
                           <Printer className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => shareQRCode(qrCode)}
+                          onClick={() => setSharingQR(qrCode)}
                           className="text-cyan-600 hover:text-cyan-900"
                           title="Share QR link"
                         >
@@ -609,6 +624,31 @@ const QRCodeManager: FC = () => {
           qrCode={selectedQR}
           mode="edit"
         />
+      )}
+
+      {sharingQR && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Share QR link</h3>
+                <p className="text-sm text-gray-600">{sharingQR.name}</p>
+              </div>
+              <button type="button" onClick={() => setSharingQR(null)} className="rounded p-2 text-gray-500 hover:bg-gray-100">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700 break-all">
+              {qrCodesApi.getScanUrl(sharingQR.id)}
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => copyToClipboard(qrCodesApi.getScanUrl(sharingQR.id))} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold hover:bg-gray-50">Copy link</button>
+              <button type="button" onClick={() => shareQRCode(sharingQR)} className="rounded-lg bg-cyan-600 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-700">Device share</button>
+              <a className="rounded-lg border border-gray-300 px-3 py-2 text-center text-sm font-semibold hover:bg-gray-50" href={`https://wa.me/?text=${encodeURIComponent(qrCodesApi.getScanUrl(sharingQR.id))}`} target="_blank" rel="noreferrer">WhatsApp</a>
+              <a className="rounded-lg border border-gray-300 px-3 py-2 text-center text-sm font-semibold hover:bg-gray-50" href={`mailto:?subject=${encodeURIComponent(sharingQR.name)}&body=${encodeURIComponent(qrCodesApi.getScanUrl(sharingQR.id))}`}>Email</a>
+            </div>
+          </div>
+        </div>
       )}
 
       <ConfirmationDialog

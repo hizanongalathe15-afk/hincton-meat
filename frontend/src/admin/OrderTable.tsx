@@ -40,6 +40,7 @@ interface OrderTableProps {
   onAccept?: (orderId: string) => void
   onMarkPaid?: (orderId: string) => void
   onCancel?: (orderId: string) => void
+  onRequestTracking?: (order: Order) => void
   onRefund?: (orderId: string) => void
   onInternalNotes?: (orderId: string) => void
   loading?: boolean
@@ -53,6 +54,7 @@ const OrderTable = ({
   onAccept,
   onMarkPaid,
   onCancel,
+  onRequestTracking,
   onRefund,
   onInternalNotes,
   loading = false
@@ -385,15 +387,7 @@ const OrderTable = ({
                         <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>
                       ))}
                     </select>
-                    <button
-                      onClick={() => {
-                        const trackingNumber = window.prompt('Enter tracking number', order.trackingNumber || '')
-                        if (trackingNumber !== null && trackingNumber.trim()) {
-                          onAssignTracking?.(order.id, trackingNumber.trim())
-                        }
-                      }}
-                      className="text-green-700 hover:text-green-900"
-                    >
+                    <button onClick={() => onRequestTracking ? onRequestTracking(order) : onAssignTracking?.(order.id, order.trackingNumber || '')} className="text-green-700 hover:text-green-900">
                       Track
                     </button>
                     {order.paymentStatus !== 'paid' && (

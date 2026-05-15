@@ -111,7 +111,7 @@ interface UserProfile {
 const EnhancedProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, updateAvatar } = useAuth();
+  const { user, updateAvatar, logout } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -145,6 +145,10 @@ const EnhancedProfilePage: React.FC = () => {
     phoneNumber: '',
     accountName: '',
     isDefault: false
+  });
+  const [closeAccountForm, setCloseAccountForm] = useState({
+    identifier: '',
+    agreed: false,
   });
 
   useEffect(() => {
@@ -204,7 +208,7 @@ const EnhancedProfilePage: React.FC = () => {
           sessions: sessionsResponse.sessions || [],
           linkedAccounts: linkedAccountsResponse.accounts || [],
           linkedAccountProviders: linkedAccountsResponse.providers || [],
-          notifications: apiUser.notifications || {
+          notifications: (await userApi.getNotificationSettings().catch(() => ({ notifications: null }))).notifications || apiUser.notifications || {
             email: true,
             sms: false,
             push: true,
@@ -515,6 +519,75 @@ const EnhancedProfilePage: React.FC = () => {
       toast.success('Notification settings updated')
     } catch (error) {
       toast.error('Could not update notification settings')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleClearSearchHistory = async () => {
+    try {
+      await userApi.clearSearchHistory()
+      toast.success('Search history cleared')
+    } catch {
+      toast.error('Could not clear search history')
+    }
+  }
+
+  const handleClearChatHistory = async () => {
+    const confirmed = await confirm({
+      title: 'Clear Chat History',
+      message: 'This permanently removes your support chat messages from the system.',
+      confirmText: 'Clear chat',
+      cancelText: 'Cancel',
+      type: 'danger',
+      icon: 'delete',
+    })
+    if (!confirmed) return
+
+    try {
+      await userApi.clearChatHistory()
+      toast.success('Chat history cleared')
+    } catch {
+      toast.error('Could not clear chat history')
+    }
+  }
+
+  const handleClearDeviceHistory = async () => {
+    try {
+      await userApi.clearDeviceHistory()
+      await refreshSessions()
+      toast.success('Other device sessions cleared')
+    } catch {
+      toast.error('Could not clear device history')
+    }
+  }
+
+  const handleCloseAccount = async () => {
+    if (!closeAccountForm.identifier.trim() || !closeAccountForm.agreed) {
+      toast.error('Enter your email or phone number and agree before closing the account')
+      return
+    }
+
+    const confirmed = await confirm({
+      title: 'Close Account Permanently',
+      message: 'This permanently deletes your buyer account, profile, wishlist, cart, reviews, notifications, sessions, chat history, and saved settings. Orders are anonymized for business records.',
+      confirmText: 'Delete account',
+      cancelText: 'Keep account',
+      type: 'danger',
+      icon: 'delete',
+    })
+    if (!confirmed) return
+
+    setSaving(true)
+    try {
+      await userApi.closeAccount(closeAccountForm)
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      logout()
+      toast.success('Your account has been deleted')
+      navigate('/goodbye', { replace: true })
+    } catch (error: any) {
+      toast.error(error?.message || 'Could not close account')
     } finally {
       setSaving(false)
     }
@@ -1120,6 +1193,52 @@ const EnhancedProfilePage: React.FC = () => {
                         </div>
                       </div>
                     )}
+                  </div>
+
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="font-medium text-gray-900 mb-3">Privacy and history</h3>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <button type="button" onClick={handleClearSearchHistory} className="rounded-lg border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                        Clear search history
+                      </button>
+                      <button type="button" onClick={handleClearChatHistory} className="rounded-lg border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                        Clear chat history
+                      </button>
+                      <button type="button" onClick={handleClearDeviceHistory} className="rounded-lg border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                        Clear device history
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-red-200 pt-6">
+                    <h3 className="font-medium text-red-700 mb-2">Close account</h3>
+                    <p className="text-sm text-gray-600">
+                      We are sad to see you leave. Closing your account permanently removes your buyer profile and personal account data from our systems. This cannot be undone.
+                    </p>
+                    <div className="mt-4 space-y-3 rounded-lg border border-red-200 bg-red-50 p-4">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Confirm with your email or phone number
+                        <input
+                          type="text"
+                          value={closeAccountForm.identifier}
+                          onChange={(event) => setCloseAccountForm({ ...closeAccountForm, identifier: event.target.value })}
+                          className="mt-1 w-full rounded-lg border border-red-200 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                          placeholder={profile.email || profile.phone || 'Email or phone'}
+                        />
+                      </label>
+                      <label className="flex items-start gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={closeAccountForm.agreed}
+                          onChange={(event) => setCloseAccountForm({ ...closeAccountForm, agreed: event.target.checked })}
+                          className="mt-1"
+                        />
+                        <span>I understand and agree that my account will be permanently deleted under the Terms and Privacy Policy.</span>
+                      </label>
+                      <button type="button" onClick={handleCloseAccount} disabled={saving} className="rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800 disabled:opacity-60">
+                        {saving ? 'Closing account...' : 'Close account permanently'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

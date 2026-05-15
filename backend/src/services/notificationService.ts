@@ -301,99 +301,20 @@ class NotificationService {
 
   async sendPushNotification(pushData: PushNotificationData): Promise<boolean> {
     try {
-      // Get user device tokens
       if (!pushData.userId) {
         return false
       }
 
-      const deviceTokens = await prisma.deviceToken.findMany({
-        where: {
-          userId: pushData.userId,
-          isActive: true
-        },
-        select: {
-          token: true,
-          platform: true
-        }
+      console.log('Push notification queued for internal delivery:', {
+        userId: pushData.userId,
+        title: pushData.title,
+        url: pushData.url
       })
-
-      if (deviceTokens.length === 0) {
-        return false
-      }
-
-      // Group tokens by platform
-      const tokensByPlatform = deviceTokens.reduce((acc, token) => {
-        if (!acc[token.platform]) {
-          acc[token.platform] = []
-        }
-        acc[token.platform].push(token.token)
-        return acc
-      }, {} as Record<string, string[]>)
-
-      // Send push notifications based on platform
-      for (const [platform, tokens] of Object.entries(tokensByPlatform)) {
-        if (platform === 'ios') {
-          await this.sendIOSPush(tokens, pushData)
-        } else if (platform === 'android') {
-          await this.sendAndroidPush(tokens, pushData)
-        }
-      }
-
-      return true
+      return false
 
     } catch (error) {
       console.error('Push notification error:', error)
       return false
-    }
-  }
-
-  private async sendIOSPush(tokens: string[], data: PushNotificationData): Promise<void> {
-    try {
-      // iOS push notification using APNs
-      // This would require libraries like 'apn' or 'node-apn'
-      
-      const payload = {
-        aps: {
-          alert: {
-            title: data.title,
-            body: data.body
-          },
-          sound: 'default',
-          badge: 1,
-          data: data.data || {}
-        }
-      }
-
-      // Mock implementation - integrate with actual APNs service
-      console.log('iOS Push to tokens:', tokens.length, 'Payload:', payload)
-
-    } catch (error) {
-      console.error('iOS push error:', error)
-    }
-  }
-
-  private async sendAndroidPush(tokens: string[], data: PushNotificationData): Promise<void> {
-    try {
-      // Android push notification using Firebase Cloud Messaging (FCM)
-      // This would require libraries like 'firebase-admin'
-      
-      const payload = {
-        notification: {
-          title: data.title,
-          body: data.body,
-          icon: data.icon || 'ic_notification',
-          image: data.image,
-          click_action: data.url
-        },
-        data: data.data || {},
-        registration_ids: tokens
-      }
-
-      // Mock implementation - integrate with actual FCM service
-      console.log('Android Push to tokens:', tokens.length, 'Payload:', payload)
-
-    } catch (error) {
-      console.error('Android push error:', error)
     }
   }
 

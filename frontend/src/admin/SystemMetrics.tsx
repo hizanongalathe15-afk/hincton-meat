@@ -15,6 +15,8 @@ import {
 import { systemApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
 import { getApiHost } from '../services/api'
+import { useConfirmationDialog } from '../hooks/useConfirmationDialog'
+import ConfirmationDialog from '../components/ui/ConfirmationDialog'
 
 interface SystemMetrics {
   cpu: {
@@ -95,6 +97,20 @@ const SystemMetrics = () => {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<string>('')
+  const [browserStorage, setBrowserStorage] = useState<{
+    quota: number
+    usage: number
+    available: number
+    percent: number
+    persisted: boolean
+  } | null>(null)
+  const [currentDevice, setCurrentDevice] = useState<{
+    browser: string
+    os: string
+    device: string
+    userAgent: string
+  } | null>(null)
+  const { isOpen, options, confirm, handleConfirm, handleCancel } = useConfirmationDialog()
 
   const fetchMetrics = async () => {
     try {
@@ -125,7 +141,15 @@ const SystemMetrics = () => {
   }
 
   const revokeSession = async (sessionId: string) => {
-    if (!window.confirm('Log out this admin device?')) return
+    const confirmed = await confirm({
+      title: 'Log Out Admin Device',
+      message: 'This will revoke the selected admin session immediately.',
+      confirmText: 'Log out device',
+      cancelText: 'Cancel',
+      type: 'danger',
+      icon: 'delete',
+    })
+    if (!confirmed) return
     try {
       await systemApi.revokeAdminSession(sessionId)
       toast.success('Device session revoked')
@@ -139,6 +163,35 @@ const SystemMetrics = () => {
     fetchMetrics()
     const interval = setInterval(fetchMetrics, 30000) // Refresh every 30 seconds
     return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    const detectCurrentDevice = async () => {
+      const ua = navigator.userAgent || ''
+      const uaData = (navigator as any).userAgentData
+      const browser = uaData?.brands?.find((brand: any) => !/Not/i.test(brand.brand))?.brand ||
+        (/Edg\//.test(ua) ? 'Microsoft Edge' : /Chrome|CriOS/.test(ua) ? 'Chrome' : /Firefox|FxiOS/.test(ua) ? 'Firefox' : /Safari/.test(ua) ? 'Safari' : 'Unknown browser')
+      const os = uaData?.platform ||
+        (/Android/i.test(ua) ? 'Android' : /iPhone|iPad|iPod/i.test(ua) ? 'iOS' : /Win/i.test(ua) ? 'Windows' : /Mac/i.test(ua) ? 'macOS' : /Linux/i.test(ua) ? 'Linux' : 'Unknown OS')
+      const device = uaData?.mobile ? 'Mobile device' : /iPad|Tablet/i.test(ua) ? 'Tablet' : /Mobile|Android|iPhone/i.test(ua) ? 'Mobile device' : 'Desktop or laptop'
+      setCurrentDevice({ browser, os, device, userAgent: ua })
+
+      if (navigator.storage?.estimate) {
+        const estimate = await navigator.storage.estimate()
+        const quota = estimate.quota || 0
+        const usage = estimate.usage || 0
+        const persisted = navigator.storage.persisted ? await navigator.storage.persisted() : false
+        setBrowserStorage({
+          quota,
+          usage,
+          available: Math.max(0, quota - usage),
+          percent: quota > 0 ? Math.round((usage / quota) * 1000) / 10 : 0,
+          persisted,
+        })
+      }
+    }
+
+    detectCurrentDevice().catch(() => undefined)
   }, [])
 
   const formatBytes = (bytes: number): string => {
@@ -201,7 +254,7 @@ const SystemMetrics = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">System Metrics</h1>
-          <p className="text-gray-600">Monitor system performance and health</p>
+          <p className="text-gray-600">Monitor Render server health and signed-in admin browser sessions</p>
         </div>
         <div className="flex items-center space-x-4">
           <div className="text-sm text-gray-500">
@@ -350,7 +403,7 @@ const SystemMetrics = () => {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
                 <HardDrive className="w-5 h-5 text-green-600" />
-                <h3 className="font-semibold text-gray-900">Storage</h3>
+                <h3 className="font-semibold text-gray-900">Server Storage</h3>
               </div>
               <span className={`text-sm font-medium ${getUsageColor(metrics.storage.usage)}`}>
                 {metrics.storage.usage.toFixed(1)}%
@@ -456,18 +509,19 @@ const SystemMetrics = () => {
           </div>
 
           <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Storage Details</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Server Storage Details</h3>
+            <p className="mb-4 text-sm text-gray-500">These numbers are from the backend host filesystem, not your phone or laptop disk.</p>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-600">Total Storage:</span>
+                <span className="text-gray-600">Server Total Storage:</span>
                 <span className="font-medium">{formatBytes(metrics.storage.total)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Used Storage:</span>
+                <span className="text-gray-600">Server Used Storage:</span>
                 <span className="font-medium">{formatBytes(metrics.storage.used)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Free Storage:</span>
+                <span className="text-gray-600">Server Free Storage:</span>
                 <span className="font-medium">{formatBytes(metrics.storage.free)}</span>
               </div>
               <div className="flex justify-between">
@@ -478,12 +532,54 @@ const SystemMetrics = () => {
               </div>
             </div>
           </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">This Browser Device</h3>
+            <p className="mb-4 text-sm text-gray-500">Browsers expose origin storage quota, not full physical disk size.</p>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Detected Device:</span>
+                <span className="font-medium">{currentDevice?.device || 'Unknown'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Browser:</span>
+                <span className="font-medium">{currentDevice?.browser || 'Unknown'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">OS:</span>
+                <span className="font-medium">{currentDevice?.os || 'Unknown'}</span>
+              </div>
+              {browserStorage ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Browser Quota:</span>
+                    <span className="font-medium">{formatBytes(browserStorage.quota)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">App Storage Used:</span>
+                    <span className="font-medium">{formatBytes(browserStorage.usage)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Estimated Available:</span>
+                    <span className="font-medium">{formatBytes(browserStorage.available)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Usage Percentage:</span>
+                    <span className={`font-medium ${getUsageColor(browserStorage.percent)}`}>{browserStorage.percent.toFixed(1)}%</span>
+                  </div>
+                </>
+              ) : (
+                <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">This browser does not expose storage quota details.</p>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
       {/* Admin Sessions */}
       <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Admin Sessions & Devices</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">Admin Sessions & Devices</h3>
+        <p className="mb-4 text-sm text-gray-500">Device names come from browser user-agent data. Exact hardware model and full disk size are not exposed by normal web browsers.</p>
         {adminSessions.length > 0 ? (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
@@ -611,6 +707,18 @@ const SystemMetrics = () => {
           </div>
         )}
       </div>
+
+      <ConfirmationDialog
+        isOpen={isOpen}
+        onClose={handleCancel}
+        onConfirm={handleConfirm}
+        title={options?.title || ''}
+        message={options?.message || ''}
+        confirmText={options?.confirmText}
+        cancelText={options?.cancelText}
+        type={options?.type}
+        icon={options?.icon}
+      />
     </div>
   )
 }

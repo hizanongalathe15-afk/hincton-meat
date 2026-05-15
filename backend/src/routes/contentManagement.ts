@@ -9,6 +9,11 @@ import path from 'path'
 import fs from 'fs'
 
 const router = express.Router()
+const emitContactUpdate = (req: any, event: string, payload: Record<string, unknown>) => {
+  const io = req.app?.get?.('io')
+  if (!io) return
+  io.emit(event, payload)
+}
 const uploadBasePath = process.env.UPLOAD_DIR || (process.env.VERCEL ? '/tmp/uploads' : 'uploads')
 const contentUploadPath = path.join(uploadBasePath, 'content')
 const ensureDirectory = (dir: string) => {
@@ -776,6 +781,12 @@ router.post('/contact/submit', async (req, res) => {
     })
 
     console.log('Contact form submission saved:', contactData)
+    emitContactUpdate(req, 'contact:message-created', {
+      ticketId: ticket.id,
+      status: ticket.status,
+      subject: ticket.subject,
+      createdAt: ticket.createdAt,
+    })
 
     res.json({ message: 'Contact form submitted successfully', ticketId: ticket.id })
   } catch (error) {
@@ -912,6 +923,11 @@ router.post('/admin/contact-messages/:ticketId/respond', requireAdmin, async (re
       where: { id: ticketId },
       data: { status: 'IN_PROGRESS' }
     })
+    emitContactUpdate(req, 'contact:message-updated', {
+      ticketId,
+      status: 'IN_PROGRESS',
+      responseId: response.id,
+    })
 
     res.json({
       success: true,
@@ -932,6 +948,10 @@ router.patch('/admin/contact-messages/:ticketId/close', requireAdmin, async (req
     const ticket = await prisma.supportTicket.update({
       where: { id: ticketId },
       data: { status: 'RESOLVED' }
+    })
+    emitContactUpdate(req, 'contact:message-updated', {
+      ticketId,
+      status: ticket.status,
     })
 
     res.json({

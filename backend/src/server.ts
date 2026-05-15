@@ -95,6 +95,7 @@ if (!process.env.VERCEL) {
       credentials: true,
     }
   });
+  app.set('io', io);
 }
 
 prisma.$connect()
@@ -150,6 +151,7 @@ if (hinctonStaticPath) {
 }
 
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
 app.use('/api/products', optionalAuthenticate, productRoutes);
 app.use('/api/orders', optionalAuthenticate, orderRoutes);
 app.use('/api/cart', optionalAuthenticate, cartRoutes);
@@ -356,6 +358,12 @@ app.post('/api/content/contact/submit', optionalAuthenticate, contactUpload.arra
         status: 'OPEN',
       },
     })
+    io?.emit('contact:message-created', {
+      ticketId: ticket.id,
+      status: ticket.status,
+      subject: ticket.subject,
+      createdAt: ticket.createdAt,
+    })
 
     const admins = await prisma.user.findMany({
       where: { roles: { hasSome: ['ADMIN', 'SUPER_ADMIN', 'SUPPORT'] as any } },
@@ -455,9 +463,8 @@ if (io) {
       });
     });
 
-    socket.on('chat:message', (data: { roomId?: string; message?: any }) => {
-      if (!data?.roomId) return;
-      socket.to(`chat-${data.roomId}`).emit('chat:message', data.message);
+    socket.on('chat:message', () => {
+      socket.emit('chat:error', { error: 'Messages must be saved through the API before broadcast.' });
     });
 
     socket.on('join-order', (orderId) => {

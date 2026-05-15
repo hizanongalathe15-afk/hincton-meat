@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { AlertTriangle, RefreshCw, X } from 'lucide-react'
 import OrderTable from './OrderTable'
 import { ordersApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
@@ -20,6 +20,7 @@ type OrderStatus =
   | 'awaiting_payment'
   | 'payment_failed'
 type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'failed' | 'refunded' | 'partially_refunded' | 'authorized' | 'voided' | 'expired'
+type OrderActionType = 'markPaid' | 'cancel' | 'refund' | 'notes' | 'tracking'
 
 type Order = {
   id: string
@@ -59,6 +60,15 @@ const OrdersPage = ({
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(true)
+  const [actionDialog, setActionDialog] = useState<{
+    type: OrderActionType
+    order: Order
+    reason: string
+    amount: string
+    notes: string
+    trackingNumber: string
+  } | null>(null)
+  const [actionSaving, setActionSaving] = useState(false)
 
   const fetchOrders = async () => {
     try {
@@ -182,49 +192,81 @@ const OrdersPage = ({
   }
 
   const handleMarkPaid = async (orderId: string) => {
-    if (!window.confirm('Mark this order as paid? Use this only after confirming payment.')) return
-    try {
-      await ordersApi.markPaid(orderId)
-      await refreshAfterAction('Order marked as paid')
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to mark order as paid')
-    }
+    const order = orders.find((item) => item.id === orderId)
+    if (!order) return
+    setActionDialog({ type: 'markPaid', order, reason: '', amount: '', notes: '', trackingNumber: order.trackingNumber || '' })
   }
 
   const handleCancelOrder = async (orderId: string) => {
-    const reason = window.prompt('Cancellation reason')
-    if (!reason?.trim()) return
-    try {
-      await ordersApi.cancelOrder(orderId, reason.trim())
-      await refreshAfterAction('Order cancelled')
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to cancel order')
-    }
+    const order = orders.find((item) => item.id === orderId)
+    if (!order) return
+    setActionDialog({ type: 'cancel', order, reason: '', amount: '', notes: '', trackingNumber: order.trackingNumber || '' })
   }
 
   const handleRefundOrder = async (orderId: string) => {
     const order = orders.find((item) => item.id === orderId)
-    const amountText = window.prompt('Refund amount', order ? String(order.total) : '')
-    if (!amountText) return
-    const reason = window.prompt('Refund reason')
-    if (!reason?.trim()) return
-    try {
-      await ordersApi.refundOrder(orderId, { amount: Number(amountText), reason: reason.trim() })
-      await refreshAfterAction('Refund recorded')
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to record refund')
-    }
+    if (!order) return
+    setActionDialog({ type: 'refund', order, reason: '', amount: String(order.total), notes: '', trackingNumber: order.trackingNumber || '' })
   }
 
   const handleInternalNotes = async (orderId: string) => {
     const order = orders.find((item) => item.id === orderId)
-    const notes = window.prompt('Internal notes. Customers will not see this.', order?.notes || '')
-    if (!notes?.trim()) return
+    if (!order) return
+    setActionDialog({ type: 'notes', order, reason: '', amount: '', notes: order.notes || '', trackingNumber: order.trackingNumber || '' })
+  }
+
+  const handleTrackingRequest = (order: any) => {
+    setActionDialog({ type: 'tracking', order, reason: '', amount: '', notes: '', trackingNumber: order.trackingNumber || '' })
+  }
+
+  const submitOrderAction = async () => {
+    if (!actionDialog) return
+
+    const { type, order } = actionDialog
+    if (type === 'cancel' && !actionDialog.reason.trim()) {
+      toast.error('Add a cancellation reason')
+      return
+    }
+    if (type === 'refund' && (!Number(actionDialog.amount) || !actionDialog.reason.trim())) {
+      toast.error('Add a valid refund amount and reason')
+      return
+    }
+    if (type === 'notes' && !actionDialog.notes.trim()) {
+      toast.error('Add internal notes')
+      return
+    }
+    if (type === 'tracking' && !actionDialog.trackingNumber.trim()) {
+      toast.error('Add a tracking number')
+      return
+    }
+
+    setActionSaving(true)
     try {
-      await ordersApi.saveInternalNotes(orderId, notes.trim())
-      await refreshAfterAction('Internal notes saved')
+      if (type === 'markPaid') {
+        await ordersApi.markPaid(order.id)
+        await refreshAfterAction('Order marked as paid')
+      }
+      if (type === 'cancel') {
+        await ordersApi.cancelOrder(order.id, actionDialog.reason.trim())
+        await refreshAfterAction('Order cancelled')
+      }
+      if (type === 'refund') {
+        await ordersApi.refundOrder(order.id, { amount: Number(actionDialog.amount), reason: actionDialog.reason.trim() })
+        await refreshAfterAction('Refund recorded')
+      }
+      if (type === 'notes') {
+        await ordersApi.saveInternalNotes(order.id, actionDialog.notes.trim())
+        await refreshAfterAction('Internal notes saved')
+      }
+      if (type === 'tracking') {
+        await handleAssignTracking(order.id, actionDialog.trackingNumber.trim())
+        toast.success('Tracking number saved')
+      }
+      setActionDialog(null)
     } catch (error: any) {
-      toast.error(error.message || 'Failed to save notes')
+      toast.error(error.message || 'Order action failed')
+    } finally {
+      setActionSaving(false)
     }
   }
 
@@ -387,9 +429,99 @@ const OrdersPage = ({
         onAccept={handleAcceptOrder}
         onMarkPaid={handleMarkPaid}
         onCancel={handleCancelOrder}
+        onRequestTracking={handleTrackingRequest}
         onRefund={handleRefundOrder}
         onInternalNotes={handleInternalNotes}
       />
+      {actionDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
+            <div className="flex items-start justify-between border-b border-gray-200 p-5">
+              <div className="flex gap-3">
+                <div className={`grid h-10 w-10 place-items-center rounded-lg ${actionDialog.type === 'cancel' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    {actionDialog.type === 'markPaid' && 'Mark Order Paid'}
+                    {actionDialog.type === 'cancel' && 'Cancel Order'}
+                    {actionDialog.type === 'refund' && 'Record Refund'}
+                    {actionDialog.type === 'notes' && 'Internal Notes'}
+                    {actionDialog.type === 'tracking' && 'Assign Tracking'}
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-600">
+                    {actionDialog.order.orderNumber} · {actionDialog.order.customerName} · {formatPrice(actionDialog.order.total)}
+                  </p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setActionDialog(null)} className="rounded p-2 text-gray-500 hover:bg-gray-100">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-5">
+              {actionDialog.type === 'markPaid' && (
+                <p className="rounded-lg bg-yellow-50 p-3 text-sm text-yellow-900">
+                  Confirm payment has been received before marking this order as paid.
+                </p>
+              )}
+              {(actionDialog.type === 'cancel' || actionDialog.type === 'refund') && (
+                <label className="block text-sm font-medium text-gray-700">
+                  Reason
+                  <textarea
+                    value={actionDialog.reason}
+                    onChange={(event) => setActionDialog({ ...actionDialog, reason: event.target.value })}
+                    rows={4}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                    placeholder={actionDialog.type === 'cancel' ? 'Why is this order being cancelled?' : 'Why is this refund being recorded?'}
+                  />
+                </label>
+              )}
+              {actionDialog.type === 'refund' && (
+                <label className="block text-sm font-medium text-gray-700">
+                  Refund amount
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={actionDialog.amount}
+                    onChange={(event) => setActionDialog({ ...actionDialog, amount: event.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                  />
+                </label>
+              )}
+              {actionDialog.type === 'notes' && (
+                <label className="block text-sm font-medium text-gray-700">
+                  Notes customers will not see
+                  <textarea
+                    value={actionDialog.notes}
+                    onChange={(event) => setActionDialog({ ...actionDialog, notes: event.target.value })}
+                    rows={5}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                  />
+                </label>
+              )}
+              {actionDialog.type === 'tracking' && (
+                <label className="block text-sm font-medium text-gray-700">
+                  Tracking number
+                  <input
+                    value={actionDialog.trackingNumber}
+                    onChange={(event) => setActionDialog({ ...actionDialog, trackingNumber: event.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                  />
+                </label>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-gray-200 p-5">
+              <button type="button" onClick={() => setActionDialog(null)} className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50">Keep Editing</button>
+              <button type="button" onClick={submitOrderAction} disabled={actionSaving} className={`rounded-lg px-4 py-2 font-semibold text-white disabled:opacity-60 ${actionDialog.type === 'cancel' ? 'bg-red-700 hover:bg-red-800' : 'bg-red-600 hover:bg-red-700'}`}>
+                {actionSaving ? 'Saving...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

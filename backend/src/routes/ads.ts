@@ -26,7 +26,12 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/') || file.mimetype.startsWith('audio/')) return cb(null, true)
+    if (
+      file.mimetype.startsWith('image/') ||
+      file.mimetype.startsWith('video/') ||
+      file.mimetype.startsWith('audio/') ||
+      ['image/webp', 'video/webm'].includes(file.mimetype)
+    ) return cb(null, true)
     cb(new Error('Only images, GIFs, stickers, videos, or audio files are allowed'))
   },
 })

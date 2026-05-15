@@ -13,6 +13,48 @@ const statusFor = (session: any) => {
   return 'offline'
 }
 
+const parseBrowser = (userAgent = '') => {
+  if (/edg\//i.test(userAgent)) return 'Microsoft Edge'
+  if (/opr\//i.test(userAgent)) return 'Opera'
+  if (/chrome|crios/i.test(userAgent) && !/edg\//i.test(userAgent)) return 'Chrome'
+  if (/firefox|fxios/i.test(userAgent)) return 'Firefox'
+  if (/safari/i.test(userAgent) && !/chrome|crios|android/i.test(userAgent)) return 'Safari'
+  return userAgent ? 'Unknown browser' : 'Unknown'
+}
+
+const parseOs = (userAgent = '') => {
+  if (/windows nt 10/i.test(userAgent)) return 'Windows 10/11'
+  if (/windows/i.test(userAgent)) return 'Windows'
+  if (/android/i.test(userAgent)) {
+    const match = userAgent.match(/Android\s+([\d.]+)/i)
+    return match ? `Android ${match[1]}` : 'Android'
+  }
+  if (/iphone|ipad|ipod/i.test(userAgent)) {
+    const match = userAgent.match(/OS\s([\d_]+)/i)
+    return match ? `iOS ${match[1].replace(/_/g, '.')}` : 'iOS'
+  }
+  if (/mac os x/i.test(userAgent)) {
+    const match = userAgent.match(/Mac OS X\s([\d_]+)/i)
+    return match ? `macOS ${match[1].replace(/_/g, '.')}` : 'macOS'
+  }
+  if (/linux/i.test(userAgent)) return 'Linux'
+  return userAgent ? 'Unknown OS' : 'Unknown'
+}
+
+const parseDeviceLabel = (session: any) => {
+  const userAgent = session.userAgent || ''
+  if (/ipad/i.test(userAgent)) return 'iPad'
+  if (/iphone/i.test(userAgent)) return 'iPhone'
+  if (/android/i.test(userAgent)) {
+    const modelMatch = userAgent.match(/;\s*([^;()]+?)\s+Build\//i)
+    return modelMatch?.[1]?.trim() || 'Android device'
+  }
+  if (/macintosh|mac os/i.test(userAgent)) return 'Mac'
+  if (/windows/i.test(userAgent)) return 'Windows PC'
+  if (/linux/i.test(userAgent)) return 'Linux device'
+  return session.deviceName || session.deviceType || 'Unknown device'
+}
+
 const serializeSession = (session: any) => ({
   id: session.id,
   userId: session.userId,
@@ -20,9 +62,9 @@ const serializeSession = (session: any) => ({
   deviceInfo: {
     userAgent: session.userAgent || '',
     ipAddress: session.ipAddress || '',
-    deviceType: session.deviceType || 'UNKNOWN',
-    browser: session.deviceName || 'Browser',
-    os: session.deviceType || 'Unknown OS',
+    deviceType: parseDeviceLabel(session),
+    browser: parseBrowser(session.userAgent || ''),
+    os: parseOs(session.userAgent || ''),
     location: session.ipAddress || '',
   },
   status: statusFor(session),

@@ -1,5 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import { useCart } from './contexts/CartContext'
 import { useWishlist } from './contexts/WishlistContext'
@@ -154,6 +153,8 @@ function App() {
           <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
           <Route path="/order-confirmation" element={<ProtectedRoute><OrderConfirmationPage /></ProtectedRoute>} />
           <Route path="/profile" element={<BuyerRoute><EnhancedProfilePage /></BuyerRoute>} />
+          <Route path="/account" element={<BuyerRoute><Navigate to="/profile?tab=settings" replace /></BuyerRoute>} />
+          <Route path="/goodbye" element={<div className="mx-auto max-w-2xl px-4 py-16 text-center"><h1 className="text-2xl font-bold text-gray-900">Account closed</h1><p className="mt-3 text-gray-600">Your Hincton account has been deleted. We are sorry to see you go.</p></div>} />
           <Route path="/messages" element={<BuyerRoute><BuyerMessages /></BuyerRoute>} />
           <Route path="/reviews" element={<BuyerRoute><BuyerReviews /></BuyerRoute>} />
           <Route path="/wallet" element={<BuyerRoute><BuyerWallet /></BuyerRoute>} />
