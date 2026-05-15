@@ -87,41 +87,40 @@ export class TypewriterEffect {
 export const useTypewriter = (options: TypewriterOptions) => {
   const [text, setText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
-  const timeoutRef = useRef<any>(null)
-  const delayRef = useRef<any>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const indexRef = useRef(0)
 
   useEffect(() => {
-    const startTyping = () => {
-      setIsTyping(true)
+    if (!options.text) {
       setText('')
-      let currentIndex = 0
-
-      const typeChar = () => {
-        if (currentIndex < options.text.length) {
-          const char = options.text[currentIndex]
-          setText(prev => prev + char)
-          currentIndex++
-          timeoutRef.current = setTimeout(typeChar, options.speed || 50)
-        } else {
-          setIsTyping(false)
-          options.onComplete?.()
-        }
-      }
-
-      delayRef.current = setTimeout(typeChar, options.delay || 0)
+      setIsTyping(false)
+      return
     }
 
-    startTyping()
+    setText('')
+    setIsTyping(true)
+    indexRef.current = 0
+
+    const typeChar = () => {
+      if (indexRef.current < options.text.length) {
+        setText((prev) => prev + options.text[indexRef.current])
+        indexRef.current += 1
+        timeoutRef.current = setTimeout(typeChar, options.speed ?? 50)
+      } else {
+        setIsTyping(false)
+        options.onComplete?.()
+      }
+    }
+
+    timeoutRef.current = setTimeout(typeChar, options.delay ?? 0)
 
     return () => {
-      if (delayRef.current) {
-        clearTimeout(delayRef.current)
-      }
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
       }
     }
-  }, [options.text, options.speed, options.delay])
+  }, [options.text, options.speed, options.delay, options.onComplete])
 
   return { text, isTyping }
 }
