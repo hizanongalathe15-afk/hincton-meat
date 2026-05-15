@@ -445,13 +445,6 @@ const CommunicationsPage = () => {
               </div>
             )}
 
-            <div className="bg-red-50 p-6 text-sm text-red-900">
-              <div className="mb-2 flex items-center gap-2 font-bold">
-                <Megaphone className="h-5 w-5" />
-                Live provider setup
-              </div>
-              Configure SMTP plus SMS_WEBHOOK_URL or WHATSAPP_WEBHOOK_URL before going live. Local dev will save in-app messages and skip missing providers.
-            </div>
           </aside>
         </form>
       )}
