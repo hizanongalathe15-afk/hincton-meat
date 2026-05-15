@@ -71,7 +71,8 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
       toast.error(`${t('login.socialLoginNotConfigured').replace('{provider}', provider)}`)
       return
     }
-    window.location.href = `${baseUrl}/auth/${provider.toLowerCase()}`
+    const redirectOrigin = encodeURIComponent(window.location.origin)
+    window.location.href = `${baseUrl}/api/auth/${provider.toLowerCase()}?redirect=${redirectOrigin}`
   }
 
   return (

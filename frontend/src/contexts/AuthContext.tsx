@@ -62,6 +62,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const initAuth = async () => {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search)
+        const tokenFromUrl = params.get('token')
+        if (tokenFromUrl) {
+          localStorage.setItem('token', tokenFromUrl)
+          params.delete('token')
+          const cleanedUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}${window.location.hash}`
+          window.history.replaceState({}, '', cleanedUrl)
+        }
+      }
+
       const token = localStorage.getItem('token')
       if (token) {
         const cachedUser = localStorage.getItem('user')

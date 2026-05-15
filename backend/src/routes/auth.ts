@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import fs from 'fs/promises'
 import jwt, { Secret, SignOptions } from 'jsonwebtoken'
 import path from 'path'
+import axios from 'axios'
 import { prisma } from '../config/prisma'
 import { z } from 'zod'
 import multer from 'multer'
@@ -182,6 +183,37 @@ const signToken = (user: any, sessionId?: string) => {
     JWT_SECRET,
     options
   )
+}
+
+const getAllowedRedirectOrigins = () => {
+  const origins = [
+    process.env.FRONTEND_URL?.trim(),
+    process.env.NEXTAUTH_URL?.trim(),
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
+    'https://hincton-meat.vercel.app',
+  ].filter(Boolean) as string[]
+
+  return Array.from(new Set(origins))
+}
+
+const getSafeRedirectUrl = (redirect?: string) => {
+  const fallback = process.env.FRONTEND_URL?.trim() || process.env.NEXTAUTH_URL?.trim() || 'http://localhost:3000'
+  if (!redirect) return fallback
+
+  try {
+    const parsed = new URL(redirect)
+    return getAllowedRedirectOrigins().includes(parsed.origin) ? redirect : fallback
+  } catch {
+    return fallback
+  }
+}
+
+const getGoogleCallbackUrl = (req: express.Request) => {
+  const backendBase = process.env.BACKEND_URL?.trim() || `${req.protocol}://${req.get('host')}`
+  return `${backendBase}/api/auth/google/callback`
 }
 
 const getUserIdFromRequest = async (req: express.Request) => {
@@ -743,6 +775,195 @@ router.post('/reset-password', async (req, res) => {
     }
     res.status(500).json(apiMessage(meatShopMessages.system.serverBusy))
   }
+})
+
+router.get('/google', async (req, res) => {
+  try {
+    const clientId = process.env.GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({ error: 'Google OAuth is not configured' })
+    }
+
+    const redirect = getSafeRedirectUrl(String(req.query.redirect || ''))
+    const callbackUrl = getGoogleCallbackUrl(req)
+    const state = encodeURIComponent(JSON.stringify({ redirect }))
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: callbackUrl,
+      response_type: 'code',
+      scope: 'openid email profile',
+      access_type: 'offline',
+      prompt: 'select_account',
+      state,
+    }).toString()}`
+
+    res.redirect(authUrl)
+  } catch (error) {
+    console.error('Google auth redirect error:', error)
+    res.status(500).json({ error: 'Unable to start Google authentication' })
+  }
+})
+
+router.get('/google/callback', async (req, res) => {
+  try {
+    const clientId = process.env.GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({ error: 'Google OAuth is not configured' })
+    }
+
+    const code = String(req.query.code || '')
+    const state = String(req.query.state || '')
+    let redirect = getSafeRedirectUrl(String(req.query.redirect || ''))
+    if (state) {
+      try {
+        const decodedState = JSON.parse(decodeURIComponent(state))
+        if (decodedState?.redirect) {
+          redirect = getSafeRedirectUrl(String(decodedState.redirect))
+        }
+      } catch {
+        // ignore invalid state
+      }
+    }
+
+    if (!code) {
+      const url = new URL(redirect)
+      url.searchParams.set('error', 'missing_code')
+      return res.redirect(url.toString())
+    }
+
+    const callbackUrl = getGoogleCallbackUrl(req)
+    const tokenResponse = await axios.post(
+      'https://oauth2.googleapis.com/token',
+      new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: callbackUrl,
+        grant_type: 'authorization_code',
+      }).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    )
+
+    const accessToken = tokenResponse.data.access_token
+    if (!accessToken) {
+      const url = new URL(redirect)
+      url.searchParams.set('error', 'token_exchange_failed')
+      return res.redirect(url.toString())
+    }
+
+    const userInfoResponse = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    const googleProfile = userInfoResponse.data
+    if (!googleProfile?.email || !googleProfile?.sub) {
+      const url = new URL(redirect)
+      url.searchParams.set('error', 'invalid_google_profile')
+      return res.redirect(url.toString())
+    }
+
+    const email = String(googleProfile.email).toLowerCase()
+    const providerAccountId = String(googleProfile.sub)
+    const existingSocialAccount = await prisma.socialAccount.findUnique({
+      where: { provider_providerAccountId: { provider: 'google', providerAccountId } },
+      include: { user: { include: { profile: true, security: true } } },
+    })
+
+    let user: any = existingSocialAccount?.user
+
+    if (!user) {
+      user = await prisma.user.findUnique({
+        where: { email },
+        include: { profile: true, security: true },
+      })
+    }
+
+    if (!user) {
+      const createdUser = await prisma.user.create({
+        data: {
+          email,
+          profile: {
+            create: {
+              fullName: googleProfile.name || '',
+              avatar: googleProfile.picture || undefined,
+            },
+          },
+          security: {
+            create: {
+              isEmailVerified: true,
+              is_active: true,
+            },
+          },
+        },
+      })
+      user = await prisma.user.findUnique({
+        where: { id: createdUser.id },
+        include: { profile: true, security: true },
+      })
+    } else {
+      if (!user.profile) {
+        await prisma.userProfile.create({
+          data: {
+            userId: user.id,
+            fullName: googleProfile.name || '',
+            avatar: googleProfile.picture || undefined,
+          },
+        })
+      }
+
+      await prisma.userSecurity.upsert({
+        where: { userId: user.id },
+        create: {
+          userId: user.id,
+          isEmailVerified: true,
+          is_active: true,
+        },
+        update: {
+          isEmailVerified: true,
+        },
+      })
+    }
+
+    const socialAccountData = {
+      userId: user.id,
+      provider: 'google',
+      providerAccountId,
+      accessToken: accessToken || null,
+      refreshToken: tokenResponse.data.refresh_token || null,
+      expiresAt: tokenResponse.data.expires_in
+        ? new Date(Date.now() + Number(tokenResponse.data.expires_in) * 1000)
+        : undefined,
+    }
+
+    if (existingSocialAccount) {
+      await prisma.socialAccount.update({
+        where: { id: existingSocialAccount.id },
+        data: socialAccountData,
+      })
+    } else {
+      await prisma.socialAccount.create({ data: socialAccountData })
+    }
+
+    const token = signToken(user)
+    const url = new URL(redirect)
+    url.searchParams.set('token', token)
+    res.redirect(url.toString())
+  } catch (error) {
+    console.error('Google auth callback error:', error)
+    const redirect = getSafeRedirectUrl(String(req.query.redirect || ''))
+    const url = new URL(redirect)
+    url.searchParams.set('error', 'google_auth_failed')
+    res.redirect(url.toString())
+  }
+})
+
+router.get('/callback/google', (req, res) => {
+  const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''
+  res.redirect(`/api/auth/google/callback${query}`)
 })
 
 router.get('/profile', async (req, res) => {
