@@ -426,6 +426,7 @@ if (io) {
       sockets.add(socket.id);
       onlineUsers.set(data.userId, sockets);
       socket.join(`user-${data.userId}`);
+      socket.join(`user:${data.userId}`);
       await prisma.userSession.updateMany({
         where: { userId: data.userId, isRevoked: false, expiresAt: { gt: new Date() } },
         data: { lastActivity: new Date() },

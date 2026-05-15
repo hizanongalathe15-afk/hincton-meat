@@ -91,8 +91,8 @@ router.get('/slug/:slug', async (req, res) => {
   try {
     const { slug } = req.params
 
-    const post = await prisma.blogPost.findUnique({
-      where: { slug },
+    const post = await prisma.blogPost.findFirst({
+      where: { slug, status: 'PUBLISHED' },
       include: {
         author: { include: { profile: true } },
         comments: {

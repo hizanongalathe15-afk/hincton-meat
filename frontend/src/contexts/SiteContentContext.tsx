@@ -186,6 +186,26 @@ export const defaultSiteProfile: SiteProfile = {
   },
 }
 
+const compactObject = <T extends Record<string, unknown>>(value: T): Partial<T> =>
+  Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined && item !== null && item !== '')) as Partial<T>
+
+const phoneToHref = (phone?: string, fallback?: string) => {
+  const trimmed = phone?.trim()
+  if (!trimmed) return fallback
+  if (trimmed.startsWith('tel:')) return trimmed
+
+  const compact = trimmed.replace(/[\s()-]/g, '')
+  if (compact.startsWith('+')) return `tel:${compact}`
+  if (/^0\d+/.test(compact)) return `tel:+254${compact.slice(1)}`
+  return `tel:${compact}`
+}
+
+const emailToHref = (email?: string, fallback?: string) => {
+  const trimmed = email?.trim()
+  if (!trimmed) return fallback
+  return trimmed.startsWith('mailto:') ? trimmed : `mailto:${trimmed}`
+}
+
 interface SiteContentContextValue {
   profile: SiteProfile
   refresh: () => Promise<void>
@@ -206,12 +226,24 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const refresh = async () => {
     try {
-      const response = await api.get('/content/site-profile')
-      const saved = response.data.profile || {}
+      const [profileResponse, commerceResponse] = await Promise.all([
+        api.get('/content/site-profile'),
+        api.get('/content/commerce-settings').catch(() => ({ data: { settings: null } })),
+      ])
+      const saved = profileResponse.data.profile || {}
+      const commerceGeneral = commerceResponse.data.settings?.general || {}
+      const commerceBrand = compactObject({
+        name: commerceGeneral.storeName,
+        phone: commerceGeneral.storePhone,
+        phoneHref: phoneToHref(commerceGeneral.storePhone, saved.brand?.phoneHref),
+        email: commerceGeneral.storeEmail,
+        emailHref: emailToHref(commerceGeneral.storeEmail, saved.brand?.emailHref),
+        address: commerceGeneral.storeAddress,
+      })
       setProfile({
         ...defaultSiteProfile,
         ...saved,
-        brand: { ...defaultSiteProfile.brand, ...(saved.brand || {}) },
+        brand: { ...defaultSiteProfile.brand, ...(saved.brand || {}), ...commerceBrand },
         images: { ...defaultSiteProfile.images, ...(saved.images || {}) },
         pages: { ...defaultSiteProfile.pages, ...(saved.pages || {}) },
         markets: saved.markets || defaultSiteProfile.markets,

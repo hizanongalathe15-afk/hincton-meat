@@ -1403,15 +1403,39 @@ router.put('/change-password', async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12)
+    const changedAt = new Date()
     await prisma.userSecurity.update({
       where: { userId: user.id },
       data: {
         password_hash: hashedPassword,
-        password_changed_at: new Date(),
+        password_changed_at: changedAt,
       },
     })
 
-    res.json(resolveMessage(meatShopMessages.auth.passwordChanged))
+    const currentSessionId = decoded.sessionId as string | undefined
+    const revokedSessions = await prisma.userSession.updateMany({
+      where: {
+        userId: user.id,
+        id: currentSessionId ? { not: currentSessionId } : undefined,
+        isRevoked: false,
+      },
+      data: { isRevoked: true },
+    })
+
+    const io = req.app?.get?.('io')
+    if (io) {
+      io.to(`user:${user.id}`).emit('account:password-changed', {
+        userId: user.id,
+        currentSessionId,
+        changedAt: changedAt.toISOString(),
+        message: 'Your password was changed. Other signed-in devices have been logged out.',
+      })
+    }
+
+    res.json({
+      ...resolveMessage(meatShopMessages.auth.passwordChanged),
+      revokedSessions: revokedSessions.count,
+    })
   } catch (error: any) {
     console.error('Change password error:', error)
     if (error instanceof z.ZodError) {

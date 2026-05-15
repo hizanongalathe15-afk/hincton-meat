@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Save } from 'lucide-react'
-import { contentApi } from '../services/adminApi'
+import { contentApi, settingsApi } from '../services/adminApi'
 import { defaultSiteProfile, SiteProfile, useSiteContent } from '../contexts/SiteContentContext'
 
 const toLines = (values: string[]) => values.join('\n')
@@ -330,6 +330,28 @@ const ContentPage = () => {
         qualityPoints: fromLines(qualityText),
       }
       await contentApi.updateSiteProfile(payload)
+
+      const settingsData = await settingsApi.getSettings().catch(() => ({ settings: [] }))
+      const commerce = (settingsData.settings || []).find((setting: any) => setting.key === 'commerce_settings')
+      const savedCommerce = commerce?.value ? JSON.parse(commerce.value) : {}
+      await settingsApi.createSetting({
+        key: 'commerce_settings',
+        value: JSON.stringify({
+          ...savedCommerce,
+          general: {
+            ...(savedCommerce.general || {}),
+            storeName: payload.brand.name,
+            storeEmail: payload.brand.email,
+            storePhone: payload.brand.phone,
+            storeAddress: payload.brand.address,
+          },
+        }),
+        type: 'json',
+        description: 'Editable commerce, delivery, payment, inventory, and notification settings',
+        group: 'commerce',
+        isPublic: true,
+      })
+
       setProfile(payload)
       await refresh()
       toast.success('Site content updated')

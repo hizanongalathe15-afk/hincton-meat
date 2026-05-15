@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { authService } from '../services/authService'
 import toast from 'react-hot-toast'
+import { io, Socket } from 'socket.io-client'
+import { getApiHost } from '../services/api'
 
 interface User {
   id: string
@@ -56,9 +58,38 @@ export const useAuth = () => {
   return context
 }
 
+const getTokenSessionId = () => {
+  const token = localStorage.getItem('token')
+  if (!token) return null
+
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1] || ''))
+    return payload.sessionId || null
+  } catch {
+    return null
+  }
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [passwordChangedWarning, setPasswordChangedWarning] = useState(false)
+
+  useEffect(() => {
+    if (!user?.id) return undefined
+
+    const socket: Socket = io(getApiHost(), { withCredentials: true })
+    socket.emit('presence:join', { userId: user.id })
+    socket.on('account:password-changed', (payload: { currentSessionId?: string; message?: string }) => {
+      if (payload.currentSessionId && payload.currentSessionId === getTokenSessionId()) return
+      setPasswordChangedWarning(true)
+      toast.error(payload.message || 'Your password was changed. Please log out and sign in again.')
+    })
+
+    return () => {
+      socket.disconnect()
+    }
+  }, [user?.id])
 
   useEffect(() => {
     const initAuth = async () => {
@@ -212,5 +243,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     changePassword,
   }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      {passwordChangedWarning && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 px-4" role="alertdialog" aria-modal="true" aria-labelledby="password-changed-title">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h2 id="password-changed-title" className="text-xl font-bold text-gray-950">Password changed</h2>
+            <p className="mt-3 text-sm leading-6 text-gray-700">
+              This account password was changed from another signed-in device. For security, this session should be closed and you need to sign in again with the new password.
+            </p>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={logout}
+                className="rounded-lg bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Log out now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </AuthContext.Provider>
+  )
 }

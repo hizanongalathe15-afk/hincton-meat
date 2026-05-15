@@ -15,10 +15,26 @@ import {
 } from 'lucide-react'
 import { HINCTON_BRAND } from '../utils/hinctonBrand'
 import { LANGUAGES } from '../utils/languages'
-import { settingsApi } from '../services/adminApi'
+import { contentApi, settingsApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
 import { getPriceRanges } from '../utils/currency'
 
+const phoneToHref = (phone: string) => {
+  const trimmed = phone.trim()
+  if (!trimmed) return HINCTON_BRAND.phoneHref
+  if (trimmed.startsWith('tel:')) return trimmed
+
+  const compact = trimmed.replace(/[\s()-]/g, '')
+  if (compact.startsWith('+')) return `tel:${compact}`
+  if (/^0\d+/.test(compact)) return `tel:+254${compact.slice(1)}`
+  return `tel:${compact}`
+}
+
+const emailToHref = (email: string) => {
+  const trimmed = email.trim()
+  if (!trimmed) return HINCTON_BRAND.emailHref
+  return trimmed.startsWith('mailto:') ? trimmed : `mailto:${trimmed}`
+}
 
 interface SettingsPageProps {
   onSaveSettings?: (settings: any) => void
@@ -139,6 +155,21 @@ const SettingsPage = ({ onSaveSettings }: SettingsPageProps) => {
         description: 'Editable commerce, delivery, payment, inventory, and notification settings',
         group: 'commerce',
         isPublic: true,
+      })
+
+      const siteProfileData = await contentApi.getSiteProfile().catch(() => ({ profile: null }))
+      const siteProfile = siteProfileData.profile || {}
+      await contentApi.updateSiteProfile({
+        ...siteProfile,
+        brand: {
+          ...(siteProfile.brand || HINCTON_BRAND),
+          name: payload.general.storeName,
+          phone: payload.general.storePhone,
+          phoneHref: phoneToHref(payload.general.storePhone),
+          email: payload.general.storeEmail,
+          emailHref: emailToHref(payload.general.storeEmail),
+          address: payload.general.storeAddress,
+        },
       })
       toast.success('Settings saved')
       onSaveSettings?.(settings)
