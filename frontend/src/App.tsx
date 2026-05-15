@@ -50,15 +50,15 @@ import EnhancedProfilePage from './pages/EnhancedProfilePage'
 import BuyerMessages from './pages/BuyerMessages'
 import BuyerReviews from './pages/BuyerReviews'
 import BuyerWallet from './pages/BuyerWallet'
-import AboutPage from './pages/AboutPage'
 import WebProfilePage from './pages/WebProfilePage'
 import ContactPage from './pages/ContactPage'
 import FeedbackPage from './pages/FeedbackPage'
 import HelpCenterPage from './pages/HelpCenterPage'
 import AppInfoPage from './pages/AppInfoPage'
-import FarmsPage from './pages/FarmsPage'
-import SustainabilityPage from './pages/SustainabilityPage'
 import LegalPage from './pages/LegalPage'
+import DynamicContentPage from './pages/DynamicContentPage'
+import BlogPage from './pages/BlogPage'
+import BlogPostPage from './pages/BlogPostPage'
 
 // Components
 import AuthSlider from './components/AuthSlider'
@@ -134,7 +134,7 @@ function App() {
           <Route path="/reset-password" element={!user ? <AuthSlider /> : <Navigate to={authenticatedHome} />} />
           
           {/* Information Pages */}
-          <Route path="/about" element={<AboutPage />} />
+          <Route path="/about" element={<DynamicContentPage pageKey="about" />} />
           <Route path="/web-profile" element={<WebProfilePage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/feedback" element={<FeedbackPage />} />
@@ -142,8 +142,13 @@ function App() {
           <Route path="/app-info" element={<AppInfoPage />} />
           <Route path="/terms" element={<LegalPage type="terms" />} />
           <Route path="/privacy" element={<LegalPage type="privacy" />} />
-          <Route path="/farms" element={<FarmsPage />} />
-          <Route path="/sustainability" element={<SustainabilityPage />} />
+          <Route path="/farms" element={<DynamicContentPage pageKey="farms" />} />
+          <Route path="/sustainability" element={<DynamicContentPage pageKey="sustainability" />} />
+          <Route path="/careers" element={<DynamicContentPage pageKey="careers" />} />
+          <Route path="/wellness" element={<DynamicContentPage pageKey="wellness" />} />
+          <Route path="/returns" element={<DynamicContentPage pageKey="returns" />} />
+          <Route path="/blog" element={<BlogPage />} />
+          <Route path="/blog/:slug" element={<BlogPostPage />} />
           
           {/* Protected Buyer Routes */}
           <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />

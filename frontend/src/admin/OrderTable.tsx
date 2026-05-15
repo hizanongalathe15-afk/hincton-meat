@@ -90,12 +90,24 @@ const OrderTable = ({
     { value: 'quarter', label: 'This Quarter' }
   ]
 
+  const sortValue = (value: Order[keyof Order]) => {
+    if (typeof value === 'number') return value
+    if (typeof value === 'string') {
+      const timestamp = Date.parse(value)
+      return Number.isNaN(timestamp) ? value.toLowerCase() : timestamp
+    }
+    return 0
+  }
+
   const filteredOrders = ordersData
-    .filter(order => 
-      order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customerEmail.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    .filter(order => {
+      const query = searchTerm.toLowerCase()
+      return (
+        (order.orderNumber || '').toLowerCase().includes(query) ||
+        (order.customerName || '').toLowerCase().includes(query) ||
+        (order.customerEmail || '').toLowerCase().includes(query)
+      )
+    })
     .filter(order => !selectedStatus || order.status === selectedStatus)
     .filter(order => !selectedPaymentStatus || order.paymentStatus === selectedPaymentStatus)
     .sort((a, b) => {
@@ -116,15 +128,6 @@ const OrderTable = ({
       setSortField(field)
       setSortDirection('asc')
     }
-  }
-
-  const sortValue = (value: Order[keyof Order]) => {
-    if (typeof value === 'number') return value
-    if (typeof value === 'string') {
-      const t = Date.parse(value)
-      return Number.isNaN(t) ? value.toLowerCase().charCodeAt(0) : t
-    }
-    return 0
   }
 
   const getStatusColor = (status: string) => {

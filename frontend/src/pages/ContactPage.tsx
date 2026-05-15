@@ -5,6 +5,7 @@ import { useSiteContent } from '../contexts/SiteContentContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { contentApi } from '../services/contentApi'
 import toast from 'react-hot-toast'
+import { resolveMediaUrl } from '../services/api'
 
 const ContactPage = () => {
   const [formData, setFormData] = useState({
@@ -14,11 +15,13 @@ const ContactPage = () => {
     subject: '',
     message: '',
   })
+  const [attachments, setAttachments] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const { profile } = useSiteContent()
   const { t } = useLanguage()
   const brand = profile.brand
+  const page = profile.pages.contact
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
@@ -32,9 +35,15 @@ const ContactPage = () => {
     setIsSubmitting(true)
 
     try {
-      await contentApi.submitContactForm(formData)
+      const payload = attachments.length ? new FormData() : formData
+      if (payload instanceof FormData) {
+        Object.entries(formData).forEach(([key, value]) => payload.append(key, value))
+        attachments.forEach((file) => payload.append('attachments', file))
+      }
+      await contentApi.submitContactForm(payload)
       setSubmitStatus('success')
       setFormData({ name: '', email: '', phone: '', subject: '', message: '' })
+      setAttachments([])
       toast.success('Message sent successfully!')
     } catch (error) {
       console.error('Contact form submission error:', error)
@@ -56,13 +65,19 @@ const ContactPage = () => {
   return (
     <div className="min-h-screen bg-white">
       <section className="relative overflow-hidden bg-[#333437] px-4 py-20 text-white sm:px-6 lg:px-8">
+        {page?.video ? (
+          <video src={resolveMediaUrl(page.video)} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover opacity-40" />
+        ) : page?.image ? (
+          <img src={resolveMediaUrl(page.image)} alt={page.title} className="absolute inset-0 h-full w-full object-cover opacity-40" />
+        ) : null}
+        <div className="absolute inset-0 bg-[#333437]/70" />
         <div className="absolute left-1/2 top-0 h-72 w-[34rem] -translate-x-1/2 rounded-b-[6rem] bg-white/10" />
         <div className="relative mx-auto max-w-7xl">
           <img src={profile.images.logo || brand.logo} alt={brand.name} className="mx-auto h-28 w-auto rounded bg-white p-2" />
           <div className="mx-auto mt-10 max-w-3xl text-center">
             <p className="text-sm font-bold uppercase tracking-wide text-red-300">{brand.tagline}</p>
-            <h1 className="mt-4 text-5xl font-extrabold text-white">{t('contact.title')}</h1>
-            <p className="mt-6 text-lg leading-8 text-gray-200">{profile.companyProfile}</p>
+            <h1 className="mt-4 text-5xl font-extrabold text-white">{page?.title || t('contact.title')}</h1>
+            <p className="mt-6 text-lg leading-8 text-gray-200">{page?.subtitle || page?.body || profile.companyProfile}</p>
           </div>
         </div>
       </section>
@@ -94,6 +109,17 @@ const ContactPage = () => {
                   </div>
                 )
               })}
+              {(brand.socialLinks || []).map((link) => (
+                <div key={`${link.label}-${link.url}`} className="flex items-start gap-4 rounded bg-gray-50 p-5">
+                  <div className="rounded bg-red-100 p-3">
+                    <Instagram className="h-6 w-6 text-[#9f2f20]" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-950">{link.label}</h3>
+                    <a href={link.url} target="_blank" rel="noreferrer" className="text-gray-700 hover:text-[#9f2f20]">{link.url}</a>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -157,6 +183,21 @@ const ContactPage = () => {
                   onChange={handleInputChange}
                   className="w-full rounded border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-red-500"
                 />
+              </div>
+
+              <div>
+                <label htmlFor="attachments" className="mb-2 block text-sm font-medium text-gray-700">
+                  Images or Videos
+                </label>
+                <input
+                  type="file"
+                  id="attachments"
+                  multiple
+                  accept="image/*,video/*"
+                  onChange={(event) => setAttachments(Array.from(event.target.files || []))}
+                  className="w-full rounded border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-red-500"
+                />
+                {attachments.length > 0 && <p className="mt-1 text-sm text-gray-500">{attachments.length} file(s) selected</p>}
               </div>
 
               <div>

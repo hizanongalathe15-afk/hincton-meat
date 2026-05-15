@@ -5,6 +5,7 @@ import { prisma } from '../config/prisma'
 const router = express.Router()
 
 const settingKey = 'qr_codes'
+const frontendUrl = (process.env.FRONTEND_URL || process.env.CLIENT_URL || 'https://hincton-meat.vercel.app').replace(/\/+$/, '')
 
 const qrCodeSchema = z.object({
   id: z.string().optional(),
@@ -124,6 +125,11 @@ const serializeCode = (code: QRCodeRecord) => ({
   analytics: code.scans?.length ? toAnalytics(code) : emptyAnalytics,
 })
 
+const resolveDestination = (destination: string) => {
+  if (/^https?:\/\//i.test(destination)) return destination
+  return `${frontendUrl}${destination.startsWith('/') ? destination : `/${destination}`}`
+}
+
 router.get('/admin/qr-codes', async (_req, res) => {
   const codes = await loadCodes()
   res.json({ qrCodes: codes.map(serializeCode) })
@@ -182,9 +188,42 @@ router.post('/qr-codes/scan', async (req, res) => {
     })
 
     await saveCodes(codes)
-    res.json({ message: 'QR scan recorded', qrCode: serializeCode(code), redirectTo: code.customUrl || code.destination })
+    res.json({ message: 'QR scan recorded', qrCode: serializeCode(code), redirectTo: resolveDestination(code.customUrl || code.destination) })
   } catch {
     res.status(400).json({ error: 'Invalid QR scan data' })
+  }
+})
+
+router.get('/qr-codes/:id', async (req, res) => {
+  try {
+    const codes = await loadCodes()
+    const code = codes.find((item) => item.id === req.params.id)
+    if (!code || !code.isActive) return res.status(404).send('QR code not found')
+
+    if (code.settings?.expirationDate && new Date(code.settings.expirationDate) < new Date()) {
+      return res.status(410).send('QR code expired')
+    }
+
+    if (code.settings?.maxScans && (code.scans?.length || 0) >= code.settings.maxScans) {
+      return res.status(410).send('QR code scan limit reached')
+    }
+
+    const scannerId = String(req.header('X-Guest-Session-Id') || req.ip || 'unknown')
+    const userAgent = req.header('user-agent') || undefined
+    code.scans = code.scans || []
+    code.scans.push({
+      scannerId,
+      deviceType: /mobile|android|iphone|ipad/i.test(userAgent || '') ? 'Mobile' : 'Desktop',
+      timestamp: new Date().toISOString(),
+      userAgent,
+      ipAddress: req.ip,
+    })
+
+    await saveCodes(codes)
+    res.redirect(resolveDestination(code.customUrl || code.destination))
+  } catch (error) {
+    console.error('QR redirect error:', error)
+    res.status(500).send('Failed to open QR destination')
   }
 })
 

@@ -3,7 +3,7 @@ import { formatPrice } from '../utils/currency'
 
 export interface SearchResult {
   id: string
-  type: 'product' | 'order' | 'user'
+  type: 'product' | 'order' | 'user' | 'page'
   title: string
   subtitle?: string
   icon?: string
@@ -12,7 +12,7 @@ export interface SearchResult {
 
 export interface SearchSuggestion {
   text: string
-  type: 'product' | 'order' | 'user'
+  type: 'product' | 'order' | 'user' | 'page'
   count?: number
 }
 
@@ -40,13 +40,33 @@ export const adminSearchService = {
     if (!query || query.length < 2) return []
     
     try {
+      const pageResults = [
+        { id: 'dashboard', title: 'Dashboard', subtitle: 'Admin overview', path: '/admin/dashboard', keywords: 'dashboard stats overview sales' },
+        { id: 'products', title: 'Products', subtitle: 'Inventory and catalog', path: '/admin/products', keywords: 'products inventory catalog stock items meat' },
+        { id: 'orders', title: 'Orders', subtitle: 'Customer orders and fulfillment', path: '/admin/orders', keywords: 'orders sales fulfillment delivery payment' },
+        { id: 'users', title: 'Users', subtitle: 'Customers and admins', path: '/admin/users', keywords: 'users customers admins accounts devices sessions' },
+        { id: 'analytics', title: 'Analytics', subtitle: 'Live visits and reports', path: '/admin/analytics', keywords: 'analytics visits live traffic reports' },
+        { id: 'communications', title: 'Communications', subtitle: 'Messages and support', path: '/admin/communications', keywords: 'communications messages support chat email sms whatsapp' },
+        { id: 'ads', title: 'Ad Management', subtitle: 'Banners, campaigns, media, links', path: '/admin/ads', keywords: 'ads adverts banners campaigns placements media images audio video links' },
+        { id: 'qr-codes', title: 'QR Codes', subtitle: 'Generate, print, and track QR codes', path: '/admin/qr-codes', keywords: 'qr code qrcode scan print share generate' },
+        { id: 'content', title: 'Content', subtitle: 'Website copy and images', path: '/admin/content', keywords: 'content hero homepage images text profile' },
+        { id: 'system-metrics', title: 'System Metrics', subtitle: 'Server, storage, and sessions', path: '/admin/system-metrics', keywords: 'system metrics storage device sessions location server' },
+        { id: 'settings', title: 'Settings', subtitle: 'Store configuration', path: '/admin/settings', keywords: 'settings configuration commerce language' },
+      ].filter((page) => `${page.title} ${page.subtitle} ${page.keywords}`.toLowerCase().includes(query.toLowerCase()))
+
       const [productsRes, ordersRes, usersRes] = await Promise.allSettled([
         api.get('/search/products', { params: { query, limit: 5 } }),
-        api.get('/orders', { params: { search: query, limit: 5 } }).catch(() => ({ data: { data: [] } })),
-        api.get('/users', { params: { search: query, limit: 5 } }).catch(() => ({ data: { data: [] } }))
+        api.get('/admin/orders', { params: { search: query, limit: 5 } }).catch(() => ({ data: { orders: [] } })),
+        api.get('/admin/users', { params: { search: query, limit: 5 } }).catch(() => ({ data: { users: [] } }))
       ])
 
-      const results: SearchResult[] = []
+      const results: SearchResult[] = pageResults.map((page) => ({
+        id: page.id,
+        type: 'page',
+        title: page.title,
+        subtitle: page.subtitle,
+        data: { path: page.path }
+      }))
 
       // Process products
       if (productsRes.status === 'fulfilled') {
@@ -64,13 +84,13 @@ export const adminSearchService = {
 
       // Process orders
       if (ordersRes.status === 'fulfilled') {
-        const orders = ordersRes.value.data.data || []
+        const orders = ordersRes.value.data.orders || ordersRes.value.data.data || []
         orders.forEach((order: any) => {
           results.push({
             id: order.id,
             type: 'order',
             title: `Order #${order.orderNumber || order.id.slice(0, 8)}`,
-            subtitle: formatPrice(Number(order.total) || 0),
+            subtitle: formatPrice(Number(order.totalAmount || order.total) || 0),
             data: order
           })
         })
@@ -78,12 +98,12 @@ export const adminSearchService = {
 
       // Process users
       if (usersRes.status === 'fulfilled') {
-        const users = usersRes.value.data.data || []
+        const users = usersRes.value.data.users || usersRes.value.data.data || []
         users.forEach((user: any) => {
           results.push({
             id: user.id,
             type: 'user',
-            title: user.email,
+            title: user.profile?.fullName || user.username || user.email,
             subtitle: user.phone || 'No phone',
             data: user
           })

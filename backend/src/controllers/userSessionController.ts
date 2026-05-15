@@ -207,6 +207,22 @@ export const getUserSessionDetails = asyncHandler(async (req: Request, res: Resp
   })
 })
 
+export const revokeSession = asyncHandler(async (req: Request, res: Response) => {
+  const { sessionId } = req.params
+  if (!sessionId) return res.status(400).json({ success: false, error: 'sessionId is required' })
+
+  const session = await prisma.userSession.update({
+    where: { id: sessionId },
+    data: {
+      isRevoked: true,
+      lastActivity: new Date(Date.now() - AWAY_WINDOW_MS - 1000),
+    },
+    include: sessionInclude,
+  })
+
+  res.json({ success: true, session: serializeSession(session) })
+})
+
 export const updateLastSeen = asyncHandler(async (req: Request, res: Response) => {
   const userId = (req as any).user?.id || req.body?.userId
   if (!userId) return res.status(400).json({ success: false, error: 'userId is required' })

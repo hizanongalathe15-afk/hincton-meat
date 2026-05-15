@@ -6,6 +6,7 @@ import { defaultSiteProfile, SiteProfile, useSiteContent } from '../contexts/Sit
 
 const toLines = (values: string[]) => values.join('\n')
 const fromLines = (value: string) => value.split('\n').map((line) => line.trim()).filter(Boolean)
+const slugify = (value: string) => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 const copyLabels: Record<'companyProfile' | 'mission' | 'vision' | 'procurementCommitment', string> = {
   companyProfile: 'Hero intro paragraph',
   mission: 'Mission',
@@ -20,17 +21,27 @@ const ContentPage = () => {
   const [qualityText, setQualityText] = useState(toLines(defaultSiteProfile.qualityPoints))
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [categories, setCategories] = useState<any[]>([])
+  const [categoryDraft, setCategoryDraft] = useState({ name: '', description: '', image: '' })
+  const [blogPosts, setBlogPosts] = useState<any[]>([])
+  const [blogDraft, setBlogDraft] = useState({ title: '', excerpt: '', content: '', featuredImage: '', category: 'Updates', tags: '', isPublished: true, isFeatured: false })
+  const pageKeys = ['about', 'farms', 'sustainability', 'contact', 'careers', 'wellness', 'returns', 'blog'] as const
 
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await contentApi.getSiteProfile()
+        const [data, categoriesData, blogData] = await Promise.all([
+          contentApi.getSiteProfile(),
+          contentApi.getCategories().catch(() => ({ categories: [] })),
+          contentApi.getBlogPosts({ limit: 50 }).catch(() => ({ posts: [] })),
+        ])
         const saved = data.profile || {}
         const next = {
           ...defaultSiteProfile,
           ...saved,
           brand: { ...defaultSiteProfile.brand, ...(saved.brand || {}) },
           images: { ...defaultSiteProfile.images, ...(saved.images || {}) },
+          pages: { ...defaultSiteProfile.pages, ...(saved.pages || {}) },
           markets: saved.markets || defaultSiteProfile.markets,
           qualityPoints: saved.qualityPoints || defaultSiteProfile.qualityPoints,
           terms: saved.terms || defaultSiteProfile.terms,
@@ -46,6 +57,8 @@ const ContentPage = () => {
         setProfile(next)
         setMarketsText(toLines(next.markets))
         setQualityText(toLines(next.qualityPoints))
+        setCategories(categoriesData.categories || [])
+        setBlogPosts(blogData.posts || [])
       } catch {
         toast.error('Could not load editable content')
       } finally {
@@ -60,8 +73,69 @@ const ContentPage = () => {
     setProfile((current) => ({ ...current, brand: { ...current.brand, [key]: value } }))
   }
 
+  const updateSocialLink = (index: number, field: 'label' | 'url', value: string) => {
+    setProfile((current) => {
+      const socialLinks = [...(current.brand.socialLinks || [])]
+      socialLinks[index] = { ...socialLinks[index], [field]: value }
+      return { ...current, brand: { ...current.brand, socialLinks } }
+    })
+  }
+
+  const addSocialLink = () => {
+    setProfile((current) => ({
+      ...current,
+      brand: { ...current.brand, socialLinks: [...(current.brand.socialLinks || []), { label: '', url: '' }] }
+    }))
+  }
+
+  const removeSocialLink = (index: number) => {
+    setProfile((current) => ({
+      ...current,
+      brand: { ...current.brand, socialLinks: (current.brand.socialLinks || []).filter((_, i) => i !== index) }
+    }))
+  }
+
   const updateImage = (key: keyof SiteProfile['images'], value: string) => {
     setProfile((current) => ({ ...current, images: { ...current.images, [key]: value } }))
+  }
+
+  const updatePage = (key: string, field: 'title' | 'subtitle' | 'body' | 'image' | 'video', value: string) => {
+    setProfile((current) => ({
+      ...current,
+      pages: {
+        ...current.pages,
+        [key]: { ...(current.pages[key] || defaultSiteProfile.pages.about), [field]: value },
+      },
+    }))
+  }
+
+  const updatePageSection = (pageKey: string, index: number, field: 'title' | 'body' | 'image' | 'video' | 'linkLabel' | 'linkUrl', value: string) => {
+    setProfile((current) => {
+      const page = current.pages[pageKey] || defaultSiteProfile.pages.about
+      const sections = [...(page.sections || [])]
+      sections[index] = { ...sections[index], [field]: value }
+      return { ...current, pages: { ...current.pages, [pageKey]: { ...page, sections } } }
+    })
+  }
+
+  const addPageSection = (pageKey: string) => {
+    setProfile((current) => {
+      const page = current.pages[pageKey] || defaultSiteProfile.pages.about
+      return {
+        ...current,
+        pages: { ...current.pages, [pageKey]: { ...page, sections: [...(page.sections || []), { title: '', body: '' }] } },
+      }
+    })
+  }
+
+  const removePageSection = (pageKey: string, index: number) => {
+    setProfile((current) => {
+      const page = current.pages[pageKey] || defaultSiteProfile.pages.about
+      return {
+        ...current,
+        pages: { ...current.pages, [pageKey]: { ...page, sections: (page.sections || []).filter((_, i) => i !== index) } },
+      }
+    })
   }
 
   const updateTerms = (index: number, field: 'title' | 'body', value: string) => {
@@ -157,6 +231,96 @@ const ContentPage = () => {
     }
   }
 
+  const uploadPageMedia = async (pageKey: string, field: 'image' | 'video', file?: File) => {
+    if (!file) return
+    try {
+      const data = await contentApi.uploadContentImage(file)
+      updatePage(pageKey, field, data.url)
+      toast.success('Media uploaded')
+    } catch {
+      toast.error('Could not upload media')
+    }
+  }
+
+  const createCategory = async () => {
+    const name = categoryDraft.name.trim()
+    if (!name) return
+    try {
+      const data = await contentApi.createCategory({
+        name,
+        slug: slugify(name),
+        description: categoryDraft.description,
+        image: categoryDraft.image || undefined,
+        isActive: true,
+      })
+      setCategories((current) => [data.category, ...current].sort((a, b) => a.name.localeCompare(b.name)))
+      setCategoryDraft({ name: '', description: '', image: '' })
+      toast.success('Category added')
+    } catch {
+      toast.error('Could not add category')
+    }
+  }
+
+  const updateCategory = async (category: any) => {
+    try {
+      await contentApi.updateCategory(category.id, {
+        name: category.name,
+        slug: category.slug || slugify(category.name),
+        description: category.description || '',
+        image: category.image || undefined,
+        isActive: category.isActive,
+      })
+      toast.success('Category updated')
+    } catch {
+      toast.error('Could not update category')
+    }
+  }
+
+  const archiveCategory = async (categoryId: string) => {
+    try {
+      await contentApi.deleteCategory(categoryId)
+      setCategories((current) => current.filter((category) => category.id !== categoryId))
+      toast.success('Category archived')
+    } catch {
+      toast.error('Could not archive category')
+    }
+  }
+
+  const saveBlogPost = async () => {
+    if (!blogDraft.title.trim() || !blogDraft.content.trim()) {
+      toast.error('Blog title and content are required')
+      return
+    }
+    try {
+      const data = await contentApi.createBlogPost({
+        title: blogDraft.title.trim(),
+        slug: slugify(blogDraft.title),
+        excerpt: blogDraft.excerpt.trim(),
+        content: blogDraft.content,
+        featuredImage: blogDraft.featuredImage.trim() || undefined,
+        category: blogDraft.category.trim() || 'Updates',
+        tags: fromLines(blogDraft.tags.replace(/,/g, '\n')),
+        isPublished: blogDraft.isPublished,
+        isFeatured: blogDraft.isFeatured,
+      })
+      setBlogPosts((current) => [data.post, ...current])
+      setBlogDraft({ title: '', excerpt: '', content: '', featuredImage: '', category: 'Updates', tags: '', isPublished: true, isFeatured: false })
+      toast.success('Blog post saved')
+    } catch {
+      toast.error('Could not save blog post')
+    }
+  }
+
+  const deleteBlogPost = async (id: string) => {
+    try {
+      await contentApi.deleteBlogPost(id)
+      setBlogPosts((current) => current.filter((post) => post.id !== id))
+      toast.success('Blog post deleted')
+    } catch {
+      toast.error('Could not delete blog post')
+    }
+  }
+
   const save = async () => {
     setSaving(true)
     try {
@@ -210,6 +374,135 @@ const ContentPage = () => {
                 className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
               />
             </label>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-gray-950">Social Links</h2>
+            <p className="mt-1 text-sm text-gray-600">Edit the real social links shown on the public site.</p>
+          </div>
+          <button type="button" onClick={addSocialLink} className="rounded bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Add Link</button>
+        </div>
+        <div className="mt-5 space-y-3">
+          {(profile.brand.socialLinks || []).map((link, index) => (
+            <div key={index} className="grid gap-3 md:grid-cols-[14rem_1fr_auto]">
+              <input value={link.label} onChange={(event) => updateSocialLink(index, 'label', event.target.value)} placeholder="Instagram" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+              <input value={link.url} onChange={(event) => updateSocialLink(index, 'url', event.target.value)} placeholder="https://..." className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+              <button type="button" onClick={() => removeSocialLink(index)} className="rounded border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Remove</button>
+            </div>
+          ))}
+          {!(profile.brand.socialLinks || []).length && <p className="text-sm text-gray-500">No social links yet.</p>}
+        </div>
+      </section>
+
+      <section className="rounded bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-gray-950">Product Categories</h2>
+        <p className="mt-1 text-sm text-gray-600">Categories are not fixed to meat. Add anything the business sells: utensils, cars, services, bundles, or future product lines.</p>
+        <div className="mt-5 grid gap-3 md:grid-cols-[14rem_1fr_1fr_auto]">
+          <input value={categoryDraft.name} onChange={(event) => setCategoryDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Category name" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+          <input value={categoryDraft.description} onChange={(event) => setCategoryDraft((current) => ({ ...current, description: event.target.value }))} placeholder="Description" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+          <input value={categoryDraft.image} onChange={(event) => setCategoryDraft((current) => ({ ...current, image: event.target.value }))} placeholder="Image URL or uploaded path" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+          <button type="button" onClick={createCategory} className="rounded bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700">Add Category</button>
+        </div>
+        <div className="mt-5 space-y-3">
+          {categories.map((category) => (
+            <div key={category.id} className="rounded border border-gray-200 p-4">
+              <div className="grid gap-3 md:grid-cols-[14rem_1fr_1fr_auto_auto]">
+                <input value={category.name || ''} onChange={(event) => setCategories((current) => current.map((item) => item.id === category.id ? { ...item, name: event.target.value, slug: slugify(event.target.value) } : item))} className="rounded border border-gray-300 px-3 py-2" />
+                <input value={category.description || ''} onChange={(event) => setCategories((current) => current.map((item) => item.id === category.id ? { ...item, description: event.target.value } : item))} placeholder="Description" className="rounded border border-gray-300 px-3 py-2" />
+                <input value={category.image || ''} onChange={(event) => setCategories((current) => current.map((item) => item.id === category.id ? { ...item, image: event.target.value } : item))} placeholder="Image" className="rounded border border-gray-300 px-3 py-2" />
+                <button type="button" onClick={() => updateCategory(category)} className="rounded bg-gray-900 px-3 py-2 text-sm font-semibold text-white">Save</button>
+                <button type="button" onClick={() => archiveCategory(category.id)} className="rounded border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Archive</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-gray-950">Editable Public Pages</h2>
+        <p className="mt-1 text-sm text-gray-600">Edit copy, images, videos, and sections for About, Farms, Sustainability, Contact, Careers, Blog, Wellness, and Returns.</p>
+        <div className="mt-5 space-y-6">
+          {pageKeys.map((key) => {
+            const page = profile.pages[key] || defaultSiteProfile.pages[key]
+            return (
+              <div key={key} className="rounded border border-gray-200 p-4">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-base font-bold capitalize text-gray-950">{key}</h3>
+                  <button type="button" onClick={() => addPageSection(key)} className="rounded bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Add Section</button>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <input value={page.title} onChange={(event) => updatePage(key, 'title', event.target.value)} placeholder="Page title" className="rounded border border-gray-300 px-3 py-2" />
+                  <input value={page.subtitle} onChange={(event) => updatePage(key, 'subtitle', event.target.value)} placeholder="Subtitle" className="rounded border border-gray-300 px-3 py-2" />
+                  <input value={page.image} onChange={(event) => updatePage(key, 'image', event.target.value)} placeholder="Hero image URL" className="rounded border border-gray-300 px-3 py-2" />
+                  <input value={page.video || ''} onChange={(event) => updatePage(key, 'video', event.target.value)} placeholder="Optional hero video URL" className="rounded border border-gray-300 px-3 py-2" />
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <input type="file" accept="image/*" onChange={(event) => uploadPageMedia(key, 'image', event.target.files?.[0])} className="text-sm text-gray-600" />
+                  <input type="file" accept="video/*" onChange={(event) => uploadPageMedia(key, 'video', event.target.files?.[0])} className="text-sm text-gray-600" />
+                </div>
+                <textarea value={page.body} onChange={(event) => updatePage(key, 'body', event.target.value)} rows={4} placeholder="Page body" className="mt-3 w-full rounded border border-gray-300 px-3 py-2" />
+                <div className="mt-4 space-y-3">
+                  {(page.sections || []).map((section, index) => (
+                    <div key={index} className="rounded bg-gray-50 p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-700">Section {index + 1}</span>
+                        <button type="button" onClick={() => removePageSection(key, index)} className="text-sm font-semibold text-red-700">Remove</button>
+                      </div>
+                      <div className="grid gap-2 md:grid-cols-2">
+                        <input value={section.title} onChange={(event) => updatePageSection(key, index, 'title', event.target.value)} placeholder="Section title" className="rounded border border-gray-300 px-3 py-2" />
+                        <input value={section.image || ''} onChange={(event) => updatePageSection(key, index, 'image', event.target.value)} placeholder="Image URL" className="rounded border border-gray-300 px-3 py-2" />
+                        <input value={section.video || ''} onChange={(event) => updatePageSection(key, index, 'video', event.target.value)} placeholder="Video URL" className="rounded border border-gray-300 px-3 py-2" />
+                        <input value={section.linkUrl || ''} onChange={(event) => updatePageSection(key, index, 'linkUrl', event.target.value)} placeholder="Optional link URL" className="rounded border border-gray-300 px-3 py-2" />
+                      </div>
+                      <textarea value={section.body || ''} onChange={(event) => updatePageSection(key, index, 'body', event.target.value)} rows={3} placeholder="Section body" className="mt-2 w-full rounded border border-gray-300 px-3 py-2" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      <section className="rounded bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-gray-950">Blog Posts</h2>
+        <p className="mt-1 text-sm text-gray-600">Create real backend blog posts with images, categories, tags, and Read More pages.</p>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <input value={blogDraft.title} onChange={(event) => setBlogDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Post title" className="rounded border border-gray-300 px-3 py-2" />
+          <input value={blogDraft.category} onChange={(event) => setBlogDraft((current) => ({ ...current, category: event.target.value }))} placeholder="Category" className="rounded border border-gray-300 px-3 py-2" />
+          <input value={blogDraft.featuredImage} onChange={(event) => setBlogDraft((current) => ({ ...current, featuredImage: event.target.value }))} placeholder="Featured image URL or uploaded path" className="rounded border border-gray-300 px-3 py-2" />
+          <input value={blogDraft.tags} onChange={(event) => setBlogDraft((current) => ({ ...current, tags: event.target.value }))} placeholder="Tags, comma separated" className="rounded border border-gray-300 px-3 py-2" />
+        </div>
+        <div className="mt-3">
+          <input type="file" accept="image/*" onChange={async (event) => {
+            const file = event.target.files?.[0]
+            if (!file) return
+            const data = await contentApi.uploadContentImage(file)
+            setBlogDraft((current) => ({ ...current, featuredImage: data.url }))
+          }} className="text-sm text-gray-600" />
+        </div>
+        <textarea value={blogDraft.excerpt} onChange={(event) => setBlogDraft((current) => ({ ...current, excerpt: event.target.value }))} rows={2} placeholder="Excerpt" className="mt-3 w-full rounded border border-gray-300 px-3 py-2" />
+        <textarea value={blogDraft.content} onChange={(event) => setBlogDraft((current) => ({ ...current, content: event.target.value }))} rows={7} placeholder="Full post content" className="mt-3 w-full rounded border border-gray-300 px-3 py-2" />
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={blogDraft.isPublished} onChange={(event) => setBlogDraft((current) => ({ ...current, isPublished: event.target.checked }))} /> Published</label>
+            <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={blogDraft.isFeatured} onChange={(event) => setBlogDraft((current) => ({ ...current, isFeatured: event.target.checked }))} /> Featured</label>
+          </div>
+          <button type="button" onClick={saveBlogPost} className="rounded bg-red-600 px-5 py-2 text-sm font-bold text-white hover:bg-red-700">Publish Post</button>
+        </div>
+        <div className="mt-6 space-y-3">
+          {blogPosts.map((post) => (
+            <div key={post.id} className="flex items-center justify-between rounded border border-gray-200 p-4">
+              <div>
+                <p className="font-semibold text-gray-950">{post.title}</p>
+                <p className="text-sm text-gray-500">{post.category || 'Blog'} · {post.status || (post.isPublished ? 'PUBLISHED' : 'DRAFT')}</p>
+              </div>
+              <button type="button" onClick={() => deleteBlogPost(post.id)} className="rounded border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Delete</button>
+            </div>
           ))}
         </div>
       </section>

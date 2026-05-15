@@ -8,6 +8,8 @@ import {
   Edit, 
   Eye, 
   MapPin,
+  Printer,
+  Share2,
 
   BarChart3
 } from 'lucide-react'
@@ -58,39 +60,40 @@ const QRCodeManager: FC = () => {
     fetchQRCodes()
   }, [])
 
+  const normalizeQRCode = (qr: any): QRCode => ({
+    id: qr.id,
+    name: qr.name,
+    type: String(qr.type || 'product').toLowerCase() as QRCode['type'],
+    destination: qr.destination || qr.referenceId || qr.url || '',
+    customUrl: qr.customUrl || qr.url,
+    settings: {
+      size: qr.settings?.size || 'medium',
+      color: qr.settings?.color || '#DC2626',
+      logo: qr.settings?.logo,
+      expirationDate: qr.settings?.expirationDate || qr.expiresAt,
+      maxScans: qr.settings?.maxScans || qr.maxScans
+    },
+    analytics: qr.analytics || {
+      totalScans: Array.isArray(qr.scans) ? qr.scans.length : Number(qr.scans || 0),
+      uniqueScanners: Array.isArray(qr.scans) ? qr.scans.length : Number(qr.scans || 0),
+      firstScanDate: qr.createdAt,
+      lastScanDate: qr.updatedAt || qr.createdAt,
+      avgScanDuration: 0,
+      timeOfDayData: [],
+      deviceData: [],
+      locationData: [],
+      conversionFromScan: 0,
+      bounceRate: 0
+    },
+    createdAt: qr.createdAt,
+    isActive: qr.isActive
+  })
+
   const fetchQRCodes = async () => {
     setLoading(true)
     try {
       const data = await qrCodesApi.getQRCodes()
-      // Transform API data to match component interface
-      const transformedQRCodes = (data.qrCodes || []).map((qr: any) => ({
-        id: qr.id,
-        name: qr.name,
-        type: qr.type.toLowerCase() as QRCode['type'],
-        destination: qr.referenceId || qr.url || '',
-        customUrl: qr.url,
-        settings: {
-          size: 'medium' as const,
-          color: '#000000',
-          expirationDate: qr.expiresAt,
-          maxScans: qr.maxScans
-        },
-        analytics: {
-          totalScans: qr.scans || 0,
-          uniqueScanners: qr.scans || 0,
-          firstScanDate: qr.createdAt,
-          lastScanDate: qr.updatedAt,
-          avgScanDuration: 0,
-          timeOfDayData: [],
-          deviceData: [],
-          locationData: [],
-          conversionFromScan: 0,
-          bounceRate: 0
-        },
-        createdAt: qr.createdAt,
-        isActive: qr.isActive
-      }))
-      setQrCodes(transformedQRCodes)
+      setQrCodes((data.qrCodes || []).map(normalizeQRCode))
     } catch (error) {
       console.error('Failed to fetch QR codes:', error)
     } finally {
@@ -103,37 +106,14 @@ const QRCodeManager: FC = () => {
       // Transform component data to API format
       const apiData = {
         name: qrData.name,
-        type: qrData.type?.toUpperCase(),
-        referenceId: qrData.destination,
-        url: qrData.customUrl,
+        type: qrData.type,
+        destination: qrData.destination,
+        customUrl: qrData.customUrl,
+        settings: qrData.settings,
         isActive: true
       }
       const response = await qrCodesApi.createQRCode(apiData)
-      const newQR = {
-        id: response.qrCode.id,
-        name: response.qrCode.name,
-        type: response.qrCode.type.toLowerCase() as QRCode['type'],
-        destination: response.qrCode.referenceId || response.qrCode.url || '',
-        customUrl: response.qrCode.url,
-        settings: {
-          size: 'medium' as const,
-          color: '#000000'
-        },
-        analytics: {
-          totalScans: 0,
-          uniqueScanners: 0,
-          firstScanDate: response.qrCode.createdAt,
-          lastScanDate: response.qrCode.createdAt,
-          avgScanDuration: 0,
-          timeOfDayData: [],
-          deviceData: [],
-          locationData: [],
-          conversionFromScan: 0,
-          bounceRate: 0
-        },
-        createdAt: response.qrCode.createdAt,
-        isActive: response.qrCode.isActive
-      }
+      const newQR = normalizeQRCode(response.qrCode)
       setQrCodes(prev => [newQR, ...prev])
       setShowCreateModal(false)
     } catch (error) {
@@ -142,13 +122,7 @@ const QRCodeManager: FC = () => {
   }
 
   const downloadQRCode = (qrCode: QRCode, format: 'png' | 'svg' | 'pdf' = 'png') => {
-    // Generate QR code using QRCode library
-    const qrData = JSON.stringify({
-      type: qrCode.type,
-      destination: qrCode.destination,
-      name: qrCode.name
-    })
-    
+    const qrData = qrCodesApi.getScanUrl(qrCode.id)
     const size = qrCode.settings.size === 'small' ? 128 : qrCode.settings.size === 'medium' ? 256 : 512
     let filename = `qrcode-${qrCode.id}-${qrCode.name.replace(/\s+/g, '-').toLowerCase()}`
 
@@ -184,6 +158,26 @@ const QRCodeManager: FC = () => {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+  }
+
+  const printQRCode = (qrCode: QRCode) => {
+    const qrData = qrCodesApi.getScanUrl(qrCode.id)
+    const size = qrCode.settings.size === 'small' ? 128 : qrCode.settings.size === 'medium' ? 256 : 512
+    QRCodeLib.toDataURL(qrData, { width: size, margin: 2, color: { dark: qrCode.settings.color, light: '#FFFFFF' } }, (_error, url) => {
+      const printWindow = window.open('', '_blank', 'noopener,noreferrer')
+      if (!printWindow) return
+      printWindow.document.write(`<html><head><title>${qrCode.name}</title></head><body style="font-family:sans-serif;text-align:center;padding:32px"><h1>${qrCode.name}</h1><img src="${url}" width="${size}" height="${size}" /><p>${qrData}</p><script>window.onload=()=>window.print()</script></body></html>`)
+      printWindow.document.close()
+    })
+  }
+
+  const shareQRCode = async (qrCode: QRCode) => {
+    const url = qrCodesApi.getScanUrl(qrCode.id)
+    if (navigator.share) {
+      await navigator.share({ title: qrCode.name, text: qrCode.name, url })
+      return
+    }
+    await copyToClipboard(url)
   }
 
   const copyToClipboard = async (text: string) => {
@@ -234,20 +228,6 @@ const QRCodeManager: FC = () => {
       setQrCodes(prev => [response.qrCode, ...prev])
     } catch (error) {
       console.error('Failed to duplicate QR code:', error)
-    }
-  }
-
-  const getQRTypeIcon = (type: string) => {
-    switch (type) {
-      case 'product': return '📦'
-      case 'category': return '📂'
-      case 'discount': return '🏷️'
-      case 'cart': return '🛒'
-      case 'checkout': return '💳'
-      case 'wishlist': return '❤️'
-      case 'location': return '📍'
-      case 'support': return '💬'
-      default: return '📱'
     }
   }
 
@@ -368,12 +348,7 @@ const QRCodeManager: FC = () => {
                   <tr key={qrCode.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div 
-                          className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-lg"
-                          style={{ backgroundColor: qrCode.settings.color + '20' }}
-                        >
-                          {getQRTypeIcon(qrCode.type)}
-                        </div>
+                        <QRPreview qrCode={qrCode} className="h-12 w-12 rounded border border-gray-200 bg-white p-1" />
                         <div>
                           <div className="font-medium text-gray-900">{qrCode.name}</div>
                           <div className="text-sm text-gray-500">{getQRTypeLabel(qrCode.type)}</div>
@@ -426,9 +401,9 @@ const QRCodeManager: FC = () => {
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => copyToClipboard(qrCode.destination)}
+                          onClick={() => copyToClipboard(qrCodesApi.getScanUrl(qrCode.id))}
                           className="text-green-600 hover:text-green-900"
-                          title="Copy Link"
+                          title="Copy scan link"
                         >
                           <Copy className="w-4 h-4" />
                         </button>
@@ -440,6 +415,20 @@ const QRCodeManager: FC = () => {
                           <Download className="w-4 h-4" />
                         </button>
                         <button
+                          onClick={() => printQRCode(qrCode)}
+                          className="text-slate-600 hover:text-slate-900"
+                          title="Print QR"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => shareQRCode(qrCode)}
+                          className="text-cyan-600 hover:text-cyan-900"
+                          title="Share QR link"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => duplicateQRCode(qrCode)}
                           className="text-purple-600 hover:text-purple-900"
                           title="Duplicate"
@@ -447,7 +436,10 @@ const QRCodeManager: FC = () => {
                           <Plus className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => setSelectedQR(qrCode)}
+                          onClick={() => {
+                            setSelectedQR(qrCode)
+                            setShowEditModal(true)
+                          }}
                           className="text-orange-600 hover:text-orange-900"
                           title="Edit"
                         >
@@ -608,11 +600,9 @@ const QRCodeManager: FC = () => {
       {showEditModal && selectedQR && (
         <QRCodeModal
           onClose={() => setShowEditModal(false)}
-          onSave={(updatedQR) => {
-            // Update the QR code in the list
-            setQrCodes(prev => 
-              prev.map(qr => qr.id === selectedQR.id ? { ...qr, ...updatedQR } : qr)
-            )
+          onSave={async (updatedQR) => {
+            const response = await qrCodesApi.updateQRCode(selectedQR.id, updatedQR)
+            setQrCodes(prev => prev.map(qr => qr.id === selectedQR.id ? normalizeQRCode(response.qrCode) : qr))
             setShowEditModal(false)
             setSelectedQR(null)
           }}
@@ -637,10 +627,52 @@ const QRCodeManager: FC = () => {
 )
 }
 
+const QRPreview: FC<{ qrCode: QRCode; className?: string }> = ({ qrCode, className = '' }) => {
+  const [src, setSrc] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    const size = qrCode.settings.size === 'small' ? 128 : qrCode.settings.size === 'medium' ? 256 : 512
+    QRCodeLib.toDataURL(qrCodesApi.getScanUrl(qrCode.id), {
+      width: size,
+      margin: 2,
+      color: {
+        dark: qrCode.settings.color,
+        light: '#FFFFFF'
+      }
+    }, (error, url) => {
+      if (!cancelled && !error) setSrc(url)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [qrCode.id, qrCode.settings.color, qrCode.settings.size])
+
+  if (!src) {
+    return <div className={`flex items-center justify-center text-lg ${className}`}>{getQRTypeFallback(qrCode.type)}</div>
+  }
+
+  return <img src={src} alt={`${qrCode.name} QR code`} className={className} />
+}
+
+const getQRTypeFallback = (type: string) => {
+  switch (type) {
+    case 'product': return 'P'
+    case 'category': return 'C'
+    case 'discount': return '%'
+    case 'cart': return 'C'
+    case 'checkout': return '$'
+    case 'wishlist': return 'W'
+    case 'location': return 'L'
+    case 'support': return 'S'
+    default: return 'Q'
+  }
+}
+
 // QR Code Modal Component
 interface QRCodeModalProps {
   onClose: () => void
-  onSave: (qrData: Partial<QRCode>) => void
+  onSave: (qrData: Partial<QRCode>) => void | Promise<void>
   qrCode?: QRCode
   mode: 'add' | 'edit'
 }

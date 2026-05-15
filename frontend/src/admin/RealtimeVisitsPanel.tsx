@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Activity, ExternalLink, Eye, Link as LinkIcon, RefreshCw, Users } from 'lucide-react'
 import { analyticsApi } from '../services/adminApi'
 import LinkifiedText from '../components/ui/LinkifiedText'
@@ -30,23 +30,36 @@ const RealtimeVisitsPanel = () => {
   const [data, setData] = useState<RealtimeVisits | null>(null)
   const [loading, setLoading] = useState(true)
   const [autoSync, setAutoSync] = useState(true)
+  const abortRef = useRef<AbortController | null>(null)
 
-  const loadVisits = async () => {
+  const loadVisits = useCallback(async () => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+    setLoading(true)
     try {
-      const response = await analyticsApi.getRealtimeVisits()
+      const response = await analyticsApi.getRealtimeVisits(controller.signal)
       setData(response)
+    } catch (error: any) {
+      if (error?.name !== 'CanceledError' && error?.message !== 'canceled') {
+        console.error('Failed to load live visits:', error)
+      }
     } finally {
-      setLoading(false)
+      if (abortRef.current === controller) {
+        abortRef.current = null
+        setLoading(false)
+      }
     }
-  }
-
-  useEffect(() => {
-    loadVisits()
   }, [])
 
   useEffect(() => {
+    loadVisits()
+    return () => abortRef.current?.abort()
+  }, [loadVisits])
+
+  useEffect(() => {
     if (!autoSync) return
-    const intervalId = window.setInterval(loadVisits, 10000)
+    const intervalId = window.setInterval(loadVisits, 30000)
     const handleVisibilityChange = () => {
       if (!document.hidden) loadVisits()
     }
@@ -55,7 +68,7 @@ const RealtimeVisitsPanel = () => {
       window.clearInterval(intervalId)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [autoSync])
+  }, [autoSync, loadVisits])
 
   const statCards = [
     { label: 'Visits Today', value: data?.today.visits ?? 0, icon: Eye, color: 'bg-blue-500' },

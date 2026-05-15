@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { API_TIMEOUT_MS, API_URL, getApiErrorMessage } from './api'
+import { API_TIMEOUT_MS, API_URL, getApiErrorMessage, getApiHost } from './api'
 
 const API_BASE_URL = API_URL
 
@@ -257,7 +257,7 @@ export const contentApi = {
 
   uploadContentImage: async (file: File) => {
     const data = new FormData()
-    data.append('image', file)
+    data.append('media', file)
     const response = await apiClient.post('/admin/content/uploads', data, { headers: { 'Content-Type': 'multipart/form-data' } })
     return response.data
   }
@@ -351,7 +351,12 @@ export const systemApi = {
 
   getAdminSessions: async () => {
     const response = await apiClient.get('/user-sessions/admin/realtime')
-    return response.data  }
+    return response.data  },
+
+  revokeAdminSession: async (sessionId: string) => {
+    const response = await apiClient.post(`/user-sessions/admin/revoke/${sessionId}`)
+    return response.data
+  }
 }
 
 // QR Codes API
@@ -362,14 +367,21 @@ export const qrCodesApi = {
   },
 
   createQRCode: async (data: any) => {
-    const response = await apiClient.post('/admin/qr-codes', data)
+    const response = await apiClient.post('/admin/qr-codes/generate', data)
+    return response.data
+  },
+
+  updateQRCode: async (id: string, data: any) => {
+    const response = await apiClient.put(`/admin/qr-codes/${id}`, data)
     return response.data
   },
 
   deleteQRCode: async (id: string) => {
     const response = await apiClient.delete(`/admin/qr-codes/${id}`)
     return response.data
-  }
+  },
+
+  getScanUrl: (id: string) => `${getApiHost()}/api/qr-codes/${id}`
 }
 
 // Analytics API
@@ -379,8 +391,8 @@ export const analyticsApi = {
     return response.data
   },
 
-  getRealtimeVisits: async () => {
-    const response = await apiClient.get('/analytics/realtime-visits')
+  getRealtimeVisits: async (signal?: AbortSignal) => {
+    const response = await apiClient.get('/analytics/realtime-visits', { signal })
     return response.data
   },
 
@@ -408,54 +420,54 @@ export const analyticsApi = {
 // Ad Management API
 export const adsApi = {
   getPlacements: async (page = 1, limit = 50) => {
-    const response = await apiClient.get(`/ads/placements?page=${page}&limit=${limit}`)
+    const response = await apiClient.get('/marketing/placements', { params: { page, limit } })
     return response.data
   },
 
   getCampaigns: async (page = 1, limit = 50) => {
-    const response = await apiClient.get(`/ads/campaigns?page=${page}&limit=${limit}`)
+    const response = await apiClient.get('/marketing/campaigns', { params: { page, limit } })
     return response.data
   },
 
   getAnalytics: async (period = '30') => {
-    const response = await apiClient.get(`/ads/analytics?period=${period}`)
+    const response = await apiClient.get('/marketing/analytics', { params: { period } })
     return response.data
   },
 
   createPlacement: async (data: any) => {
-    const response = await apiClient.post('/ads/placements', data)
+    const response = await apiClient.post('/marketing/placements', data)
     return response.data
   },
 
   createCampaign: async (data: any) => {
-    const response = await apiClient.post('/ads/campaigns', data)
+    const response = await apiClient.post('/marketing/campaigns', data)
     return response.data
   },
 
   updatePlacement: async (id: string, data: any) => {
-    const response = await apiClient.put(`/ads/placements/${id}`, data)
+    const response = await apiClient.put(`/marketing/placements/${id}`, data)
     return response.data
   },
 
   updateCampaign: async (id: string, data: any) => {
-    const response = await apiClient.put(`/ads/campaigns/${id}`, data)
+    const response = await apiClient.put(`/marketing/campaigns/${id}`, data)
     return response.data
   },
 
   deletePlacement: async (id: string) => {
-    const response = await apiClient.delete(`/ads/placements/${id}`)
+    const response = await apiClient.delete(`/marketing/placements/${id}`)
     return response.data
   },
 
   deleteCampaign: async (id: string) => {
-    const response = await apiClient.delete(`/ads/campaigns/${id}`)
+    const response = await apiClient.delete(`/marketing/campaigns/${id}`)
     return response.data
   },
 
   uploadMedia: async (file: File) => {
     const data = new FormData()
     data.append('media', file)
-    const response = await apiClient.post('/ads/upload-media', data, { headers: { 'Content-Type': 'multipart/form-data' } })
+    const response = await apiClient.post('/marketing/upload-media', data, { headers: { 'Content-Type': 'multipart/form-data' } })
     return response.data
   }
 }

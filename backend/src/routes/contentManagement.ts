@@ -28,8 +28,11 @@ const contentUpload = multer({
     },
     filename: (_req, file, cb) => cb(null, `content-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`),
   }),
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => file.mimetype.startsWith('image/') ? cb(null, true) : cb(new Error('Only image files are allowed')),
+  limits: { fileSize: 80 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/') || file.mimetype.startsWith('audio/')) return cb(null, true)
+    cb(new Error('Only image, video, or audio files are allowed'))
+  },
 })
 
 // Middleware to check admin permissions
@@ -64,6 +67,11 @@ const defaultSiteProfile = {
     address: 'Summit House, Waiyaki Way, Nairobi, Kenya',
     socialHandle: '@hinctonmeatproducts',
     logo: '/hincton/logo.png',
+    socialLinks: [
+      { label: 'Instagram', url: 'https://www.instagram.com/hinctonmeatproducts' },
+      { label: 'Facebook', url: 'https://www.facebook.com/' },
+      { label: 'WhatsApp', url: 'https://wa.me/254759901357' },
+    ],
   },
   companyProfile:
     'Hincton Meat Products is a leading supplier of high-quality meat products specializing in goat, beef, chicken, and other livestock products. Located in Nairobi, Kenya, we serve both local and international markets with fresh, safe, and nutritious meat products.',
@@ -87,6 +95,23 @@ const defaultSiteProfile = {
     about: '/hincton/beef-fresh.webp',
     market: '/hincton/cattle-market.webp',
     logo: '/hincton/logo.png',
+    contact: '/hincton/hero-platter.webp',
+    farms: '/hincton/cattle-market.webp',
+    sustainability: '/hincton/beef-fresh.webp',
+    careers: '/hincton/logo.png',
+    blog: '/hincton/hero-platter.webp',
+    wellness: '/hincton/beef-fresh.webp',
+    returns: '/hincton/hero-platter.webp',
+  },
+  pages: {
+    about: { title: 'About Us', subtitle: 'Quality, freshness, and integrity from supplier to customer.', body: 'Hincton Meat Products is a leading supplier of high-quality meat products.', image: '/hincton/beef-fresh.webp', sections: [] },
+    farms: { title: 'Our Farms', subtitle: 'Trusted supplier relationships and transparent sourcing.', body: 'We work with farms and suppliers that meet our quality, food safety, and handling standards.', image: '/hincton/cattle-market.webp', sections: [] },
+    sustainability: { title: 'Sustainability', subtitle: 'Responsible sourcing, cold-chain handling, and reduced waste.', body: 'Our sustainability approach focuses on efficient operations, responsible procurement, and safe product handling.', image: '/hincton/beef-fresh.webp', sections: [] },
+    contact: { title: 'Contact', subtitle: 'Talk to our team about orders, supply, delivery, or partnerships.', body: 'Contact Hincton Meat Products for retail, wholesale, foodservice, and export enquiries.', image: '/hincton/hero-platter.webp', sections: [] },
+    careers: { title: 'Careers', subtitle: 'Join the team behind Hincton Meat Products.', body: 'Explore roles in operations, delivery, customer care, procurement, technology, and retail support.', image: '/hincton/logo.png', sections: [] },
+    wellness: { title: 'Wellness', subtitle: 'Practical food handling, nutrition, and kitchen guidance.', body: 'Read practical guidance for safe storage, balanced meals, preparation, and freshness.', image: '/hincton/beef-fresh.webp', sections: [] },
+    returns: { title: 'Returns', subtitle: 'Clear support for order, quality, and delivery issues.', body: 'Because fresh products are perishable, returns are reviewed quickly with order details, timing, and supporting photos where relevant.', image: '/hincton/hero-platter.webp', sections: [] },
+    blog: { title: 'Blog', subtitle: 'Stories, guides, updates, and recipes from the Hincton team.', body: 'Browse posts from the admin-managed blog.', image: '/hincton/hero-platter.webp', sections: [] },
   },
   terms: [
     {
@@ -211,8 +236,12 @@ const siteProfileSchema = z.object({
     address: z.string().min(1),
     socialHandle: z.string().optional(),
     logo: z.string().min(1),
+    socialLinks: z.array(z.object({
+      label: z.string().min(1),
+      url: z.string().min(1),
+    })).default([]).optional(),
   }),
-  companyProfile: z.string().min(1),
+  companyProfile: z.string().trim().min(40),
   mission: z.string().min(1),
   vision: z.string().min(1),
   procurementCommitment: z.string().min(1),
@@ -223,7 +252,22 @@ const siteProfileSchema = z.object({
     about: z.string().min(1),
     market: z.string().min(1),
     logo: z.string().min(1),
-  }),
+  }).catchall(z.string().optional()),
+  pages: z.record(z.string(), z.object({
+    title: z.string().min(1),
+    subtitle: z.string().optional().default(''),
+    body: z.string().optional().default(''),
+    image: z.string().optional().default(''),
+    video: z.string().optional(),
+    sections: z.array(z.object({
+      title: z.string().min(1),
+      body: z.string().optional().default(''),
+      image: z.string().optional(),
+      video: z.string().optional(),
+      linkLabel: z.string().optional(),
+      linkUrl: z.string().optional(),
+    })).default([]),
+  })).default({}),
   terms: z.array(z.object({
     title: z.string().min(1),
     body: z.string().min(1),
@@ -268,11 +312,12 @@ router.put('/site-profile', async (req, res) => {
   }
 })
 
-router.post('/uploads', contentUpload.single('image'), async (req, res) => {
+router.post('/uploads', contentUpload.single('media'), async (req, res) => {
   try {
     const file = req.file
-    if (!file) return res.status(400).json({ error: 'Image is required' })
-    res.status(201).json({ url: `/uploads/content/${file.filename}` })
+    if (!file) return res.status(400).json({ error: 'Media file is required' })
+    const mediaType = file.mimetype.startsWith('video/') ? 'video' : file.mimetype.startsWith('audio/') ? 'audio' : 'image'
+    res.status(201).json({ url: `/uploads/content/${file.filename}`, mediaType })
   } catch (error) {
     console.error('Content upload error:', error)
     res.status(500).json({ error: 'Failed to upload image' })
@@ -398,8 +443,8 @@ router.get('/blog', async (req, res) => {
 
     const where: any = {}
     
-    if (status === 'published') where.isPublished = true
-    if (status === 'draft') where.isPublished = false
+    if (status === 'published') where.status = 'PUBLISHED'
+    if (status === 'draft') where.status = 'DRAFT'
     if (search) {
       where.OR = [
         { title: { contains: String(search), mode: 'insensitive' } },
@@ -439,7 +484,7 @@ router.post('/blog', async (req: any, res) => {
       slug: z.string().min(1),
       content: z.string().min(1),
       excerpt: z.string().optional(),
-      featuredImage: z.string().url().optional(),
+      featuredImage: z.string().min(1).optional(),
       isPublished: z.boolean().default(false),
       isFeatured: z.boolean().default(false),
       tags: z.array(z.string()).optional(),
@@ -447,11 +492,16 @@ router.post('/blog', async (req: any, res) => {
       metaDescription: z.string().optional()
     }).parse(req.body)
 
+    const { isPublished, metaTitle, metaDescription, tags, ...blogData } = postData
     const post = await prisma.blogPost.create({
       data: {
-        ...postData,
+        ...blogData,
         authorId: req.user!.id,
-        tags: postData.tags ? JSON.stringify(postData.tags) : null
+        tags: tags ? JSON.stringify(tags) : null,
+        status: isPublished ? 'PUBLISHED' : 'DRAFT',
+        publishedAt: isPublished ? new Date() : null,
+        seoTitle: metaTitle,
+        seoDescription: metaDescription,
       },
       include: {
         author: { select: { id: true, username: true } }
@@ -473,7 +523,7 @@ router.put('/blog/:id', async (req, res) => {
       slug: z.string().min(1).optional(),
       content: z.string().min(1).optional(),
       excerpt: z.string().optional(),
-      featuredImage: z.string().url().optional(),
+      featuredImage: z.string().min(1).optional(),
       isPublished: z.boolean().optional(),
       isFeatured: z.boolean().optional(),
       tags: z.array(z.string()).optional(),
@@ -481,11 +531,15 @@ router.put('/blog/:id', async (req, res) => {
       metaDescription: z.string().optional()
     }).parse(req.body)
 
+    const { isPublished, metaTitle, metaDescription, tags, ...blogData } = postData
     const post = await prisma.blogPost.update({
       where: { id },
       data: {
-        ...postData,
-        ...(postData.tags && { tags: JSON.stringify(postData.tags) })
+        ...blogData,
+        ...(tags && { tags: JSON.stringify(tags) }),
+        ...(typeof isPublished === 'boolean' && { status: isPublished ? 'PUBLISHED' : 'DRAFT', publishedAt: isPublished ? new Date() : null }),
+        ...(metaTitle !== undefined && { seoTitle: metaTitle }),
+        ...(metaDescription !== undefined && { seoDescription: metaDescription }),
       },
       include: {
         author: { select: { id: true, username: true } }
@@ -542,7 +596,7 @@ router.post('/categories', async (req, res) => {
       name: z.string().min(1),
       slug: z.string().min(1),
       description: z.string().optional(),
-      image: z.string().url().optional(),
+      image: z.string().min(1).optional(),
       parentId: z.string().optional(),
       isActive: z.boolean().default(true),
       metaTitle: z.string().optional(),
@@ -571,7 +625,7 @@ router.put('/categories/:id', async (req, res) => {
       name: z.string().min(1).optional(),
       slug: z.string().min(1).optional(),
       description: z.string().optional(),
-      image: z.string().url().optional(),
+      image: z.string().min(1).optional(),
       parentId: z.string().optional(),
       isActive: z.boolean().optional(),
       metaTitle: z.string().optional(),
@@ -591,6 +645,20 @@ router.put('/categories/:id', async (req, res) => {
   } catch (error) {
     console.error('Update category error:', error)
     res.status(500).json({ error: 'Failed to update category' })
+  }
+})
+
+router.delete('/categories/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    await prisma.category.update({
+      where: { id },
+      data: { isActive: false, deletedAt: new Date() },
+    })
+    res.json({ message: 'Category archived successfully' })
+  } catch (error) {
+    console.error('Delete category error:', error)
+    res.status(500).json({ error: 'Failed to archive category' })
   }
 })
 

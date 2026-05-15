@@ -57,7 +57,7 @@ interface AdCampaign {
     description: string
     imageUrl?: string
     mediaUrl?: string
-    mediaType?: 'image' | 'gif' | 'video' | 'sticker'
+    mediaType?: 'image' | 'gif' | 'video' | 'audio' | 'sticker'
     stickerUrl?: string
     landingUrl: string
     buttonText?: string
@@ -113,7 +113,7 @@ const AdManagement = () => {
     description: '',
     imageUrl: '',
     mediaUrl: '',
-    mediaType: 'image' as 'image' | 'gif' | 'video' | 'sticker',
+    mediaType: 'image' as 'image' | 'gif' | 'video' | 'audio' | 'sticker',
     stickerUrl: '',
     landingUrl: '',
     buttonText: 'Shop now',
@@ -287,8 +287,8 @@ const AdManagement = () => {
       setCampaignForm((current) => ({
         ...current,
         mediaUrl,
-        imageUrl: uploaded.mediaType === 'video' ? current.imageUrl : mediaUrl,
-        mediaType: uploaded.mediaType || (file.type.startsWith('video/') ? 'video' : file.type === 'image/gif' ? 'gif' : 'image'),
+        imageUrl: uploaded.mediaType === 'video' || uploaded.mediaType === 'audio' ? current.imageUrl : mediaUrl,
+        mediaType: uploaded.mediaType || (file.type.startsWith('audio/') ? 'audio' : file.type.startsWith('video/') ? 'video' : file.type === 'image/gif' ? 'gif' : 'image'),
       }))
       toast.success('Ad media uploaded')
     } catch (error: any) {
@@ -749,7 +749,7 @@ const AdManagement = () => {
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Landing URL</label>
-                <input required type="url" value={campaignForm.landingUrl} onChange={(event) => setCampaignForm({ ...campaignForm, landingUrl: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" />
+                <input required type="text" value={campaignForm.landingUrl} onChange={(event) => setCampaignForm({ ...campaignForm, landingUrl: event.target.value })} placeholder="/shop or https://example.com" className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Media URL</label>
@@ -758,19 +758,23 @@ const AdManagement = () => {
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_12rem]">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Upload image, GIF, sticker, or video</label>
-                <input type="file" accept="image/*,video/*" onChange={(event) => uploadCampaignMedia(event.target.files?.[0])} className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <label className="block text-sm font-medium text-gray-700">Upload image, GIF, sticker, video, or audio</label>
+                <input type="file" accept="image/*,video/*,audio/*" onChange={(event) => uploadCampaignMedia(event.target.files?.[0])} className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Media type</label>
                 <select value={campaignForm.mediaType} onChange={(event) => setCampaignForm({ ...campaignForm, mediaType: event.target.value as any })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
-                  {['image', 'gif', 'video', 'sticker'].map((type) => <option key={type} value={type}>{type}</option>)}
+                  {['image', 'gif', 'video', 'audio', 'sticker'].map((type) => <option key={type} value={type}>{type}</option>)}
                 </select>
               </div>
             </div>
             {campaignForm.mediaUrl && (
               <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-                {campaignForm.mediaType === 'video' ? (
+                {campaignForm.mediaType === 'audio' ? (
+                  <div className="p-4">
+                    <audio src={campaignForm.mediaUrl} controls className="w-full" />
+                  </div>
+                ) : campaignForm.mediaType === 'video' ? (
                   <video src={campaignForm.mediaUrl} controls className="h-48 w-full object-cover" />
                 ) : (
                   <img src={campaignForm.mediaUrl} alt="Ad media preview" className="h-48 w-full object-cover" />

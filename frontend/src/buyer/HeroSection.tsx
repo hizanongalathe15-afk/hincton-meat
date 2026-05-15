@@ -3,6 +3,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { useSiteContent } from '../contexts/SiteContentContext'
 import { useTypewriter } from '../utils/animations'
 import { COMPANY_PROFILE, HINCTON_BRAND } from '../utils/hinctonBrand'
+import { useMemo } from 'react'
 
 interface HeroSectionProps {
   onSearch?: (query: string) => void
@@ -15,12 +16,16 @@ const HeroSection = ({ onSearch }: HeroSectionProps) => {
   const brand = profile.brand
   const brandTagline = brand.tagline === HINCTON_BRAND.tagline ? t('brand.tagline') : brand.tagline
   const brandMantra = brand.mantra === HINCTON_BRAND.mantra ? t('brand.mantra') : brand.mantra
-  const companyProfile = profile.companyProfile === COMPANY_PROFILE ? t('company.profile') : profile.companyProfile
-  const { text: typedCompanyProfile, isTyping } = useTypewriter({
+  const savedCompanyProfile = profile.companyProfile?.trim() || ''
+  const companyProfile = savedCompanyProfile === COMPANY_PROFILE || savedCompanyProfile.length < 40
+    ? t('company.profile')
+    : savedCompanyProfile
+  const typewriterOptions = useMemo(() => ({
     text: companyProfile,
     speed: 90,
     delay: 350,
-  })
+  }), [companyProfile])
+  const { text: typedCompanyProfile, isTyping } = useTypewriter(typewriterOptions)
 
   return (
     <section className="relative min-h-[520px] md:min-h-[660px] overflow-hidden bg-[#333437]">
@@ -48,6 +53,8 @@ const HeroSection = ({ onSearch }: HeroSectionProps) => {
             <p
               className="relative mb-8 grid max-w-2xl text-base leading-7 text-gray-100 sm:text-lg sm:leading-8"
               aria-label={companyProfile}
+              translate="no"
+              data-no-auto-translate
             >
               <span className="invisible col-start-1 row-start-1" aria-hidden="true">
                 {companyProfile}

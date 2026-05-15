@@ -33,7 +33,7 @@ const SnapchatIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 )
 
-const socialLinks = [
+const defaultSocialLinks = [
   {
     label: 'Instagram',
     href: 'https://instagram.com/hinctonmeatproducts',
@@ -63,6 +63,12 @@ const socialLinks = [
 const Footer = () => {
   const { profile } = useSiteContent()
   const brand = profile.brand
+  const visibleSocialLinks = (brand.socialLinks?.length ? brand.socialLinks.map((link) => ({
+    label: link.label,
+    href: link.url,
+    icon: Instagram,
+    bgClass: 'bg-gray-800 text-white',
+  })) : defaultSocialLinks)
 
   return (
     <footer className="mt-auto bg-gray-950 py-14 text-white" aria-label="Site footer">
@@ -132,7 +138,7 @@ const Footer = () => {
         <div className="mt-10 flex flex-col gap-4 border-t border-gray-800 pt-8 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-gray-400">Connect with us for fresh updates, special offers, and product drops.</p>
           <div className="flex flex-wrap items-center gap-3">
-            {socialLinks.map((link) => {
+            {visibleSocialLinks.map((link) => {
               const Icon = link.icon
               return (
                 <a

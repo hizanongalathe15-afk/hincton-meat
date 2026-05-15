@@ -8,6 +8,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import fs from 'fs';
 import path from 'path';
+import multer from 'multer';
 import { prisma } from './config/prisma'
 import { cacheService } from './services/cacheService'
 
@@ -125,6 +126,19 @@ const staticMediaHeaders = (res: express.Response) => {
 
 const uploadStaticPath = path.resolve(process.env.UPLOAD_DIR || 'uploads');
 app.use('/uploads', express.static(uploadStaticPath, { setHeaders: staticMediaHeaders }));
+const contactUploadPath = path.join(uploadStaticPath, 'contact');
+fs.mkdirSync(contactUploadPath, { recursive: true });
+const contactUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, contactUploadPath),
+    filename: (_req, file, cb) => cb(null, `contact-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`),
+  }),
+  limits: { fileSize: 80 * 1024 * 1024, files: 5 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) return cb(null, true);
+    cb(new Error('Only image and video attachments are allowed'));
+  },
+});
 
 const hinctonStaticCandidates = [
   path.resolve(process.cwd(), 'frontend/public/hincton'),
@@ -158,6 +172,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api', optionalAuthenticate, qrCodeRoutes);
 app.use('/api/admin/system', authenticate, authorize('ADMIN'), systemMetricsRoutes);
 app.use('/api/ads', adRoutes);
+app.use('/api/marketing', adRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
 const safeJsonParse = <T = any>(value: string | undefined, fallback: T): T => {
@@ -303,7 +318,7 @@ const getOrCreateContactUser = async (contact: { name: string; email: string; ph
   })
 }
 
-app.post('/api/content/contact/submit', optionalAuthenticate, async (req: any, res) => {
+app.post('/api/content/contact/submit', optionalAuthenticate, contactUpload.array('attachments', 5), async (req: any, res) => {
   try {
     const body = req.body || {}
     const contactData = {
@@ -324,6 +339,7 @@ app.post('/api/content/contact/submit', optionalAuthenticate, async (req: any, r
 
     if (!sender) return res.status(401).json({ error: 'Could not identify message sender' })
 
+    const attachments = ((req.files as Express.Multer.File[] | undefined) || []).map((file) => `/uploads/contact/${file.filename}`)
     const ticket = await prisma.supportTicket.create({
       data: {
         userId: sender.id,
@@ -331,6 +347,7 @@ app.post('/api/content/contact/submit', optionalAuthenticate, async (req: any, r
         message: [
           `From: ${contactData.name} <${contactData.email}>`,
           contactData.phone ? `Phone: ${contactData.phone}` : null,
+          attachments.length ? `Attachments:\n${attachments.join('\n')}` : null,
           '',
           contactData.message,
         ].filter(Boolean).join('\n'),

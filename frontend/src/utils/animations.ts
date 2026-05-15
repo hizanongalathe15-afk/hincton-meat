@@ -88,39 +88,57 @@ export const useTypewriter = (options: TypewriterOptions) => {
   const [text, setText] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const indexRef = useRef(0)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const onCompleteRef = useRef<TypewriterOptions['onComplete']>(options.onComplete)
 
   useEffect(() => {
-    if (!options.text) {
-      setText('')
-      setIsTyping(false)
-      return
-    }
+    onCompleteRef.current = options.onComplete
+  }, [options.onComplete])
 
-    setText('')
-    setIsTyping(true)
-    indexRef.current = 0
+  useEffect(() => {
+    const fullText = options.text || ''
+    const speed = options.speed ?? 50
+    const delay = options.delay ?? 0
 
-    const typeChar = () => {
-      if (indexRef.current < options.text.length) {
-        setText((prev) => prev + options.text[indexRef.current])
-        indexRef.current += 1
-        timeoutRef.current = setTimeout(typeChar, options.speed ?? 50)
-      } else {
-        setIsTyping(false)
-        options.onComplete?.()
-      }
-    }
-
-    timeoutRef.current = setTimeout(typeChar, options.delay ?? 0)
-
-    return () => {
+    const clearTimers = () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
         timeoutRef.current = null
       }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
     }
-  }, [options.text, options.speed, options.delay, options.onComplete])
+
+    clearTimers()
+
+    if (!fullText) {
+      setText('')
+      setIsTyping(false)
+      return clearTimers
+    }
+
+    setText('')
+    setIsTyping(true)
+
+    timeoutRef.current = setTimeout(() => {
+      let index = 0
+
+      intervalRef.current = setInterval(() => {
+        index += 1
+        setText(fullText.slice(0, index))
+
+        if (index >= fullText.length) {
+          clearTimers()
+          setIsTyping(false)
+          onCompleteRef.current?.()
+        }
+      }, speed)
+    }, delay)
+
+    return clearTimers
+  }, [options.text, options.speed, options.delay])
 
   return { text, isTyping }
 }

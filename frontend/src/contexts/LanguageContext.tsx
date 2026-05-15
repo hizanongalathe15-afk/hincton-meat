@@ -84,15 +84,19 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     if (typeof document === 'undefined') return
+    if (locale === 'en') return
 
     const originals = translationOriginalsRef.current
     const attrOriginals = translationAttrOriginalsRef.current
     const ignoredTags = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'SELECT', 'OPTION', 'CODE', 'PRE'])
     const translatableAttrs = ['placeholder', 'aria-label', 'title']
+    const isIgnoredElement = (element: Element) => {
+      return ignoredTags.has(element.tagName) || Boolean(element.closest('[data-no-auto-translate], [translate="no"]'))
+    }
 
     const translateTextNode = (node: Text) => {
       const parent = node.parentElement
-      if (!parent || ignoredTags.has(parent.tagName)) return
+      if (!parent || isIgnoredElement(parent)) return
       const original = originals.get(node) || node.nodeValue || ''
       if (!original.trim()) return
       originals.set(node, original)
@@ -101,7 +105,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     const translateElementAttrs = (element: Element) => {
-      if (ignoredTags.has(element.tagName)) return
+      if (isIgnoredElement(element)) return
       const originalAttrs = attrOriginals.get(element) || {}
       let changed = false
       translatableAttrs.forEach((attr) => {

@@ -56,6 +56,11 @@ router.get('/admin/session/:userId',
   UserSessionController.getUserSessionDetails
 )
 
+router.post('/admin/revoke/:sessionId',
+  authRateLimiter,
+  UserSessionController.revokeSession
+)
+
 router.post('/admin/cleanup', 
   authRateLimiter, 
   UserSessionController.cleanupOldSessions

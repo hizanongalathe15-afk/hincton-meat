@@ -26,8 +26,8 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) return cb(null, true)
-    cb(new Error('Only images, GIFs, stickers, or videos are allowed'))
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/') || file.mimetype.startsWith('audio/')) return cb(null, true)
+    cb(new Error('Only images, GIFs, stickers, videos, or audio files are allowed'))
   },
 })
 
@@ -93,9 +93,9 @@ const adCampaignSchema = z.object({
     description: z.string(),
     imageUrl: z.string().url().optional(),
     mediaUrl: z.string().url().optional(),
-    mediaType: z.enum(['image', 'gif', 'video', 'sticker']).optional(),
+    mediaType: z.enum(['image', 'gif', 'video', 'audio', 'sticker']).optional(),
     stickerUrl: z.string().url().optional(),
-    landingUrl: z.string().url(),
+    landingUrl: z.string().min(1),
     buttonText: z.string().optional()
   }),
   isActive: z.boolean().default(true),
@@ -108,7 +108,9 @@ router.post('/upload-media', authenticate, authorize('ADMIN'), upload.single('me
     const file = req.file
     if (!file) return res.status(400).json({ error: 'No media file uploaded' })
 
-    const mediaType = file.mimetype.startsWith('video/')
+    const mediaType = file.mimetype.startsWith('audio/')
+      ? 'audio'
+      : file.mimetype.startsWith('video/')
       ? 'video'
       : file.mimetype === 'image/gif'
         ? 'gif'
@@ -442,7 +444,7 @@ router.get('/serve', async (req, res) => {
         description: creative?.description,
         imageUrl: creative?.imageUrl || creative?.mediaUrl,
         mediaUrl: creative?.mediaUrl || creative?.imageUrl,
-        mediaType: creative?.mediaType || (String(creative?.mediaUrl || creative?.imageUrl || '').match(/\.(mp4|webm|mov)(\?|$)/i) ? 'video' : 'image'),
+        mediaType: creative?.mediaType || (String(creative?.mediaUrl || creative?.imageUrl || '').match(/\.(mp3|wav|ogg|m4a)(\?|$)/i) ? 'audio' : String(creative?.mediaUrl || creative?.imageUrl || '').match(/\.(mp4|webm|mov)(\?|$)/i) ? 'video' : 'image'),
         stickerUrl: creative?.stickerUrl,
         landingUrl: creative?.landingUrl,
         buttonText: creative?.buttonText,

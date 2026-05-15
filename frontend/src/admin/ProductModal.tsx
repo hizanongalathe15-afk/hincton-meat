@@ -31,6 +31,13 @@ interface ProductFormData {
   existingVideos?: string[]
 }
 
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+
 const ProductModal: React.FC<ProductModalProps> = ({
   isOpen,
   onClose,
@@ -57,6 +64,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
   })
   
   const [categories, setCategories] = useState([])
+  const [newCategoryName, setNewCategoryName] = useState('')
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
@@ -96,6 +104,28 @@ const ProductModal: React.FC<ProductModalProps> = ({
       setCategories(data.categories || [])
     } catch (error) {
       console.error('Failed to fetch categories:', error)
+    }
+  }
+
+  const createCategoryFromName = async () => {
+    const name = newCategoryName.trim()
+    if (!name) return
+    setLoading(true)
+    try {
+      const response = await contentApi.createCategory({
+        name,
+        slug: slugify(name),
+        description: '',
+        isActive: true,
+      })
+      const category = response.category
+      setCategories((current: any[]) => [...current, category].sort((a, b) => a.name.localeCompare(b.name)) as any)
+      setFormData((current) => ({ ...current, categoryId: category.id }))
+      setNewCategoryName('')
+    } catch (error) {
+      console.error('Failed to create category:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -323,6 +353,23 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   </option>
                 ))}
               </select>
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(event) => setNewCategoryName(event.target.value)}
+                  placeholder="Type a new category, e.g. Utensils or Cars"
+                  className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                />
+                <button
+                  type="button"
+                  onClick={createCategoryFromName}
+                  disabled={!newCategoryName.trim() || loading}
+                  className="rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </div>
             </div>
 
             <div>

@@ -254,7 +254,9 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                   <Link
                     key={`${result.type}-${result.id}`}
                     to={
-                      result.type === 'product'
+                      result.type === 'page'
+                        ? result.data.path
+                        : result.type === 'product'
                         ? `/admin/products/${result.id}`
                         : result.type === 'order'
                         ? `/admin/orders/${result.id}`
@@ -464,7 +466,9 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                           <Link
                             key={`${result.type}-${result.id}`}
                             to={
-                              result.type === 'product'
+                              result.type === 'page'
+                                ? result.data.path
+                                : result.type === 'product'
                                 ? `/admin/products/${result.id}`
                                 : result.type === 'order'
                                 ? `/admin/orders/${result.id}`

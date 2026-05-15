@@ -9,7 +9,8 @@ import {
   Zap,
   AlertTriangle,
   CheckCircle,
-  RefreshCw
+  RefreshCw,
+  LogOut
 } from 'lucide-react'
 import { systemApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
@@ -121,6 +122,17 @@ const SystemMetrics = () => {
   const refreshMetrics = () => {
     setRefreshing(true)
     fetchMetrics()
+  }
+
+  const revokeSession = async (sessionId: string) => {
+    if (!window.confirm('Log out this admin device?')) return
+    try {
+      await systemApi.revokeAdminSession(sessionId)
+      toast.success('Device session revoked')
+      await fetchMetrics()
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to revoke session')
+    }
   }
 
   useEffect(() => {
@@ -523,6 +535,9 @@ const SystemMetrics = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Last Activity
                     </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Action
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -570,6 +585,17 @@ const SystemMetrics = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(session.lastActivity).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                        <button
+                          type="button"
+                          onClick={() => revokeSession(session.id)}
+                          disabled={!session.isOnline}
+                          className="inline-flex items-center gap-1 rounded border border-red-200 px-3 py-1 text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          Log out
+                        </button>
                       </td>
                     </tr>
                   ))}
