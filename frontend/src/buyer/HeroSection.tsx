@@ -18,7 +18,7 @@ const HeroSection = ({ onSearch }: HeroSectionProps) => {
   const companyProfile = profile.companyProfile === COMPANY_PROFILE ? t('company.profile') : profile.companyProfile
   const { text: typedCompanyProfile, isTyping } = useTypewriter({
     text: companyProfile,
-    speed: 26,
+    speed: 90,
     delay: 350,
   })
 
@@ -54,7 +54,7 @@ const HeroSection = ({ onSearch }: HeroSectionProps) => {
               </span>
               <span className="col-start-1 row-start-1" aria-hidden="true">
                 {typedCompanyProfile}
-                <span className={`ml-1 inline-block h-6 w-0.5 translate-y-1 bg-gray-100 ${isTyping ? 'animate-pulse' : 'opacity-0'}`} />
+                <span className={`ml-1 inline-block h-6 w-0.5 translate-y-1 bg-gray-100 ${isTyping ? 'typewriter-cursor' : 'opacity-0'}`} />
               </span>
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
