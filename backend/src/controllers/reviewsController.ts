@@ -136,6 +136,10 @@ export const createReview = asyncHandler(async (req: Request, res: Response) => 
     throw new ValidationError('Rating must be between 1 and 5')
   }
 
+  if (images !== undefined && (!Array.isArray(images) || images.some((url) => typeof url !== 'string'))) {
+    throw new ValidationError('Review images must be an array of URLs')
+  }
+
   const product = await prisma.product.findFirst({
     where: { id: productId, deletedAt: null },
     select: { id: true }
@@ -153,12 +157,16 @@ export const createReview = asyncHandler(async (req: Request, res: Response) => 
         productId,
         order: {
           userId,
-          status: { in: ['DELIVERED', 'COMPLETED'] as any },
+          status: 'DELIVERED',
           deletedAt: null,
         } as any,
       },
       include: { order: true },
     })
+
+    if (!verifiedOrderItem) {
+      throw new ValidationError('This product is not eligible for review yet')
+    }
   }
 
   const existingReview = await prisma.review.findFirst({
@@ -178,11 +186,11 @@ export const createReview = asyncHandler(async (req: Request, res: Response) => 
     data: {
       userId,
       productId,
-      orderId: verifiedOrderItem?.orderId || orderId || null,
-      orderItemId: verifiedOrderItem?.id || orderItemId || null,
-        rating: parsedRating,
-        title: String(title).trim(),
-        comment: String(content).trim(),
+      orderId: verifiedOrderItem?.orderId || null,
+      orderItemId: verifiedOrderItem?.id || null,
+      rating: parsedRating,
+      title: String(title).trim(),
+      comment: String(content).trim(),
       isVerifiedPurchase: Boolean(verifiedOrderItem),
       status: 'APPROVED'
     }

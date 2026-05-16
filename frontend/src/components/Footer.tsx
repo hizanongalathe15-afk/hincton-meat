@@ -15,6 +15,10 @@ const companyLinks = [
   { label: 'About Us', to: '/about' },
   { label: 'Our Farms', to: '/farms' },
   { label: 'Sustainability', to: '/sustainability' },
+  { label: 'Wellness', to: '/wellness' },
+  { label: 'Blog', to: '/blog' },
+  { label: 'Careers', to: '/careers' },
+  { label: 'Returns', to: '/returns' },
   { label: 'Contact', to: '/contact' },
 ]
 

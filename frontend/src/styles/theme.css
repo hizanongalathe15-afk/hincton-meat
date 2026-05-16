@@ -480,7 +480,7 @@
 }
 
 /* High Contrast Mode */
-@media (prefers-contrast: high) {
+@media (prefers-contrast: more) {
   :root {
     --border-primary: #000000;
     --border-secondary: #000000;

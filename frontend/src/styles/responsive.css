@@ -421,7 +421,7 @@
 }
 
 /* High Contrast Mode */
-@media (prefers-contrast: high) {
+@media (prefers-contrast: more) {
   .btn {
     border-width: 2px;
   }

@@ -13,7 +13,6 @@
 html {
   font-size: 16px;
   line-height: 1.6;
-  -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   scroll-behavior: smooth;
 }
@@ -25,7 +24,6 @@ body {
   color: var(--text-primary, #111827);
   background-color: var(--bg-primary, #ffffff);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
@@ -480,7 +478,7 @@ summary {
 }
 
 /* High contrast mode */
-@media (prefers-contrast: high) {
+@media (prefers-contrast: more) {
   * {
     border-width: 2px;
   }
