@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X, Upload, Trash2, Plus, Save } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 import { contentApi } from '../services/adminApi'
 import { formatPrice } from '../utils/currency'
@@ -124,6 +125,27 @@ const ProductModal: React.FC<ProductModalProps> = ({
       setNewCategoryName('')
     } catch (error) {
       console.error('Failed to create category:', error)
+      toast.error('Could not create category')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const deleteCategory = async (category: any) => {
+    if (!category?.id) return
+
+    const confirmed = window.confirm(`Delete "${category.name}"? Products in this category will be moved to Uncategorized.`)
+    if (!confirmed) return
+
+    setLoading(true)
+    try {
+      await contentApi.deleteCategory(category.id)
+      setCategories((current: any[]) => current.filter((item) => item.id !== category.id) as any)
+      setFormData((current) => current.categoryId === category.id ? { ...current, categoryId: '' } : current)
+      toast.success('Category deleted')
+    } catch (error) {
+      console.error('Failed to delete category:', error)
+      toast.error('Could not delete category')
     } finally {
       setLoading(false)
     }
@@ -370,6 +392,39 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   Add
                 </button>
               </div>
+              {categories.length > 0 && (
+                <div className="mt-3 max-h-32 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2">
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Manage categories</div>
+                  <div className="space-y-1">
+                    {categories.map((category: any) => (
+                      <div
+                        key={category.id}
+                        className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm ${
+                          formData.categoryId === category.id ? 'bg-red-50 text-red-800' : 'bg-white text-gray-700'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setFormData((current) => ({ ...current, categoryId: category.id }))}
+                          className="min-w-0 flex-1 truncate text-left"
+                        >
+                          {category.name}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteCategory(category)}
+                          disabled={loading}
+                          className="grid h-7 w-7 shrink-0 place-items-center rounded text-gray-400 hover:bg-red-100 hover:text-red-700 disabled:opacity-50"
+                          aria-label={`Delete ${category.name}`}
+                          title={`Delete ${category.name}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>

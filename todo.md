@@ -1,1 +1,0 @@
-One larger area is still separate work: the full chat upgrade with user selection, calls, typing indicators, message edit/delete expiry, and media attachments needs a dedicated pass because it touches sockets, schema/API, and both admin/buyer chat screens.

@@ -225,6 +225,11 @@ const createBotResponse = (lowerText: string, language: SupportedLanguage, whats
   return response
 }
 
+void detectSentiment
+void responseCache
+void translateText
+void createBotResponse
+
 const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWidgetProps) => {
   const { profile } = useSiteContent()
   const brand = profile?.brand || defaultBrand
@@ -376,58 +381,30 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
       timestamp: new Date()
     }
 
-    setMessages((prev) => [...prev, userMessage])
     setInputValue('')
-    setIsTyping(true)
+    setMessages((prev) => [...prev, userMessage])
     messageCountRef.current += 1
 
     const nextLanguage = detectLanguage(trimmed)
     setLanguage(nextLanguage)
 
-    chatApi.sendMessage({
-      sessionId: chatSessionId,
-      message: trimmed,
-      from: 'user'
-    }).catch(() => {
+    try {
+      await chatApi.sendMessage({
+        sessionId: chatSessionId,
+        message: trimmed,
+        from: 'user'
+      })
+    } catch {
       setMessages((prev) => [...prev, {
         id: `${Date.now()}-error`,
         text: 'I could not save this chat right now. Please try again or use WhatsApp for urgent help.',
         sender: 'bot',
         timestamp: new Date()
       }])
-    })
-
-    // Simulate thinking/reasoning time
-    const thinkingTime = 800 + Math.random() * 400
-    
-    setAgentTyping(true)
-    setTimeout(() => {
-      const lowerText = trimmed.toLowerCase()
-      const sentiment = detectSentiment(lowerText)
-      const responseText = createBotResponse(lowerText, nextLanguage, whatsappHref)
-      const isAgentResponse = /\b(agent|admin|support|human|supervisor|manager)\b/.test(lowerText)
-      const isSatisfactionQuestion = /\b(thanks|thank you|satisfied|resolved|fixed|solved|good|ok|okay|great|done|bye)\b/.test(lowerText)
-      
-      const botMessage: Message = {
-        id: `${Date.now()}-bot`,
-        text: responseText,
-        sender: sentiment === 'negative' ? 'agent' : (isAgentResponse ? 'agent' : 'bot'),
-        timestamp: new Date(),
-        agentName: (sentiment === 'negative' || isAgentResponse) ? `${brand.name} Support` : undefined
-      }
-
-      setMessages((prev) => [...prev, botMessage])
-      setAgentTyping(false)
+    } finally {
       setIsTyping(false)
-      
-      if (isSatisfactionQuestion) {
-        setSatisfactionSent(true)
-      }
-
-      if (!isOpen) {
-        setUnreadCount((count) => count + 1)
-      }
-    }, thinkingTime)
+      setAgentTyping(false)
+    }
   }
 
   const handleQuickReply = (reply: string) => {

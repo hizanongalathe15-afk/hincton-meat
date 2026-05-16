@@ -10,6 +10,7 @@ import ConfirmationDialog from '../components/ui/ConfirmationDialog'
 import { useLanguage } from '../contexts/LanguageContext'
 import LanguageSelector from './LanguageSelector'
 import { getApiHost } from '../services/api'
+import Notifications from './Notifications'
 
 const Navigation = () => {
 
@@ -135,6 +136,8 @@ const Navigation = () => {
               )}
 
               <LanguageSelector />
+
+              {user && !isAdmin ? <Notifications /> : null}
 
               {user ? (
                 <div className="relative" ref={profileDropdownRef}>

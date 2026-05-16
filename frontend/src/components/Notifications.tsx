@@ -4,6 +4,8 @@ import { Bell, X, Check, ShoppingCart, Package, CreditCard, MessageSquare, Trash
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 import LinkifiedText from './ui/LinkifiedText'
+import { API_URL, getApiHost } from '../services/api'
+import { io, Socket } from 'socket.io-client'
 
 interface Notification {
   id: string
@@ -12,6 +14,8 @@ interface Notification {
   type: 'ORDER' | 'PRODUCT' | 'PAYMENT' | 'SYSTEM' | 'MESSAGE'
   isRead: boolean
   metadata?: any
+  data?: any
+  actionUrl?: string
   createdAt: string
 }
 
@@ -23,6 +27,7 @@ const Notifications: React.FC = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const socketRef = useRef<Socket | null>(null)
   const profilePath = String(user?.role || '').toLowerCase() === 'admin' ? '/admin/profile' : '/profile'
 
   // Close dropdown when clicking outside
@@ -42,7 +47,7 @@ const Notifications: React.FC = () => {
 
     try {
       setIsLoading(true)
-      const response = await fetch('/api/notifications', {
+      const response = await fetch(`${API_URL}/notifications`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
@@ -64,7 +69,7 @@ const Notifications: React.FC = () => {
     if (!user) return
 
     try {
-      const response = await fetch('/api/notifications/unread-count', {
+      const response = await fetch(`${API_URL}/notifications/unread-count`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
@@ -87,9 +92,26 @@ const Notifications: React.FC = () => {
     return () => clearInterval(interval)
   }, [user])
 
+  useEffect(() => {
+    if (!user?.id) return
+
+    const socket = io(getApiHost(), { withCredentials: true })
+    socketRef.current = socket
+    socket.emit('presence:join', { userId: user.id })
+    socket.on('notification:new', (notification: Notification) => {
+      setNotifications((prev) => prev.some((item) => item.id === notification.id) ? prev : [notification, ...prev])
+      setUnreadCount((prev) => prev + (notification.isRead ? 0 : 1))
+    })
+
+    return () => {
+      socket.disconnect()
+      socketRef.current = null
+    }
+  }, [user?.id])
+
   const markAsRead = async (notificationId: string) => {
     try {
-      const response = await fetch(`/api/notifications/${notificationId}/read`, {
+      const response = await fetch(`${API_URL}/notifications/${notificationId}/read`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
@@ -107,7 +129,7 @@ const Notifications: React.FC = () => {
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch('/api/notifications/mark-all-read', {
+      const response = await fetch(`${API_URL}/notifications/mark-all-read`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
@@ -126,7 +148,7 @@ const Notifications: React.FC = () => {
 
   const deleteNotification = async (notificationId: string) => {
     try {
-      const response = await fetch(`/api/notifications/${notificationId}`, {
+      const response = await fetch(`${API_URL}/notifications/${notificationId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
@@ -151,15 +173,22 @@ const Notifications: React.FC = () => {
       await markAsRead(notification.id)
     }
 
+    const metadata = notification.metadata || notification.data || {}
+    if (notification.actionUrl) {
+      navigate(notification.actionUrl.replace(window.location.origin, ''))
+      setIsOpen(false)
+      return
+    }
+
     switch (notification.type) {
       case 'ORDER':
-        if (notification.metadata?.orderId) {
-          navigate(`/order-tracking/${notification.metadata.orderId}`)
+        if (metadata?.orderId) {
+          navigate(`/order-tracking/${metadata.orderId}`)
         }
         break
       case 'PRODUCT':
-        if (notification.metadata?.productId) {
-          navigate(`/product/${notification.metadata.productId}`)
+        if (metadata?.productId) {
+          navigate(`/product/${metadata.productId}`)
         }
         break
       case 'MESSAGE':

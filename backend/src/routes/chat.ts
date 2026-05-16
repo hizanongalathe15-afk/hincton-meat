@@ -76,7 +76,14 @@ const emitPersistedChatMessage = (req: any, roomId: string, message: any) => {
   })
 }
 
-const notifyAdminsOfCustomerMessage = async (sessionId: string, userId: string, message: string) => {
+const emitNotification = (req: any, notification: any) => {
+  const io = req.app?.get?.('io')
+  if (!io || !notification?.userId) return
+
+  io.to(`user-${notification.userId}`).to(`user:${notification.userId}`).emit('notification:new', notification)
+}
+
+const notifyAdminsOfCustomerMessage = async (req: any, sessionId: string, userId: string, message: string) => {
   const admins = await prisma.user.findMany({
     where: { roles: { hasSome: ['ADMIN', 'SUPER_ADMIN', 'SUPPORT'] as any } },
     select: { id: true },
@@ -84,8 +91,8 @@ const notifyAdminsOfCustomerMessage = async (sessionId: string, userId: string, 
 
   if (admins.length === 0) return
 
-  await prisma.notification.createMany({
-    data: admins.map((admin) => ({
+  const notifications = await Promise.all(admins.map((admin) => prisma.notification.create({
+    data: {
       userId: admin.id,
       type: 'SYSTEM' as any,
       title: 'New customer message',
@@ -93,22 +100,25 @@ const notifyAdminsOfCustomerMessage = async (sessionId: string, userId: string, 
       data: { sessionId, userId },
       actionUrl: '/admin/communications',
       channel: 'inApp',
-    })),
-  })
+    },
+  })))
+
+  notifications.forEach((notification) => emitNotification(req, notification))
 }
 
-const notifyCustomerOfAdminReply = async (sessionId: string, userId: string, message: string) => {
-  await prisma.notification.create({
+const notifyCustomerOfAdminReply = async (req: any, sessionId: string, userId: string, message: string) => {
+  const notification = await prisma.notification.create({
     data: {
       userId,
       type: 'SYSTEM' as any,
       title: 'Support replied',
       message: message.slice(0, 180),
       data: { sessionId },
-      actionUrl: '/profile',
+      actionUrl: '/messages',
       channel: 'inApp',
     },
   })
+  emitNotification(req, notification)
 }
 
 const getOrCreateGuestChatUser = async (sessionId: string) => {
@@ -169,11 +179,11 @@ const sendLiveChatMessage = async (req: any, res: any) => {
     })
 
     if (from === 'user') {
-      notifyAdminsOfCustomerMessage(sessionId, finalUserId, message).catch((error) => {
+      notifyAdminsOfCustomerMessage(req, sessionId, finalUserId, message).catch((error) => {
         console.error('Admin chat notification error:', error)
       })
     } else if (from === 'admin') {
-      notifyCustomerOfAdminReply(sessionId, finalUserId, message).catch((error) => {
+      notifyCustomerOfAdminReply(req, sessionId, finalUserId, message).catch((error) => {
         console.error('Customer chat notification error:', error)
       })
     }
@@ -573,6 +583,16 @@ router.post('/conversations/message', async (req, res) => {
 
     const serializedMessage = serializeChatMessage(message, userId)
     emitPersistedChatMessage(req, conversationId, serializedMessage)
+
+    if (isAdmin(req)) {
+      notifyCustomerOfAdminReply(req, conversationId, finalUserId, content.trim()).catch((error) => {
+        console.error('Customer chat notification error:', error)
+      })
+    } else {
+      notifyAdminsOfCustomerMessage(req, conversationId, finalUserId, content.trim()).catch((error) => {
+        console.error('Admin chat notification error:', error)
+      })
+    }
 
     res.status(201).json({ success: true, message: serializedMessage })
   } catch (error) {

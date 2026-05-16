@@ -35,6 +35,7 @@ import { getApiHost } from '../services/api'
 import LanguageSelector from '../components/LanguageSelector'
 import { notificationsApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
+import { io, Socket } from 'socket.io-client'
 
 interface AdminLayoutProps {
   children?: ReactNode
@@ -48,6 +49,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const [unreadCount, setUnreadCount] = useState(0)
   const accountDropdownRef = useRef<HTMLDivElement>(null)
   const notificationsRef = useRef<HTMLDivElement>(null)
+  const notificationsSocketRef = useRef<Socket | null>(null)
   const searchRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
@@ -139,6 +141,26 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
 
     return () => window.clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    if (!user?.id) return
+
+    const socket = io(getApiHost(), { withCredentials: true })
+    notificationsSocketRef.current = socket
+    socket.emit('presence:join', { userId: user.id })
+    socket.on('notification:new', (notification: { id: string; title?: string; message?: string; actionUrl?: string; isRead: boolean; createdAt: string }) => {
+      setNotifications((current) => current.some((item) => item.id === notification.id) ? current : [notification, ...current].slice(0, 30))
+      setUnreadCount((count) => count + (notification.isRead ? 0 : 1))
+    })
+    socket.on('chat:session-updated', () => {
+      refreshNotifications().catch(() => undefined)
+    })
+
+    return () => {
+      socket.disconnect()
+      notificationsSocketRef.current = null
+    }
+  }, [user?.id])
 
   const markAllNotificationsRead = async () => {
     try {
