@@ -7,6 +7,9 @@ import { HINCTON_BRAND } from '../utils/hinctonBrand'
 import { useLanguage } from '../contexts/LanguageContext'
 import { getApiHost } from '../services/api'
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/
+const strongPasswordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
+
 const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ onNavigate }) => {
   const [formData, setFormData] = useState({
     firstName: '',
@@ -44,8 +47,13 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
       return
     }
 
-    if (formData.password.length < 8) {
-      toast.error(t('register.passwordTooShort'))
+    if (!emailPattern.test(formData.email.trim())) {
+      toast.error('Use a real email address with a valid domain, for example name@gmail.com')
+      return
+    }
+
+    if (!strongPasswordPattern.test(formData.password)) {
+      toast.error('Password must be at least 8 characters and include uppercase, lowercase, number, and symbol')
       return
     }
 
@@ -53,7 +61,7 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
     try {
       await register({
         name: `${formData.firstName} ${formData.lastName}`.trim(),
-        email: formData.email,
+        email: formData.email.trim().toLowerCase(),
         password: formData.password,
         agreed: formData.agreed,
       })
@@ -219,6 +227,8 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
                         onChange={handleChange}
                         placeholder={t('register.emailPlaceholder')}
                         required
+                        pattern="^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$"
+                        title="Use a real email address with a valid domain, for example name@gmail.com"
                         className="w-full pl-12 pr-4 py-4 bg-zinc-800/50 border-2 border-zinc-700/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all"
                       />
                       <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-red-600/20 to-white/10 opacity-0 group-focus-within:opacity-100 transition-opacity -z-10 blur" />
@@ -236,6 +246,8 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
                         placeholder={t('register.passwordPlaceholder')}
                         required
                         minLength={8}
+                        pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$"
+                        title="Use at least 8 characters with uppercase, lowercase, number, and symbol"
                         className="w-full pl-12 pr-12 py-4 bg-zinc-800/50 border-2 border-zinc-700/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all"
                       />
                       <button
@@ -260,6 +272,8 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
                         placeholder={t('register.confirmPasswordPlaceholder')}
                         required
                         minLength={8}
+                        pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$"
+                        title="Use at least 8 characters with uppercase, lowercase, number, and symbol"
                         className="w-full pl-12 pr-12 py-4 bg-zinc-800/50 border-2 border-zinc-700/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all"
                       />
                       <button

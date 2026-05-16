@@ -1492,15 +1492,21 @@ router.get('/notifications', async (req, res) => {
     const skip = (pageNum - 1) * limitNum
     const showUnreadOnly = unread === 'true'
 
-    const where: any = {}
+    const where: any = { userId: (req as any).user?.id }
     if (showUnreadOnly) {
       where.isRead = false
     }
 
-    // Since Notification model might not exist, return mock data for now
-    const notifications = []
-    const total = 0
-    const unreadCount = 0
+    const [notifications, total, unreadCount] = await Promise.all([
+      prisma.notification.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum,
+      }),
+      prisma.notification.count({ where }),
+      prisma.notification.count({ where: { userId: (req as any).user?.id, isRead: false } }),
+    ])
 
     res.json({
       notifications,
@@ -1515,7 +1521,10 @@ router.get('/notifications', async (req, res) => {
 
 router.put('/notifications/:id/read', async (req, res) => {
   try {
-    // Mock implementation for now
+    await prisma.notification.updateMany({
+      where: { id: req.params.id, userId: (req as any).user?.id },
+      data: { isRead: true, readAt: new Date() },
+    })
     res.json({ message: 'Notification marked as read' })
   } catch (error) {
     console.error('Mark notification read error:', error)
@@ -1525,7 +1534,10 @@ router.put('/notifications/:id/read', async (req, res) => {
 
 router.put('/notifications/mark-all-read', async (req, res) => {
   try {
-    // Mock implementation for now
+    await prisma.notification.updateMany({
+      where: { userId: (req as any).user?.id, isRead: false },
+      data: { isRead: true, readAt: new Date() },
+    })
     res.json({ message: 'All notifications marked as read' })
   } catch (error) {
     console.error('Mark all notifications read error:', error)
@@ -1533,9 +1545,24 @@ router.put('/notifications/mark-all-read', async (req, res) => {
   }
 })
 
+router.put('/notifications/:id/archive', async (req, res) => {
+  try {
+    await prisma.notification.updateMany({
+      where: { id: req.params.id, userId: (req as any).user?.id },
+      data: { isRead: true, readAt: new Date() },
+    })
+    res.json({ message: 'Notification archived' })
+  } catch (error) {
+    console.error('Archive notification error:', error)
+    res.status(500).json({ error: 'Failed to archive notification' })
+  }
+})
+
 router.delete('/notifications/:id', async (req, res) => {
   try {
-    // Mock implementation for now
+    await prisma.notification.deleteMany({
+      where: { id: req.params.id, userId: (req as any).user?.id },
+    })
     res.json({ message: 'Notification deleted successfully' })
   } catch (error) {
     console.error('Delete notification error:', error)

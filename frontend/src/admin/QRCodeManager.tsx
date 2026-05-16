@@ -171,15 +171,21 @@ const QRCodeManager: FC = () => {
     }
   }
 
-  const printQRCode = (qrCode: QRCode) => {
+  const printQRCode = async (qrCode: QRCode) => {
     const qrData = qrCodesApi.getScanUrl(qrCode.id)
     const size = qrCode.settings.size === 'small' ? 128 : qrCode.settings.size === 'medium' ? 256 : 512
-    QRCodeLib.toDataURL(qrData, { width: size, margin: 2, color: { dark: qrCode.settings.color, light: '#FFFFFF' } }, (_error, url) => {
+    try {
+      const url = await QRCodeLib.toDataURL(qrData, { width: size, margin: 2, color: { dark: qrCode.settings.color, light: '#FFFFFF' } })
       const printWindow = window.open('', '_blank', 'noopener,noreferrer')
-      if (!printWindow) return
-      printWindow.document.write(`<html><head><title>${qrCode.name}</title></head><body style="font-family:sans-serif;text-align:center;padding:32px"><h1>${qrCode.name}</h1><img src="${url}" width="${size}" height="${size}" /><p>${qrData}</p><script>window.onload=()=>window.print()</script></body></html>`)
+      if (!printWindow) {
+        toast.error('Allow popups to print this QR code')
+        return
+      }
+      printWindow.document.write(`<html><head><title>${qrCode.name}</title></head><body style="font-family:sans-serif;text-align:center;padding:32px"><h1>${qrCode.name}</h1><img src="${url}" width="${size}" height="${size}" /><p style="word-break:break-all">${qrData}</p><script>setTimeout(()=>{window.focus();window.print()},250)</script></body></html>`)
       printWindow.document.close()
-    })
+    } catch (error: any) {
+      toast.error(error?.message || 'Could not print QR code')
+    }
   }
 
   const shareQRCode = async (qrCode: QRCode) => {

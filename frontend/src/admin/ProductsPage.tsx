@@ -235,35 +235,72 @@ const ProductsPage = ({
     onShareProduct?.(product)
   }
 
-  const handleDownload = (product: any) => {
-    console.log('Download product:', product)
-    
-    // Create product data for download
-    const productData = {
-      id: product.id,
-      name: product.name,
-      category: product.category,
-      price: product.price,
-      stock: product.stock,
-      status: product.status,
-      sku: product.sku,
-      sales: product.sales,
-      createdAt: product.createdAt
+  const handleDownload = async (product: any) => {
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = 1200
+      canvas.height = 800
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Could not prepare download image')
+
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.fillStyle = '#111827'
+      ctx.font = '700 44px sans-serif'
+      ctx.fillText(product.name, 48, 72, 1100)
+      ctx.font = '600 28px sans-serif'
+      ctx.fillStyle = '#dc2626'
+      ctx.fillText(formatPrice(product.price), 48, 124)
+      ctx.fillStyle = '#374151'
+      ctx.font = '22px sans-serif'
+      ctx.fillText(`Category: ${product.category || 'Uncategorized'}`, 48, 170)
+      ctx.fillText(`SKU: ${product.sku || 'Not set'}`, 48, 205)
+      ctx.fillText(`Stock: ${product.stock ?? 0} units`, 48, 240)
+      ctx.fillText(`Status: ${product.status || 'active'}`, 48, 275)
+
+      const imageUrl = resolveMediaUrl(product.image)
+      if (imageUrl) {
+        await new Promise<void>((resolve) => {
+          const image = new Image()
+          image.crossOrigin = 'anonymous'
+          image.onload = () => {
+            ctx.drawImage(image, 48, 320, 520, 390)
+            resolve()
+          }
+          image.onerror = () => resolve()
+          image.src = imageUrl
+        })
+      }
+
+      const description = product.raw?.description || product.raw?.shortDescription || ''
+      ctx.fillStyle = '#111827'
+      ctx.font = '24px sans-serif'
+      const words = description.split(/\s+/).slice(0, 90)
+      let line = ''
+      let y = 340
+      words.forEach((word: string) => {
+        const test = `${line} ${word}`.trim()
+        if (ctx.measureText(test).width > 540) {
+          ctx.fillText(line, 620, y)
+          line = word
+          y += 34
+        } else {
+          line = test
+        }
+      })
+      if (line) ctx.fillText(line, 620, y)
+
+      const link = document.createElement('a')
+      link.href = canvas.toDataURL('image/png')
+      link.download = `product-${product.name.replace(/\s+/g, '-').toLowerCase()}.png`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      toast.success('Product image downloaded')
+      onDownloadProduct?.(product)
+    } catch (error: any) {
+      toast.error(error?.message || 'Could not download product image')
     }
-    
-    // Convert to JSON and download
-    const dataStr = JSON.stringify(productData, null, 2)
-    const dataBlob = new Blob([dataStr], { type: 'application/json' })
-    const url = URL.createObjectURL(dataBlob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `product-${product.id}-${product.name.replace(/\s+/g, '-').toLowerCase()}.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-    
-    onDownloadProduct?.(product)
   }
 
   const handleBulkUpload = () => {

@@ -16,6 +16,41 @@ interface BuyerShopProps {
   wishlistItems?: Set<string>
 }
 
+const fallbackProducts: Product[] = HINCTON_PRODUCTS.map((product, index) => ({
+  id: `hincton-${product.category}`,
+  name: product.name,
+  price: 0,
+  image: product.image,
+  images: [product.image],
+  rating: 5,
+  reviews: 0,
+  category: product.name,
+  categorySlug: product.category,
+  inStock: true,
+  stockQuantity: 1,
+  description: product.description,
+  origin: 'Hincton Meat Products',
+  sku: `HMP-${String(index + 1).padStart(3, '0')}`,
+}))
+
+const filterProducts = (items: Product[], categoryId: string, query: string) => {
+  const normalizedCategory = categoryId.trim().toLowerCase()
+  const normalizedQuery = query.trim().toLowerCase()
+
+  return items.filter((product) => {
+    const matchesCategory = !normalizedCategory
+      || product.categorySlug?.toLowerCase() === normalizedCategory
+      || product.category.toLowerCase() === normalizedCategory
+      || product.name.toLowerCase() === normalizedCategory
+    const matchesQuery = !normalizedQuery
+      || product.name.toLowerCase().includes(normalizedQuery)
+      || product.description?.toLowerCase().includes(normalizedQuery)
+      || product.category.toLowerCase().includes(normalizedQuery)
+
+    return matchesCategory && matchesQuery
+  })
+}
+
 const BuyerShop = ({ 
   onProductClick, 
   onAddToCart, 
@@ -25,7 +60,11 @@ const BuyerShop = ({
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { t } = useLanguage()
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<Product[]>(() => filterProducts(
+    fallbackProducts,
+    searchParams.get('category') || '',
+    searchParams.get('q') || '',
+  ))
   const [categories, setCategories] = useState<any[]>([
     { id: '', name: t('shop.allProducts'), count: 0 },
     ...HINCTON_PRODUCTS.map((product) => ({
@@ -123,7 +162,10 @@ const BuyerShop = ({
           }
         })
         
-        setProducts(transformedProducts)
+        const activeProducts = transformedProducts.length
+          ? transformedProducts
+          : filterProducts(fallbackProducts, currentCategory, currentQuery)
+        setProducts(activeProducts)
 
         const backendCategories = (categoriesData.categories || []).map((category: any) => ({
           id: category.slug || category.id,
@@ -134,7 +176,7 @@ const BuyerShop = ({
           name: product.name,
         }))
         const visibleCategories = backendCategories.length ? backendCategories : fallbackCategories
-        const countProductsForCategory = (categoryId: string) => transformedProducts.filter((product: Product) => {
+        const countProductsForCategory = (categoryId: string) => activeProducts.filter((product: Product) => {
           const normalized = categoryId.toLowerCase()
           return product.categorySlug?.toLowerCase() === normalized || product.category.toLowerCase() === normalized
         }).length
@@ -142,7 +184,7 @@ const BuyerShop = ({
           {
             id: '',
             name: t('shop.allProducts'),
-            count: transformedProducts.length,
+            count: activeProducts.length,
           },
           ...visibleCategories.map((category: any) => ({
             ...category,
@@ -153,8 +195,18 @@ const BuyerShop = ({
         setCategories(transformedCategories)
       } catch (error) {
         console.error('Failed to fetch shop data:', error)
-        setProducts([])
-        setCategories([])
+        const currentCategory = searchParams.get('category') || ''
+        const currentQuery = searchParams.get('q') || ''
+        const visibleProducts = filterProducts(fallbackProducts, currentCategory, currentQuery)
+        setProducts(visibleProducts)
+        setCategories([
+          { id: '', name: t('shop.allProducts'), count: visibleProducts.length },
+          ...HINCTON_PRODUCTS.map((product) => ({
+            id: product.category,
+            name: product.name,
+            count: visibleProducts.filter((item) => item.categorySlug === product.category).length,
+          })),
+        ])
       } finally {
         setLoading(false)
       }

@@ -98,6 +98,8 @@ const SystemMetrics = () => {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<string>('')
+  const [selectedMetric, setSelectedMetric] = useState<'cpu' | 'memory' | 'storage' | 'network' | null>(null)
+  const [metricHistory, setMetricHistory] = useState<Array<{ time: string; cpu: number; memory: number; storage: number; network: number }>>([])
   const [browserStorage, setBrowserStorage] = useState<{
     quota: number
     usage: number
@@ -127,6 +129,16 @@ const SystemMetrics = () => {
       setWakeTime(wakeTimeResponse.wakeTime)
       setAdminSessions(sessionsResponse.sessions || [])
       setLastUpdate(new Date().toLocaleTimeString())
+      setMetricHistory((current) => [
+        ...current.slice(-29),
+        {
+          time: new Date().toLocaleTimeString(),
+          cpu: metricsResponse.metrics.cpu.usage,
+          memory: metricsResponse.metrics.memory.usage,
+          storage: metricsResponse.metrics.storage.usage,
+          network: metricsResponse.metrics.network.latency,
+        },
+      ])
     } catch (error: any) {
       console.error('Failed to fetch system metrics:', error)
       toast.error(error?.message || 'Failed to fetch system metrics')
@@ -273,6 +285,35 @@ const SystemMetrics = () => {
     return 'bg-green-500'
   }
 
+  const renderMetricChart = () => {
+    if (!selectedMetric || metricHistory.length < 2) return null
+    const values = metricHistory.map((point) => point[selectedMetric])
+    const max = Math.max(...values, selectedMetric === 'network' ? 1 : 100)
+    const points = values.map((value, index) => {
+      const x = (index / Math.max(1, values.length - 1)) * 100
+      const y = 100 - Math.min(100, (value / max) * 100)
+      return `${x},${y}`
+    }).join(' ')
+    return (
+      <div className="rounded-lg bg-white p-6 shadow">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold capitalize text-gray-900">{selectedMetric} live graph</h3>
+            <p className="text-sm text-gray-500">Last {metricHistory.length} samples from the real metrics API.</p>
+          </div>
+          <button type="button" onClick={() => setSelectedMetric(null)} className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50">Close</button>
+        </div>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-56 w-full rounded border border-gray-200 bg-gray-50">
+          <polyline fill="none" stroke="#dc2626" strokeWidth="2.5" points={points} />
+        </svg>
+        <div className="mt-3 flex justify-between text-xs text-gray-500">
+          <span>{metricHistory[0]?.time}</span>
+          <span>{metricHistory[metricHistory.length - 1]?.time}</span>
+        </div>
+      </div>
+    )
+  }
+
   const resolveAssetUrl = (url?: string) => {
     const API_HOST = getApiHost()
     if (!url) return ''
@@ -360,7 +401,7 @@ const SystemMetrics = () => {
       {/* System Wake Time */}
       {wakeTime && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-lg shadow">
+          <button type="button" onClick={() => setSelectedMetric('cpu')} className="bg-white p-4 rounded-lg shadow text-left hover:ring-2 hover:ring-blue-200">
             <div className="flex items-center space-x-3">
               <Clock className="w-8 h-8 text-blue-600" />
               <div>
@@ -368,8 +409,8 @@ const SystemMetrics = () => {
                 <p className="text-2xl font-bold text-gray-900">{wakeTime.uptime}</p>
               </div>
             </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow">
+          </button>
+          <button type="button" onClick={() => setSelectedMetric('memory')} className="bg-white p-4 rounded-lg shadow text-left hover:ring-2 hover:ring-yellow-200">
             <div className="flex items-center space-x-3">
               <Server className="w-8 h-8 text-green-600" />
               <div>
@@ -377,8 +418,8 @@ const SystemMetrics = () => {
                 <p className="text-sm text-gray-600">{new Date(wakeTime.bootTime).toLocaleString()}</p>
               </div>
             </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow">
+          </button>
+          <button type="button" onClick={() => setSelectedMetric('storage')} className="bg-white p-4 rounded-lg shadow text-left hover:ring-2 hover:ring-green-200">
             <div className="flex items-center space-x-3">
               <Activity className="w-8 h-8 text-purple-600" />
               <div>
@@ -386,8 +427,8 @@ const SystemMetrics = () => {
                 <p className="text-sm text-gray-600">{wakeTime.totalUptime}</p>
               </div>
             </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow">
+          </button>
+          <button type="button" onClick={() => setSelectedMetric('network')} className="bg-white p-4 rounded-lg shadow text-left hover:ring-2 hover:ring-purple-200">
             <div className="flex items-center space-x-3">
               <Clock className="w-8 h-8 text-red-600" />
               <div>
@@ -396,9 +437,11 @@ const SystemMetrics = () => {
                 <p className="text-xs text-gray-500">{wakeTime.timezone}</p>
               </div>
             </div>
-          </div>
+          </button>
         </div>
       )}
+
+      {renderMetricChart()}
 
       {/* Main Metrics Grid */}
       {metrics && (

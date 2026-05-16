@@ -12,6 +12,8 @@ const apiClient = axios.create({
   },
 })
 
+const UPLOAD_TIMEOUT_MS = 120000
+
 // Add auth interceptor
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
@@ -127,12 +129,12 @@ export const productsApi = {
   },
 
   createProduct: async (data: any) => {
-    const response = await apiClient.post('/admin/products', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined)
+    const response = await apiClient.post('/admin/products', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' }, timeout: UPLOAD_TIMEOUT_MS } : undefined)
     return response.data
   },
 
   updateProduct: async (id: string, data: any) => {
-    const response = await apiClient.put(`/admin/products/${id}`, data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined)
+    const response = await apiClient.put(`/admin/products/${id}`, data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' }, timeout: UPLOAD_TIMEOUT_MS } : undefined)
     return response.data
   },
 
@@ -258,7 +260,7 @@ export const contentApi = {
   uploadContentImage: async (file: File) => {
     const data = new FormData()
     data.append('media', file)
-    const response = await apiClient.post('/admin/content/uploads', data, { headers: { 'Content-Type': 'multipart/form-data' } })
+    const response = await apiClient.post('/admin/content/uploads', data, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: UPLOAD_TIMEOUT_MS })
     return response.data
   }
 }
@@ -294,6 +296,11 @@ export const notificationsApi = {
 
   markAsRead: async (id: string) => {
     const response = await apiClient.put(`/admin/notifications/${id}/read`)
+    return response.data
+  },
+
+  archiveNotification: async (id: string) => {
+    const response = await apiClient.put(`/admin/notifications/${id}/archive`)
     return response.data
   },
 
@@ -477,7 +484,7 @@ export const adsApi = {
   uploadMedia: async (file: File) => {
     const data = new FormData()
     data.append('media', file)
-    const response = await apiClient.post('/marketing/upload-media', data, { headers: { 'Content-Type': 'multipart/form-data' } })
+    const response = await apiClient.post('/marketing/upload-media', data, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: UPLOAD_TIMEOUT_MS })
     return response.data
   }
 }

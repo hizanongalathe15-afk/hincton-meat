@@ -48,10 +48,19 @@ const Role = {
 } as const
 type RoleValue = typeof Role[keyof typeof Role]
 
+const realEmailSchema = z.string()
+  .email()
+  .refine((value) => /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(value), 'Use a real email address with a valid domain')
+  .transform((value) => value.toLowerCase())
+
+const strongPasswordSchema = z.string()
+  .min(8)
+  .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/, 'Password must include uppercase, lowercase, number, and symbol')
+
 const registerSchema = z.object({
   name: z.string().min(2),
-  email: z.string().email().transform((value) => value.toLowerCase()),
-  password: z.string().min(8),
+  email: realEmailSchema,
+  password: strongPasswordSchema,
   phone: z.string().regex(/^\+[1-9]\d{7,14}$/).optional(),
   agreed: z.boolean().refine((val) => val === true, {
     message: 'You must agree to the Terms and Privacy Policy to register',

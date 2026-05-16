@@ -524,44 +524,6 @@ const EnhancedProfilePage: React.FC = () => {
     }
   }
 
-  const handleClearSearchHistory = async () => {
-    try {
-      await userApi.clearSearchHistory()
-      toast.success('Search history cleared')
-    } catch {
-      toast.error('Could not clear search history')
-    }
-  }
-
-  const handleClearChatHistory = async () => {
-    const confirmed = await confirm({
-      title: 'Clear Chat History',
-      message: 'This permanently removes your support chat messages from the system.',
-      confirmText: 'Clear chat',
-      cancelText: 'Cancel',
-      type: 'danger',
-      icon: 'delete',
-    })
-    if (!confirmed) return
-
-    try {
-      await userApi.clearChatHistory()
-      toast.success('Chat history cleared')
-    } catch {
-      toast.error('Could not clear chat history')
-    }
-  }
-
-  const handleClearDeviceHistory = async () => {
-    try {
-      await userApi.clearDeviceHistory()
-      await refreshSessions()
-      toast.success('Other device sessions cleared')
-    } catch {
-      toast.error('Could not clear device history')
-    }
-  }
-
   const handleCloseAccount = async () => {
     if (!closeAccountForm.identifier.trim() || !closeAccountForm.agreed) {
       toast.error('Enter your email or phone number and agree before closing the account')
@@ -1193,21 +1155,6 @@ const EnhancedProfilePage: React.FC = () => {
                         </div>
                       </div>
                     )}
-                  </div>
-
-                  <div className="border-t border-gray-200 pt-6">
-                    <h3 className="font-medium text-gray-900 mb-3">Privacy and history</h3>
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <button type="button" onClick={handleClearSearchHistory} className="rounded-lg border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                        Clear search history
-                      </button>
-                      <button type="button" onClick={handleClearChatHistory} className="rounded-lg border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                        Clear chat history
-                      </button>
-                      <button type="button" onClick={handleClearDeviceHistory} className="rounded-lg border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                        Clear device history
-                      </button>
-                    </div>
                   </div>
 
                   <div className="border-t border-red-200 pt-6">

@@ -542,8 +542,13 @@ const ContentPage = () => {
           <input type="file" accept="image/*" onChange={async (event) => {
             const file = event.target.files?.[0]
             if (!file) return
-            const data = await contentApi.uploadContentImage(file)
-            setBlogDraft((current) => ({ ...current, featuredImage: data.url }))
+            try {
+              const data = await contentApi.uploadContentImage(file)
+              setBlogDraft((current) => ({ ...current, featuredImage: data.url }))
+              toast.success('Blog image uploaded')
+            } catch (error: any) {
+              toast.error(error?.message || 'Could not upload blog image')
+            }
           }} className="text-sm text-gray-600" />
         </div>
         <textarea value={blogDraft.excerpt} onChange={(event) => setBlogDraft((current) => ({ ...current, excerpt: event.target.value }))} rows={2} placeholder="Excerpt" className="mt-3 w-full rounded border border-gray-300 px-3 py-2" />

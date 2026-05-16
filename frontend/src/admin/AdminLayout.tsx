@@ -23,7 +23,8 @@ import {
   Clock,
   LogOut,
   User,
-  Star
+  Star,
+  Archive
 } from 'lucide-react'
 import { useAdminSearch } from '../hooks/useAdminSearch'
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog'
@@ -43,7 +44,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
-  const [notifications, setNotifications] = useState<Array<{ id: string; title?: string; message?: string; isRead: boolean; createdAt: string }>>([])
+  const [notifications, setNotifications] = useState<Array<{ id: string; title?: string; message?: string; actionUrl?: string; isRead: boolean; createdAt: string }>>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const accountDropdownRef = useRef<HTMLDivElement>(null)
   const notificationsRef = useRef<HTMLDivElement>(null)
@@ -155,6 +156,29 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     } catch (error) {
       console.error('Failed to delete notification:', error)
     }
+  }
+
+  const archiveNotification = async (notificationId: string) => {
+    try {
+      await notificationsApi.archiveNotification(notificationId)
+      setNotifications((current) => current.map((item) => item.id === notificationId ? { ...item, isRead: true } : item))
+      setUnreadCount((count) => Math.max(0, count - 1))
+      toast.success('Notification archived')
+    } catch (error) {
+      console.error('Failed to archive notification:', error)
+      toast.error('Could not archive notification')
+    }
+  }
+
+  const openNotification = async (notification: { id: string; actionUrl?: string }) => {
+    await notificationsApi.markAsRead(notification.id)
+    setNotificationsOpen(false)
+    if (notification.actionUrl) {
+      navigate(notification.actionUrl.replace(window.location.origin, ''))
+    } else {
+      navigate('/admin/communications')
+    }
+    await refreshNotifications()
   }
 
   useEffect(() => {
@@ -574,7 +598,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                   setNotificationsOpen((open) => !open)
                   setAccountDropdownOpen(false)
                 }}
-                className="relative grid size-10 place-items-center rounded-lg text-gray-500 hover:bg-white/80 hover:text-gray-700"
+                className={`relative grid size-10 place-items-center rounded-lg hover:bg-white/80 ${unreadCount > 10 ? 'text-red-600' : unreadCount > 0 ? 'text-green-600' : 'text-gray-500 hover:text-gray-700'}`}
                 aria-label="Admin notifications"
               >
                 <Bell className="h-5 w-5" />
@@ -598,19 +622,21 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                           <button
                             type="button"
                             onClick={async () => {
-                              await notificationsApi.markAsRead(notification.id)
-                              setNotificationsOpen(false)
-                              navigate('/admin/communications')
-                              await refreshNotifications()
+                              await openNotification(notification)
                             }}
                             className="min-w-0 text-left"
                           >
                             <p className="truncate text-sm font-semibold text-gray-900">{notification.title || 'Notification'}</p>
                             <p className="mt-1 line-clamp-2 text-xs text-gray-600">{notification.message}</p>
                           </button>
-                          <button onClick={() => deleteNotification(notification.id)} className="rounded p-1 text-gray-400 hover:bg-white hover:text-red-700" aria-label="Delete notification">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          <div className="flex shrink-0 gap-1">
+                            <button onClick={() => archiveNotification(notification.id)} className="rounded p-1 text-gray-400 hover:bg-white hover:text-green-700" aria-label="Archive notification">
+                              <Archive className="h-4 w-4" />
+                            </button>
+                            <button onClick={() => deleteNotification(notification.id)} className="rounded p-1 text-gray-400 hover:bg-white hover:text-red-700" aria-label="Delete notification">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )) : (

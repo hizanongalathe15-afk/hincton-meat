@@ -70,7 +70,7 @@ export const getProductsToReview = asyncHandler(async (req: Request, res: Respon
   const orders = await prisma.order.findMany({
     where: {
       userId,
-      status: { in: ['DELIVERED', 'COMPLETED'] as any },
+      status: 'DELIVERED',
       deletedAt: null
     } as any,
     orderBy: { createdAt: 'desc' },
