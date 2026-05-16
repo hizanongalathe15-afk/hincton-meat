@@ -122,17 +122,26 @@ export const getProductsToReview = asyncHandler(async (req: Request, res: Respon
 export const createReview = asyncHandler(async (req: Request, res: Response) => {
   const userId = (req as any).user?.id
   const { productId, orderId, orderItemId, rating, title, content, images } = req.body
+  const parsedRating = Number(rating)
   
   if (!userId) {
     throw new AppError('User authentication required', 401, 'UNAUTHORIZED')
   }
 
-  if (!productId || !rating || !title || !content) {
+  if (!productId || !parsedRating || !title || !content) {
     throw new ValidationError('Missing required fields')
   }
 
-  if (rating < 1 || rating > 5) {
+  if (parsedRating < 1 || parsedRating > 5) {
     throw new ValidationError('Rating must be between 1 and 5')
+  }
+
+  const product = await prisma.product.findFirst({
+    where: { id: productId, deletedAt: null },
+    select: { id: true }
+  })
+  if (!product) {
+    throw new NotFoundError('Product', productId)
   }
 
   let verifiedOrderItem: any = null
@@ -156,7 +165,6 @@ export const createReview = asyncHandler(async (req: Request, res: Response) => 
     where: {
       userId,
       productId,
-      ...(verifiedOrderItem ? { orderItemId: verifiedOrderItem.id } : {}),
       deletedAt: null
     }
   })
@@ -172,9 +180,9 @@ export const createReview = asyncHandler(async (req: Request, res: Response) => 
       productId,
       orderId: verifiedOrderItem?.orderId || orderId || null,
       orderItemId: verifiedOrderItem?.id || orderItemId || null,
-      rating,
-      title,
-      comment: content,
+        rating: parsedRating,
+        title: String(title).trim(),
+        comment: String(content).trim(),
       isVerifiedPurchase: Boolean(verifiedOrderItem),
       status: 'APPROVED'
     }

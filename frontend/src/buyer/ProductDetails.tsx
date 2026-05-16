@@ -93,6 +93,8 @@ const ProductDetails = ({
 
   const [isAdding, setIsAdding] = useState(false)
   const [activeTab, setActiveTab] = useState<'description' | 'nutrition' | 'storage'>('description')
+  const availableStock = Math.max(0, Number(product.stockQuantity || 0))
+  const maxQuantity = product.inStock ? Math.max(1, availableStock) : 1
 
   const handleAddToCart = async () => {
     if (!product.inStock) return
@@ -108,9 +110,9 @@ const ProductDetails = ({
   }
 
   const handleQuantityChange = (newQuantity: number) => {
-    if (newQuantity >= 1 && newQuantity <= 99) {
-      setQuantity(newQuantity)
-    }
+    if (!Number.isFinite(newQuantity)) return
+    const clampedQuantity = Math.min(Math.max(1, Math.floor(newQuantity)), maxQuantity)
+    setQuantity(clampedQuantity)
   }
 
   const discountPercentage = product.originalPrice 
@@ -301,7 +303,7 @@ const ProductDetails = ({
             {product.inStock ? (
               <>
                 <Check className="w-5 h-5 text-green-500" />
-                <span className="text-green-700 font-medium">In Stock - Ready to Ship</span>
+                <span className="text-green-700 font-medium">In Stock - {availableStock} available</span>
               </>
             ) : (
               <>
@@ -318,7 +320,9 @@ const ProductDetails = ({
               <div className="flex items-center border border-gray-300 rounded-lg">
                 <button
                   onClick={() => handleQuantityChange(quantity - 1)}
-                  className="p-2 hover:bg-gray-100"
+                  disabled={quantity <= 1}
+                  className="p-2 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Decrease quantity"
                 >
                   <Minus className="w-4 h-4" />
                 </button>
@@ -328,15 +332,20 @@ const ProductDetails = ({
                   onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
                   className="w-16 text-center border-x border-gray-300 py-2"
                   min="1"
-                  max="99"
+                  max={maxQuantity}
                 />
                 <button
                   onClick={() => handleQuantityChange(quantity + 1)}
-                  className="p-2 hover:bg-gray-100"
+                  disabled={!product.inStock || quantity >= maxQuantity}
+                  className="p-2 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Increase quantity"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
+              {product.inStock && (
+                <span className="text-sm text-gray-500">Max {maxQuantity} from live stock</span>
+              )}
             </div>
 
             <div className="flex gap-4">

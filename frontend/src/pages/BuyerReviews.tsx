@@ -32,6 +32,7 @@ interface ProductToReview {
   name: string;
   image?: string;
   orderId: string;
+  orderItemId?: string;
   orderNumber: string;
   orderDate: string;
   canReview: boolean;
@@ -117,6 +118,7 @@ const BuyerReviews: React.FC = () => {
         await reviewsApi.createReview({
           productId: selectedProduct.id,
           orderId: selectedProduct.orderId,
+          orderItemId: selectedProduct.orderItemId,
           rating: reviewForm.rating,
           title: reviewForm.title.trim(),
           content: reviewForm.content.trim(),

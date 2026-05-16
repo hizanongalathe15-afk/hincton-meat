@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import ProductCard from './ProductCard'
@@ -234,8 +234,8 @@ const BuyerShop = ({
 
   // Update filtered products when products change
   useEffect(() => {
-    setFilteredProducts(products)
-  }, [products])
+    setFilteredProducts(filterProducts(products, selectedCategory, searchQuery))
+  }, [products, selectedCategory, searchQuery])
 
     const handleCategoryChange = (categoryId: string) => {
       setSelectedCategory(categoryId)
@@ -249,7 +249,12 @@ const BuyerShop = ({
 
     const handleSearchChange = (query: string) => {
       setSearchQuery(query)
-      updateUrl(selectedCategory, query, sortBy)
+      setFilteredProducts(filterProducts(products, selectedCategory, query))
+    }
+
+    const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      updateUrl(selectedCategory, searchQuery, sortBy)
     }
 
     const updateUrl = (categoryId: string, query: string, sortOption: string) => {
@@ -338,7 +343,7 @@ const BuyerShop = ({
               <h1 className="mt-3 text-4xl font-extrabold">{t('shop.freshCuts')}</h1>
               <p className="mt-3 text-lg text-neutral-300">{t('shop.description')}</p>
             </div>
-            <label className="block">
+            <form className="block" onSubmit={handleSearchSubmit}>
               <span className="mb-2 block text-sm font-semibold text-neutral-200">{t('shop.searchProducts')}</span>
               <div className="flex overflow-hidden rounded-lg bg-white shadow-xl">
                 <input
@@ -352,7 +357,8 @@ const BuyerShop = ({
                   <Search className="h-5 w-5" />
                 </span>
               </div>
-            </label>
+              <p className="mt-2 text-xs text-neutral-400">Press Enter to refresh from live stock. Typing filters loaded products instantly.</p>
+            </form>
           </div>
         </div>
       </section>

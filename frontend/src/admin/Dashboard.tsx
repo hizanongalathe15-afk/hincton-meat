@@ -7,7 +7,6 @@ import {
   DollarSign,
   ArrowUpRight,
   ArrowDownRight,
-  X,
   ShieldCheck,
 } from 'lucide-react'
 import { dashboardApi } from '../services/adminApi'
@@ -57,7 +56,7 @@ interface AbandonedCart {
 
 const AdminDashboard = () => {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, updateProfile } = useAuth()
   const { profile } = useSiteContent()
   const [stats, setStats] = useState<DashboardStats>({
     totalRevenue: 0,
@@ -78,12 +77,26 @@ const AdminDashboard = () => {
     if (typeof window === 'undefined') return false
     return window.sessionStorage.getItem('hincton:admin-welcome-pending') === 'true'
   })
+  const [adminDisplayName, setAdminDisplayName] = useState(user?.profile?.fullName || user?.name || '')
+  const [savingAdminName, setSavingAdminName] = useState(false)
 
   const adminName = user?.profile?.fullName || user?.name || user?.email || 'Admin'
   const adminIdentifier = user?.email || user?.id || 'verified admin session'
   const closeAdminWelcome = () => {
     window.sessionStorage.removeItem('hincton:admin-welcome-pending')
     setShowAdminWelcome(false)
+  }
+  const confirmAdminName = async () => {
+    const cleanName = adminDisplayName.trim()
+    if (cleanName.length < 2) return
+
+    setSavingAdminName(true)
+    try {
+      await updateProfile({ name: cleanName })
+      closeAdminWelcome()
+    } finally {
+      setSavingAdminName(false)
+    }
   }
 
   useEffect(() => {
@@ -225,24 +238,25 @@ const AdminDashboard = () => {
   return (
     <div className="space-y-6">
       {showAdminWelcome && (
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 px-4 backdrop-blur-md">
-          <div className="floating-4d relative w-full max-w-3xl overflow-hidden rounded-[2rem] border border-white/30 bg-white/15 p-1 shadow-2xl shadow-red-950/40 backdrop-blur-2xl">
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center overflow-hidden bg-black px-4">
+          <div className="absolute inset-0 bg-[linear-gradient(125deg,rgba(127,29,29,0.96)_0%,rgba(127,29,29,0.96)_49%,rgba(15,23,42,0.98)_50%,rgba(3,7,18,1)_100%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.20),transparent_24%),radial-gradient(circle_at_78%_18%,rgba(248,113,113,0.20),transparent_28%)]" />
+          <div className="absolute inset-y-0 left-1/2 w-1 -translate-x-1/2 -rotate-[18deg] bg-gradient-to-b from-transparent via-white/70 to-transparent blur-sm" />
+          <div className="floating-4d relative w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/30 bg-white/15 p-1 shadow-2xl shadow-red-950/40 backdrop-blur-2xl">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent" />
-            <button
-              type="button"
-              onClick={closeAdminWelcome}
-              className="absolute right-5 top-5 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/20 text-white hover:bg-white/30"
-              aria-label="Close admin welcome"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <div className="relative overflow-hidden rounded-[1.7rem] bg-gradient-to-br from-neutral-950 via-red-950 to-neutral-900 p-8 text-white">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.20),transparent_24%),radial-gradient(circle_at_78%_18%,rgba(248,113,113,0.20),transparent_28%)]" />
+            <div className="relative overflow-hidden rounded-[1.7rem] bg-white/10 p-8 text-white">
               <div className="absolute -left-1/3 top-0 h-full w-1/3 rotate-12 bg-gradient-to-r from-transparent via-white/25 to-transparent blur-sm animate-[pulse_2.8s_ease-in-out_infinite]" />
-              <div className="relative grid gap-8 md:grid-cols-[auto_1fr] md:items-center">
+              <div className="relative grid gap-8 md:grid-cols-[0.85fr_1.15fr] md:items-center">
                 <div className="grid place-items-center">
-                  <div className="rounded-[1.5rem] border border-white/30 bg-white/90 p-5 shadow-xl">
-                    <img src={profile.images.logo || profile.brand.logo} alt={profile.brand.name} className="h-24 w-24 object-contain" />
+                  <div className="space-y-5 text-center md:text-left">
+                    <div className="mx-auto rounded-[1.5rem] border border-white/30 bg-white/90 p-5 shadow-xl md:mx-0">
+                      <img src={profile.images.logo || profile.brand.logo} alt={profile.brand.name} className="h-28 w-28 object-contain" />
+                    </div>
+                    <div>
+                      <p className="m-0 text-sm font-bold uppercase tracking-[0.3em] text-yellow-200">Diagonal Reveal</p>
+                      <h2 className="particle-text mt-2 text-4xl font-black">Hincton Command</h2>
+                      <p className="mt-3 text-red-50/90">Every product edit, chat reply, price change, and order action is linked to the real admin name you confirm here.</p>
+                    </div>
                   </div>
                 </div>
                 <div>
@@ -251,7 +265,7 @@ const AdminDashboard = () => {
                     Secure admin session verified
                   </p>
                   <h1 className="particle-text text-3xl font-black leading-tight md:text-5xl">
-                    <span className="typewriter-glow">Welcome, {adminName}</span>
+                    <span className="typewriter-glow">Welcome, {adminDisplayName.trim() || adminName}</span>
                   </h1>
                   <p className="mt-4 text-base leading-7 text-red-50 md:text-lg">
                     You are entering the Hincton Meat control room. Product updates, orders, content, chat replies, and operational changes are tied to your authenticated admin identity so the team can trace decisions and resolve issues clearly.
@@ -260,9 +274,23 @@ const AdminDashboard = () => {
                     <p className="m-0 font-semibold">Signed in as: {adminIdentifier}</p>
                     <p className="m-0 mt-1 text-red-100/80">Keep your real admin profile name updated before making sensitive changes.</p>
                   </div>
+                  <label className="mt-5 block">
+                    <span className="mb-2 block text-sm font-bold text-red-50">Confirm real admin name</span>
+                    <input
+                      value={adminDisplayName}
+                      onChange={(event) => setAdminDisplayName(event.target.value)}
+                      placeholder="Example: Nancy"
+                      className="w-full rounded-full border border-white/25 bg-white/15 px-5 py-3 font-semibold text-white placeholder:text-red-100/50 outline-none ring-0 backdrop-blur-xl focus:border-yellow-200"
+                    />
+                  </label>
                   <div className="mt-6 flex flex-wrap gap-3">
-                    <button type="button" onClick={closeAdminWelcome} className="glass-button bg-red-600/80 px-5 py-3 font-bold text-white hover:bg-red-500">
-                      Enter Dashboard
+                    <button
+                      type="button"
+                      onClick={confirmAdminName}
+                      disabled={adminDisplayName.trim().length < 2 || savingAdminName}
+                      className="glass-button bg-red-600/80 px-5 py-3 font-bold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {savingAdminName ? 'Saving Name...' : 'Save Name & Enter'}
                     </button>
                     <button type="button" onClick={() => navigate('/admin/profile')} className="glass-button px-5 py-3 font-bold text-white">
                       Update Admin Name
