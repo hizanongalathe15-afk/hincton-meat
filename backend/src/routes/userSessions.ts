@@ -61,6 +61,16 @@ router.post('/admin/revoke/:sessionId',
   UserSessionController.revokeSession
 )
 
+router.delete('/admin/session/:sessionId',
+  authRateLimiter,
+  UserSessionController.deleteAdminSession
+)
+
+router.delete('/admin/sessions',
+  authRateLimiter,
+  UserSessionController.clearAdminSessions
+)
+
 router.post('/admin/cleanup', 
   authRateLimiter, 
   UserSessionController.cleanupOldSessions

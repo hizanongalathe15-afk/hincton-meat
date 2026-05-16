@@ -134,7 +134,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     refreshNotifications().catch(() => undefined)
     const interval = window.setInterval(() => {
       refreshNotifications().catch(() => undefined)
-    }, 30000)
+    }, 120000)
 
     return () => window.clearInterval(interval)
   }, [])

@@ -47,6 +47,15 @@ const adPlacementSchema = z.object({
   }),
   isActive: z.boolean().default(true),
   targeting: z.object({
+    creative: z.object({
+      title: z.string().optional(),
+      description: z.string().optional(),
+      imageUrl: z.string().min(1).optional(),
+      mediaUrl: z.string().min(1).optional(),
+      mediaType: z.enum(['image', 'gif', 'video', 'audio', 'sticker']).optional(),
+      landingUrl: z.string().min(1).optional(),
+      buttonText: z.string().optional(),
+    }).optional(),
     locations: z.array(z.string()).optional(),
     demographics: z.object({
       ageRange: z.object({
@@ -96,10 +105,10 @@ const adCampaignSchema = z.object({
   creative: z.object({
     title: z.string(),
     description: z.string(),
-    imageUrl: z.string().url().optional(),
-    mediaUrl: z.string().url().optional(),
+    imageUrl: z.string().min(1).optional(),
+    mediaUrl: z.string().min(1).optional(),
     mediaType: z.enum(['image', 'gif', 'video', 'audio', 'sticker']).optional(),
-    stickerUrl: z.string().url().optional(),
+    stickerUrl: z.string().min(1).optional(),
     landingUrl: z.string().min(1),
     buttonText: z.string().optional()
   }),
@@ -385,6 +394,31 @@ router.get('/serve', async (req, res) => {
 
     if (!placement || !placement.isActive) {
       return res.json({ ad: null, reason: 'placement_not_found' })
+    }
+
+    const placementCreative = (placement.targeting as any)?.creative
+    if (placementCreative?.mediaUrl || placementCreative?.imageUrl) {
+      return res.json({
+        ad: {
+          id: placement.id,
+          title: placementCreative.title || placement.name,
+          description: placementCreative.description || '',
+          imageUrl: placementCreative.imageUrl || placementCreative.mediaUrl,
+          mediaUrl: placementCreative.mediaUrl || placementCreative.imageUrl,
+          mediaType: placementCreative.mediaType || 'image',
+          landingUrl: placementCreative.landingUrl || '/shop',
+          buttonText: placementCreative.buttonText || 'Shop now',
+          advertiser: 'Hincton',
+          placement: {
+            id: placement.id,
+            type: placement.type,
+            size: placement.size,
+          },
+          tracking: {
+            impressionId: `placement_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+          },
+        },
+      })
     }
 
     // Check targeting criteria

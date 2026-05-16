@@ -10,7 +10,8 @@ import {
   AlertTriangle,
   CheckCircle,
   RefreshCw,
-  LogOut
+  LogOut,
+  Trash2
 } from 'lucide-react'
 import { systemApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
@@ -159,6 +160,46 @@ const SystemMetrics = () => {
     }
   }
 
+  const clearSession = async (sessionId: string) => {
+    const confirmed = await confirm({
+      title: 'Clear Session Row',
+      message: 'This permanently removes this browser session record from the history table.',
+      confirmText: 'Clear session',
+      cancelText: 'Cancel',
+      type: 'danger',
+      icon: 'delete',
+    })
+    if (!confirmed) return
+    try {
+      await systemApi.clearAdminSession(sessionId)
+      toast.success('Session cleared')
+      await fetchMetrics()
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to clear session')
+    }
+  }
+
+  const clearSessions = async (scope: 'inactive' | 'all') => {
+    const confirmed = await confirm({
+      title: scope === 'all' ? 'Clear All Admin Sessions' : 'Clear Inactive Sessions',
+      message: scope === 'all'
+        ? 'This deletes every admin session record, including online devices. Active devices may need to sign in again.'
+        : 'This deletes offline, expired, and revoked admin session records from the history table.',
+      confirmText: scope === 'all' ? 'Clear all sessions' : 'Clear inactive',
+      cancelText: 'Cancel',
+      type: 'danger',
+      icon: 'delete',
+    })
+    if (!confirmed) return
+    try {
+      const response = await systemApi.clearAdminSessions(scope)
+      toast.success(`Cleared ${response.deletedCount || 0} session${response.deletedCount === 1 ? '' : 's'}`)
+      await fetchMetrics()
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to clear sessions')
+    }
+  }
+
   useEffect(() => {
     fetchMetrics()
     const interval = setInterval(fetchMetrics, 30000) // Refresh every 30 seconds
@@ -260,6 +301,20 @@ const SystemMetrics = () => {
           <div className="text-sm text-gray-500">
             Last updated: {lastUpdate}
           </div>
+          <button
+            onClick={() => clearSessions('inactive')}
+            className="flex items-center space-x-2 rounded-lg border border-red-200 px-4 py-2 text-red-700 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            <span>Clear inactive</span>
+          </button>
+          <button
+            onClick={() => clearSessions('all')}
+            className="flex items-center space-x-2 rounded-lg border border-red-300 px-4 py-2 text-red-800 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            <span>Clear all sessions</span>
+          </button>
           <button
             onClick={refreshMetrics}
             disabled={refreshing}
@@ -683,15 +738,25 @@ const SystemMetrics = () => {
                         {new Date(session.lastActivity).toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                        <button
-                          type="button"
-                          onClick={() => revokeSession(session.id)}
-                          disabled={!session.isOnline}
-                          className="inline-flex items-center gap-1 rounded border border-red-200 px-3 py-1 text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <LogOut className="h-4 w-4" />
-                          Log out
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => revokeSession(session.id)}
+                            disabled={!session.isOnline}
+                            className="inline-flex items-center gap-1 rounded border border-red-200 px-3 py-1 text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <LogOut className="h-4 w-4" />
+                            Log out
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => clearSession(session.id)}
+                            className="inline-flex items-center gap-1 rounded border border-gray-300 px-3 py-1 text-gray-700 hover:bg-gray-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Clear
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

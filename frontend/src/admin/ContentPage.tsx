@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Save } from 'lucide-react'
+import { Save, Trash2, Upload, X } from 'lucide-react'
 import { contentApi, settingsApi } from '../services/adminApi'
 import { defaultSiteProfile, SiteProfile, useSiteContent } from '../contexts/SiteContentContext'
 
@@ -242,6 +242,21 @@ const ContentPage = () => {
     }
   }
 
+  const uploadCategoryImage = async (categoryId: string | 'draft', file?: File) => {
+    if (!file) return
+    try {
+      const data = await contentApi.uploadContentImage(file)
+      if (categoryId === 'draft') {
+        setCategoryDraft((current) => ({ ...current, image: data.url }))
+      } else {
+        setCategories((current) => current.map((item) => item.id === categoryId ? { ...item, image: data.url } : item))
+      }
+      toast.success('Category image uploaded')
+    } catch (error: any) {
+      toast.error(error?.message || 'Could not upload category image')
+    }
+  }
+
   const createCategory = async () => {
     const name = categoryDraft.name.trim()
     if (!name) return
@@ -277,12 +292,14 @@ const ContentPage = () => {
   }
 
   const archiveCategory = async (categoryId: string) => {
+    const category = categories.find((item) => item.id === categoryId)
+    if (!window.confirm(`Permanently delete "${category?.name || 'this category'}"? Products in it will become uncategorized.`)) return
     try {
       await contentApi.deleteCategory(categoryId)
       setCategories((current) => current.filter((category) => category.id !== categoryId))
-      toast.success('Category archived')
+      toast.success('Category deleted')
     } catch {
-      toast.error('Could not archive category')
+      toast.error('Could not delete category')
     }
   }
 
@@ -423,21 +440,34 @@ const ContentPage = () => {
       <section className="rounded bg-white p-6 shadow-sm">
         <h2 className="text-lg font-bold text-gray-950">Product Categories</h2>
         <p className="mt-1 text-sm text-gray-600">Categories are not fixed to meat. Add anything the business sells: utensils, cars, services, bundles, or future product lines.</p>
-        <div className="mt-5 grid gap-3 md:grid-cols-[14rem_1fr_1fr_auto]">
+        <div className="mt-5 grid gap-3 md:grid-cols-[14rem_1fr_1fr_auto_auto]">
           <input value={categoryDraft.name} onChange={(event) => setCategoryDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Category name" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
           <input value={categoryDraft.description} onChange={(event) => setCategoryDraft((current) => ({ ...current, description: event.target.value }))} placeholder="Description" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
           <input value={categoryDraft.image} onChange={(event) => setCategoryDraft((current) => ({ ...current, image: event.target.value }))} placeholder="Image URL or uploaded path" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+          <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+            <Upload className="h-4 w-4" />
+            Image
+            <input type="file" accept="image/*" onChange={(event) => uploadCategoryImage('draft', event.target.files?.[0])} className="hidden" />
+          </label>
           <button type="button" onClick={createCategory} className="rounded bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700">Add Category</button>
         </div>
         <div className="mt-5 space-y-3">
           {categories.map((category) => (
             <div key={category.id} className="rounded border border-gray-200 p-4">
-              <div className="grid gap-3 md:grid-cols-[14rem_1fr_1fr_auto_auto]">
+              <div className="grid gap-3 md:grid-cols-[14rem_1fr_1fr_auto_auto_auto]">
                 <input value={category.name || ''} onChange={(event) => setCategories((current) => current.map((item) => item.id === category.id ? { ...item, name: event.target.value, slug: slugify(event.target.value) } : item))} className="rounded border border-gray-300 px-3 py-2" />
                 <input value={category.description || ''} onChange={(event) => setCategories((current) => current.map((item) => item.id === category.id ? { ...item, description: event.target.value } : item))} placeholder="Description" className="rounded border border-gray-300 px-3 py-2" />
                 <input value={category.image || ''} onChange={(event) => setCategories((current) => current.map((item) => item.id === category.id ? { ...item, image: event.target.value } : item))} placeholder="Image" className="rounded border border-gray-300 px-3 py-2" />
+                <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                  <Upload className="h-4 w-4" />
+                  Upload
+                  <input type="file" accept="image/*" onChange={(event) => uploadCategoryImage(category.id, event.target.files?.[0])} className="hidden" />
+                </label>
                 <button type="button" onClick={() => updateCategory(category)} className="rounded bg-gray-900 px-3 py-2 text-sm font-semibold text-white">Save</button>
-                <button type="button" onClick={() => archiveCategory(category.id)} className="rounded border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Archive</button>
+                <button type="button" onClick={() => archiveCategory(category.id)} className="inline-flex items-center justify-center gap-1 rounded border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">
+                  <X className="h-4 w-4" />
+                  Delete
+                </button>
               </div>
             </div>
           ))}
@@ -454,7 +484,13 @@ const ContentPage = () => {
               <div key={key} className="rounded border border-gray-200 p-4">
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="text-base font-bold capitalize text-gray-950">{key}</h3>
-                  <button type="button" onClick={() => addPageSection(key)} className="rounded bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Add Section</button>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => addPageSection(key)} className="rounded bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Add Section</button>
+                    <button type="button" onClick={save} disabled={saving} className="inline-flex items-center gap-2 rounded bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60">
+                      <Save className="h-4 w-4" />
+                      Save Page
+                    </button>
+                  </div>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
                   <input value={page.title} onChange={(event) => updatePage(key, 'title', event.target.value)} placeholder="Page title" className="rounded border border-gray-300 px-3 py-2" />
@@ -472,7 +508,10 @@ const ContentPage = () => {
                     <div key={index} className="rounded bg-gray-50 p-3">
                       <div className="mb-2 flex items-center justify-between">
                         <span className="text-sm font-semibold text-gray-700">Section {index + 1}</span>
-                        <button type="button" onClick={() => removePageSection(key, index)} className="text-sm font-semibold text-red-700">Remove</button>
+                        <button type="button" onClick={() => removePageSection(key, index)} className="inline-flex items-center gap-1 text-sm font-semibold text-red-700">
+                          <Trash2 className="h-4 w-4" />
+                          Remove
+                        </button>
                       </div>
                       <div className="grid gap-2 md:grid-cols-2">
                         <input value={section.title} onChange={(event) => updatePageSection(key, index, 'title', event.target.value)} placeholder="Section title" className="rounded border border-gray-300 px-3 py-2" />

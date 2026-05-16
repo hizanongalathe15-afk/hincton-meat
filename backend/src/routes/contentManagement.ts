@@ -7,6 +7,8 @@ import { z } from 'zod'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
+import { uploadImage } from '../config/cloudinary'
+import { cacheService } from '../services/cacheService'
 
 const router = express.Router()
 const emitContactUpdate = (req: any, event: string, payload: Record<string, unknown>) => {
@@ -25,14 +27,17 @@ const ensureDirectory = (dir: string) => {
 }
 ensureDirectory(contentUploadPath)
 
+const saveLocalContentMedia = (file: Express.Multer.File) => {
+  ensureDirectory(contentUploadPath)
+  const extension = path.extname(file.originalname) || `.${file.mimetype.split('/')[1] || 'bin'}`
+  const filename = `content-${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`
+  const localPath = path.join(contentUploadPath, filename)
+  fs.writeFileSync(localPath, file.buffer)
+  return `/uploads/content/${filename}`
+}
+
 const contentUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      ensureDirectory(contentUploadPath)
-      cb(null, contentUploadPath)
-    },
-    filename: (_req, file, cb) => cb(null, `content-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`),
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 80 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/') || file.mimetype.startsWith('audio/')) return cb(null, true)
@@ -265,7 +270,7 @@ const siteProfileSchema = z.object({
     image: z.string().optional().default(''),
     video: z.string().optional(),
     sections: z.array(z.object({
-      title: z.string().min(1),
+      title: z.string().optional().default(''),
       body: z.string().optional().default(''),
       image: z.string().optional(),
       video: z.string().optional(),
@@ -322,10 +327,16 @@ router.post('/uploads', contentUpload.single('media'), async (req, res) => {
     const file = req.file
     if (!file) return res.status(400).json({ error: 'Media file is required' })
     const mediaType = file.mimetype.startsWith('video/') ? 'video' : file.mimetype.startsWith('audio/') ? 'audio' : 'image'
-    res.status(201).json({ url: `/uploads/content/${file.filename}`, mediaType })
+    try {
+      const uploaded = await uploadImage(file.buffer, 'hincton/content')
+      return res.status(201).json({ url: uploaded.url, publicId: uploaded.publicId, mediaType })
+    } catch {
+      const url = saveLocalContentMedia(file)
+      return res.status(201).json({ url, publicId: url, mediaType })
+    }
   } catch (error) {
     console.error('Content upload error:', error)
-    res.status(500).json({ error: 'Failed to upload image' })
+    res.status(500).json({ error: 'Failed to upload media' })
   }
 })
 
@@ -617,6 +628,7 @@ router.post('/categories', async (req, res) => {
         children: true
       }
     })
+    await cacheService.deleteByPrefix('categories:')
 
     res.status(201).json({ message: 'Category created', category })
   } catch (error) {
@@ -647,6 +659,7 @@ router.put('/categories/:id', async (req, res) => {
         children: true
       }
     })
+    await cacheService.deleteByPrefix('categories:')
 
     res.json({ message: 'Category updated', category })
   } catch (error) {
@@ -658,14 +671,17 @@ router.put('/categories/:id', async (req, res) => {
 router.delete('/categories/:id', async (req, res) => {
   try {
     const { id } = req.params
-    await prisma.category.update({
-      where: { id },
-      data: { isActive: false, deletedAt: new Date() },
-    })
-    res.json({ message: 'Category archived successfully' })
+    await prisma.$transaction([
+      prisma.product.updateMany({ where: { categoryId: id }, data: { categoryId: null } }),
+      prisma.category.updateMany({ where: { parentId: id }, data: { parentId: null } }),
+      prisma.couponCategory.deleteMany({ where: { categoryId: id } }),
+      prisma.category.delete({ where: { id } }),
+    ])
+    await cacheService.deleteByPrefix('categories:')
+    res.json({ message: 'Category deleted successfully' })
   } catch (error) {
     console.error('Delete category error:', error)
-    res.status(500).json({ error: 'Failed to archive category' })
+    res.status(500).json({ error: 'Failed to delete category' })
   }
 })
 

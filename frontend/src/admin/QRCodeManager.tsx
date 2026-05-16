@@ -18,6 +18,7 @@ import QRCodeLib from 'qrcode'
 import { qrCodesApi } from '../services/adminApi'
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog'
 import ConfirmationDialog from '../components/ui/ConfirmationDialog'
+import toast from 'react-hot-toast'
 
 interface QRCode {
   id: string
@@ -55,6 +56,7 @@ const QRCodeManager: FC = () => {
   const [showEditModal, setShowEditModal] = useState(false)
   const [selectedQR, setSelectedQR] = useState<QRCode | null>(null)
   const [sharingQR, setSharingQR] = useState<QRCode | null>(null)
+  const [previewQR, setPreviewQR] = useState<QRCode | null>(null)
   const [activeTab, setActiveTab] = useState<'list' | 'analytics'>('list')
   const { isOpen, options, confirm, handleConfirm, handleCancel } = useConfirmationDialog()
 
@@ -64,8 +66,8 @@ const QRCodeManager: FC = () => {
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      fetchQRCodes()
-    }, 10000)
+      fetchQRCodes(false)
+    }, 60000)
     return () => window.clearInterval(intervalId)
   }, [])
 
@@ -104,15 +106,15 @@ const QRCodeManager: FC = () => {
     isActive: qr.isActive
   })
 
-  const fetchQRCodes = async () => {
-    setLoading(true)
+  const fetchQRCodes = async (showLoading = true) => {
+    if (showLoading) setLoading(true)
     try {
       const data = await qrCodesApi.getQRCodes()
       setQrCodes((data.qrCodes || []).map(normalizeQRCode))
     } catch (error) {
       console.error('Failed to fetch QR codes:', error)
     } finally {
-      setLoading(false)
+      if (showLoading) setLoading(false)
     }
   }
 
@@ -136,14 +138,10 @@ const QRCodeManager: FC = () => {
     }
   }
 
-  const downloadQRCode = (qrCode: QRCode, format: 'png' | 'svg' | 'pdf' = 'png') => {
+  const getQRDataUrl = (qrCode: QRCode) => {
     const qrData = qrCodesApi.getScanUrl(qrCode.id)
     const size = qrCode.settings.size === 'small' ? 128 : qrCode.settings.size === 'medium' ? 256 : 512
-    let filename = `qrcode-${qrCode.id}-${qrCode.name.replace(/\s+/g, '-').toLowerCase()}`
-
-    // qrcode library typings differ by version; use `any` to avoid TS option mismatches.
-    const qr: any = QRCodeLib.create(qrData, {
-      // @ts-expect-error - library option typing varies
+    return QRCodeLib.toDataURL(qrData, {
       width: size,
       margin: 2,
       color: {
@@ -151,28 +149,26 @@ const QRCodeManager: FC = () => {
         light: '#FFFFFF'
       }
     })
+  }
 
-    // Ensure variables are always assigned.
-    let dataUrl: string = ''
-
-    if (format === 'png') {
-      dataUrl = qr.createDataURL('image/png')
-      filename += '.png'
-    } else if (format === 'svg') {
-      dataUrl = qr.createSVG()
-      filename += '.svg'
-    } else {
-      // PDF not implemented; export PNG data but keep filename extension.
-      dataUrl = qr.createDataURL('image/png')
-      filename += '.pdf'
+  const downloadQRCode = async (qrCode: QRCode, format: 'png' | 'svg' | 'pdf' = 'png') => {
+    try {
+      const qrData = qrCodesApi.getScanUrl(qrCode.id)
+      const size = qrCode.settings.size === 'small' ? 128 : qrCode.settings.size === 'medium' ? 256 : 512
+      const baseName = `qrcode-${qrCode.id}-${qrCode.name.replace(/\s+/g, '-').toLowerCase()}`
+      const dataUrl = format === 'svg'
+        ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(await QRCodeLib.toString(qrData, { type: 'svg', width: size, margin: 2, color: { dark: qrCode.settings.color, light: '#FFFFFF' } }))}`
+        : await getQRDataUrl(qrCode)
+      const link = document.createElement('a')
+      link.href = dataUrl
+      link.download = `${baseName}.${format === 'svg' ? 'svg' : 'png'}`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      toast.success('QR image downloaded')
+    } catch (error: any) {
+      toast.error(error?.message || 'Could not download QR image')
     }
-
-    const link = document.createElement('a')
-    link.href = dataUrl
-    link.download = filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
   }
 
   const printQRCode = (qrCode: QRCode) => {
@@ -198,7 +194,7 @@ const QRCodeManager: FC = () => {
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
-      alert('Copied to clipboard!')
+      toast.success('Copied to clipboard')
     } catch (error) {
       // Fallback for older browsers
       const textArea = document.createElement('textarea')
@@ -207,7 +203,7 @@ const QRCodeManager: FC = () => {
       textArea.select()
       document.execCommand('copy')
       document.body.removeChild(textArea)
-      alert('Copied to clipboard!')
+      toast.success('Copied to clipboard')
     }
   }
 
@@ -235,14 +231,19 @@ const QRCodeManager: FC = () => {
   const duplicateQRCode = async (qrCode: QRCode) => {
     try {
       const duplicateQR = {
-        ...qrCode,
-        id: undefined,
         name: `${qrCode.name} (Copy)`,
+        type: qrCode.type,
+        destination: qrCode.destination,
+        customUrl: qrCode.customUrl,
+        settings: qrCode.settings,
+        isActive: true,
       }
-      const response = await qrCodesApi.createQRCode(duplicateQR as unknown as QRCode)
-      setQrCodes(prev => [response.qrCode, ...prev])
+      const response = await qrCodesApi.createQRCode(duplicateQR)
+      setQrCodes(prev => [normalizeQRCode(response.qrCode), ...prev])
+      toast.success('QR code duplicated')
     } catch (error) {
       console.error('Failed to duplicate QR code:', error)
+      toast.error('Could not duplicate QR code')
     }
   }
 
@@ -409,7 +410,7 @@ const QRCodeManager: FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => setSelectedQR(qrCode)}
+                          onClick={() => setPreviewQR(qrCode)}
                           className="text-gray-600 hover:text-gray-900"
                           title="View Analytics"
                         >
@@ -646,6 +647,33 @@ const QRCodeManager: FC = () => {
               <button type="button" onClick={() => shareQRCode(sharingQR)} className="rounded-lg bg-cyan-600 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-700">Device share</button>
               <a className="rounded-lg border border-gray-300 px-3 py-2 text-center text-sm font-semibold hover:bg-gray-50" href={`https://wa.me/?text=${encodeURIComponent(qrCodesApi.getScanUrl(sharingQR.id))}`} target="_blank" rel="noreferrer">WhatsApp</a>
               <a className="rounded-lg border border-gray-300 px-3 py-2 text-center text-sm font-semibold hover:bg-gray-50" href={`mailto:?subject=${encodeURIComponent(sharingQR.name)}&body=${encodeURIComponent(qrCodesApi.getScanUrl(sharingQR.id))}`}>Email</a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {previewQR && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{previewQR.name}</h3>
+                <p className="text-sm text-gray-600">{getQRTypeLabel(previewQR.type)} · {previewQR.destination}</p>
+              </div>
+              <button type="button" onClick={() => setPreviewQR(null)} className="rounded p-2 text-gray-500 hover:bg-gray-100">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex justify-center rounded-lg border border-gray-200 bg-white p-6">
+              <QRPreview qrCode={previewQR} className="h-64 w-64 rounded bg-white object-contain" />
+            </div>
+            <div className="mt-4 break-all rounded bg-gray-50 p-3 text-sm text-gray-700">
+              {qrCodesApi.getScanUrl(previewQR.id)}
+            </div>
+            <div className="mt-4 flex flex-wrap justify-end gap-3">
+              <button type="button" onClick={() => copyToClipboard(qrCodesApi.getScanUrl(previewQR.id))} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold hover:bg-gray-50">Copy link</button>
+              <button type="button" onClick={() => downloadQRCode(previewQR, 'png')} className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">Download PNG</button>
+              <button type="button" onClick={() => printQRCode(previewQR)} className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">Print</button>
             </div>
           </div>
         </div>

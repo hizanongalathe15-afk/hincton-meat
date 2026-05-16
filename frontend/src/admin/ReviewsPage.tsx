@@ -36,9 +36,9 @@ const AdminReviewsPage = () => {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
 
-  const loadReviews = async () => {
+  const loadReviews = async (showLoading = true) => {
     try {
-      setLoading(true)
+      if (showLoading) setLoading(true)
       const params = {
         page,
         limit: 20,
@@ -62,9 +62,9 @@ const AdminReviewsPage = () => {
 
   useEffect(() => {
     if (!autoRefresh) return
-    const intervalId = window.setInterval(loadReviews, 15000)
+    const intervalId = window.setInterval(() => loadReviews(false), 60000)
     const handleVisibilityChange = () => {
-      if (!document.hidden) loadReviews()
+      if (!document.hidden) loadReviews(false)
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => {
@@ -103,7 +103,7 @@ const AdminReviewsPage = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={loadReviews} className="inline-flex items-center gap-2 rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">
+          <button type="button" onClick={() => loadReviews()} className="inline-flex items-center gap-2 rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>

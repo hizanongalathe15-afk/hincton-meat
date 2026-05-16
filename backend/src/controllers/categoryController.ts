@@ -4,6 +4,7 @@ import { asyncHandler, AppError, NotFoundError, ValidationError } from '../middl
 import { validateBody } from '../middleware'
 import { categoryCreateSchema, categoryUpdateSchema } from '../middleware/validationSchemas'
 import { cacheService } from '../services/cacheService'
+import { prisma } from '../config/prisma'
 
 const isDatabaseUnavailable = (error: unknown) => {
   const code = (error as any)?.code
@@ -167,17 +168,12 @@ export const deleteCategory = asyncHandler(async (req: Request, res: Response) =
     throw new NotFoundError('Category', id)
   }
   
-  // Check if category has products
-  if (existingCategory.products && existingCategory.products.length > 0) {
-    throw new ValidationError('Cannot delete category with existing products. Please move or delete products first.')
-  }
-  
-  // Check if category has children
-  if (existingCategory.children && existingCategory.children.length > 0) {
-    throw new ValidationError('Cannot delete category with subcategories. Please delete subcategories first.')
-  }
-  
-  await CategoryModel.delete(id)
+  await prisma.$transaction([
+    prisma.product.updateMany({ where: { categoryId: id }, data: { categoryId: null } }),
+    prisma.category.updateMany({ where: { parentId: id }, data: { parentId: null } }),
+    prisma.couponCategory.deleteMany({ where: { categoryId: id } }),
+    prisma.category.delete({ where: { id } }),
+  ])
   await cacheService.deleteByPrefix('categories:')
   
   res.json({

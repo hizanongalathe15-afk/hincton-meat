@@ -26,8 +26,19 @@ interface AdPlacement {
   position: string
   size: { width: number; height: number }
   isActive: boolean
-  targeting?: any
   schedule?: any
+  targeting?: {
+    creative?: {
+      title?: string
+      description?: string
+      imageUrl?: string
+      mediaUrl?: string
+      mediaType?: 'image' | 'gif' | 'video' | 'audio' | 'sticker'
+      landingUrl?: string
+      buttonText?: string
+    }
+    [key: string]: any
+  }
   createdAt: string
   _count: {
     impressions: number
@@ -107,6 +118,10 @@ const AdManagement = () => {
     width: 728,
     height: 90,
     isActive: true,
+    mediaUrl: '',
+    mediaType: 'image' as 'image' | 'gif' | 'video' | 'audio' | 'sticker',
+    landingUrl: '/shop',
+    buttonText: 'Shop now',
   })
   const [campaignForm, setCampaignForm] = useState({
     name: '',
@@ -231,6 +246,10 @@ const AdManagement = () => {
       width: Number(placement.size?.width || 728),
       height: Number(placement.size?.height || 90),
       isActive: placement.isActive,
+      mediaUrl: placement.targeting?.creative?.mediaUrl || placement.targeting?.creative?.imageUrl || '',
+      mediaType: placement.targeting?.creative?.mediaType || 'image',
+      landingUrl: placement.targeting?.creative?.landingUrl || '/shop',
+      buttonText: placement.targeting?.creative?.buttonText || 'Shop now',
     } : {
       name: '',
       type: 'BANNER',
@@ -238,8 +257,31 @@ const AdManagement = () => {
       width: 728,
       height: 90,
       isActive: true,
+      mediaUrl: '',
+      mediaType: 'image',
+      landingUrl: '/shop',
+      buttonText: 'Shop now',
     })
     setShowPlacementModal(true)
+  }
+
+  const uploadPlacementMedia = async (file?: File) => {
+    if (!file) return
+    setSaving(true)
+    try {
+      const uploaded = await adsApi.uploadMedia(file)
+      const mediaUrl = resolveMediaUrl(uploaded.url)
+      setPlacementForm((current) => ({
+        ...current,
+        mediaUrl,
+        mediaType: uploaded.mediaType || (file.type.startsWith('video/') ? 'video' : file.type === 'image/gif' ? 'gif' : 'image'),
+      }))
+      toast.success('Placement media uploaded')
+    } catch (error: any) {
+      toast.error(error?.message || 'Could not upload placement media')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const openCampaignModal = (campaign?: AdCampaign) => {
@@ -314,6 +356,18 @@ const AdManagement = () => {
         position: placementForm.position,
         size: { width: Number(placementForm.width), height: Number(placementForm.height) },
         isActive: placementForm.isActive,
+        targeting: placementForm.mediaUrl ? {
+          ...(editingPlacement?.targeting || {}),
+          creative: {
+            title: placementForm.name,
+            description: '',
+            imageUrl: placementForm.mediaType === 'video' || placementForm.mediaType === 'audio' ? undefined : placementForm.mediaUrl,
+            mediaUrl: placementForm.mediaUrl,
+            mediaType: placementForm.mediaType,
+            landingUrl: placementForm.landingUrl || '/shop',
+            buttonText: placementForm.buttonText || 'Shop now',
+          },
+        } : editingPlacement?.targeting,
       }
 
       if (editingPlacement) {
@@ -431,6 +485,15 @@ const AdManagement = () => {
                     : '0.00'}%
                 </span>
               </div>
+              {placement.targeting?.creative?.mediaUrl && (
+                <div className="overflow-hidden rounded border border-gray-200 bg-gray-50">
+                  {placement.targeting.creative.mediaType === 'video' ? (
+                    <video src={resolveMediaUrl(placement.targeting.creative.mediaUrl)} className="h-28 w-full object-cover" muted controls />
+                  ) : (
+                    <img src={resolveMediaUrl(placement.targeting.creative.mediaUrl)} alt={`${placement.name} creative`} className="h-28 w-full object-cover" />
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2 mt-4 pt-4 border-t">
@@ -722,6 +785,36 @@ const AdManagement = () => {
               <input type="checkbox" checked={placementForm.isActive} onChange={(event) => setPlacementForm({ ...placementForm, isActive: event.target.checked })} />
               Active
             </label>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_10rem]">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Image or video URL</label>
+                <input value={placementForm.mediaUrl} onChange={(event) => setPlacementForm({ ...placementForm, mediaUrl: event.target.value })} placeholder="Upload below or paste a media URL" className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Media type</label>
+                <select value={placementForm.mediaType} onChange={(event) => setPlacementForm({ ...placementForm, mediaType: event.target.value as any })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+                  {['image', 'gif', 'video', 'audio', 'sticker'].map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <input value={placementForm.landingUrl} onChange={(event) => setPlacementForm({ ...placementForm, landingUrl: event.target.value })} placeholder="/shop or https://example.com" className="rounded-lg border border-gray-300 px-3 py-2" />
+              <input value={placementForm.buttonText} onChange={(event) => setPlacementForm({ ...placementForm, buttonText: event.target.value })} placeholder="Button text" className="rounded-lg border border-gray-300 px-3 py-2" />
+            </div>
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-sm font-medium text-gray-700 hover:border-blue-400 hover:bg-blue-50">
+              <Upload className="h-5 w-5" />
+              Upload placement image or video
+              <input type="file" accept="image/*,video/*" onChange={(event) => uploadPlacementMedia(event.target.files?.[0])} className="hidden" />
+            </label>
+            {placementForm.mediaUrl && (
+              <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                {placementForm.mediaType === 'video' ? (
+                  <video src={placementForm.mediaUrl} controls className="h-40 w-full object-cover" />
+                ) : (
+                  <img src={placementForm.mediaUrl} alt="Placement media preview" className="h-40 w-full object-cover" />
+                )}
+              </div>
+            )}
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => setShowPlacementModal(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50">Cancel</button>
               <button disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60">{saving ? 'Saving...' : 'Save placement'}</button>

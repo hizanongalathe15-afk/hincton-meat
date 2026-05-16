@@ -356,6 +356,16 @@ export const systemApi = {
   revokeAdminSession: async (sessionId: string) => {
     const response = await apiClient.post(`/user-sessions/admin/revoke/${sessionId}`)
     return response.data
+  },
+
+  clearAdminSession: async (sessionId: string) => {
+    const response = await apiClient.delete(`/user-sessions/admin/session/${sessionId}`)
+    return response.data
+  },
+
+  clearAdminSessions: async (scope: 'inactive' | 'all' = 'inactive') => {
+    const response = await apiClient.delete('/user-sessions/admin/sessions', { params: { scope } })
+    return response.data
   }
 }
 
