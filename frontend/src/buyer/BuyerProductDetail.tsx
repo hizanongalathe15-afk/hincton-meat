@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import ProductDetails from './ProductDetails'
 import ProductCard from './ProductCard'
@@ -21,19 +21,27 @@ const BuyerProductDetail = ({
   const navigate = useNavigate()
   const location = useLocation()
   const routeProduct = (location.state as { product?: Product } | null)?.product
-  const [product, setProduct] = useState<Product | null>(routeProduct || null)
+  const cachedProduct = useMemo(() => {
+    if (!id || typeof window === 'undefined') return null
+    try {
+      return JSON.parse(window.sessionStorage.getItem(`hincton:product:${id}`) || 'null') as Product | null
+    } catch {
+      return null
+    }
+  }, [id])
+  const [product, setProduct] = useState<Product | null>(routeProduct || cachedProduct || null)
   const [recommendations, setRecommendations] = useState<Product[]>([])
-  const [loading, setLoading] = useState(!routeProduct)
+  const [loading, setLoading] = useState(!routeProduct && !cachedProduct)
 
   useEffect(() => {
     const loadProduct = async () => {
       if (!id) return
-      setLoading(!routeProduct)
+      setLoading(!routeProduct && !cachedProduct)
       try {
         const data = await productsApi.getProduct(id)
         const raw = data.product || data
         const images = (raw.images || raw.productImages?.map((img: any) => img.url) || []).map((url: string) => resolveMediaUrl(url))
-        setProduct({
+        const nextProduct = {
           id: raw.id,
           name: raw.name,
           price: Number(raw.price) || 0,
@@ -55,7 +63,11 @@ const BuyerProductDetail = ({
           sku: raw.sku,
           videos: (raw.videos || raw.productVideos?.map((video: any) => video.url) || []).map((url: string) => resolveMediaUrl(url)),
           productVideos: raw.productVideos || [],
-        })
+        }
+        setProduct(nextProduct)
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem(`hincton:product:${nextProduct.id}`, JSON.stringify(nextProduct))
+        }
       } catch {
         setProduct(null)
       } finally {
@@ -64,7 +76,7 @@ const BuyerProductDetail = ({
     }
 
     loadProduct()
-  }, [id, routeProduct])
+  }, [id, routeProduct, cachedProduct])
 
   useEffect(() => {
     if (!id) return
@@ -165,6 +177,7 @@ const BuyerProductDetail = ({
               <ProductCard
                 key={item.id}
                 product={item}
+                priority={false}
                 onAddToCart={onAddToCart}
                 onToggleWishlist={onToggleWishlist}
                 isInWishlist={wishlistItems.has(item.id)}

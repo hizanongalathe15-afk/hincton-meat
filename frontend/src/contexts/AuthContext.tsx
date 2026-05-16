@@ -146,7 +146,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(response.user)
       toast.success(response.message || 'Login successful. Welcome back!')
     } catch (error: any) {
-      toast.error(error.message || 'Login failed. Please check your credentials and try again.')
+      const rawMessage = String(error.message || '').toLowerCase()
+      const message =
+        rawMessage.includes('invalid') || rawMessage.includes('credential') || rawMessage.includes('password') || rawMessage.includes('email')
+          ? 'Hincton secure access could not verify those details. Check the email and password, then try again.'
+          : rawMessage.includes('locked') || rawMessage.includes('too many')
+            ? 'This account is protected after repeated failed attempts. Please wait, reset the password, or contact admin support.'
+            : error.message || 'Hincton secure access could not complete login. Please try again.'
+      toast.error(message)
       throw error
     }
   }

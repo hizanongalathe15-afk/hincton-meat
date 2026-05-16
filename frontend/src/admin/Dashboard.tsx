@@ -7,9 +7,13 @@ import {
   DollarSign,
   ArrowUpRight,
   ArrowDownRight,
+  X,
+  ShieldCheck,
 } from 'lucide-react'
 import { dashboardApi } from '../services/adminApi'
 import { formatPrice } from '../utils/currency'
+import { useAuth } from '../contexts/AuthContext'
+import { useSiteContent } from '../contexts/SiteContentContext'
 
 interface DashboardStats {
   totalRevenue: number
@@ -53,6 +57,8 @@ interface AbandonedCart {
 
 const AdminDashboard = () => {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const { profile } = useSiteContent()
   const [stats, setStats] = useState<DashboardStats>({
     totalRevenue: 0,
     totalOrders: 0,
@@ -68,6 +74,17 @@ const AdminDashboard = () => {
   const [abandonedCarts, setAbandonedCarts] = useState<AbandonedCart[]>([])
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
+  const [showAdminWelcome, setShowAdminWelcome] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.sessionStorage.getItem('hincton:admin-welcome-pending') === 'true'
+  })
+
+  const adminName = user?.profile?.fullName || user?.name || user?.email || 'Admin'
+  const adminIdentifier = user?.email || user?.id || 'verified admin session'
+  const closeAdminWelcome = () => {
+    window.sessionStorage.removeItem('hincton:admin-welcome-pending')
+    setShowAdminWelcome(false)
+  }
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -207,6 +224,56 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-6">
+      {showAdminWelcome && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 px-4 backdrop-blur-md">
+          <div className="floating-4d relative w-full max-w-3xl overflow-hidden rounded-[2rem] border border-white/30 bg-white/15 p-1 shadow-2xl shadow-red-950/40 backdrop-blur-2xl">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent" />
+            <button
+              type="button"
+              onClick={closeAdminWelcome}
+              className="absolute right-5 top-5 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/20 text-white hover:bg-white/30"
+              aria-label="Close admin welcome"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="relative overflow-hidden rounded-[1.7rem] bg-gradient-to-br from-neutral-950 via-red-950 to-neutral-900 p-8 text-white">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.20),transparent_24%),radial-gradient(circle_at_78%_18%,rgba(248,113,113,0.20),transparent_28%)]" />
+              <div className="absolute -left-1/3 top-0 h-full w-1/3 rotate-12 bg-gradient-to-r from-transparent via-white/25 to-transparent blur-sm animate-[pulse_2.8s_ease-in-out_infinite]" />
+              <div className="relative grid gap-8 md:grid-cols-[auto_1fr] md:items-center">
+                <div className="grid place-items-center">
+                  <div className="rounded-[1.5rem] border border-white/30 bg-white/90 p-5 shadow-xl">
+                    <img src={profile.images.logo || profile.brand.logo} alt={profile.brand.name} className="h-24 w-24 object-contain" />
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-red-100">
+                    <ShieldCheck className="h-4 w-4 text-yellow-300" />
+                    Secure admin session verified
+                  </p>
+                  <h1 className="particle-text text-3xl font-black leading-tight md:text-5xl">
+                    <span className="typewriter-glow">Welcome, {adminName}</span>
+                  </h1>
+                  <p className="mt-4 text-base leading-7 text-red-50 md:text-lg">
+                    You are entering the Hincton Meat control room. Product updates, orders, content, chat replies, and operational changes are tied to your authenticated admin identity so the team can trace decisions and resolve issues clearly.
+                  </p>
+                  <div className="mt-5 rounded-2xl border border-white/15 bg-white/10 p-4 text-sm text-red-50">
+                    <p className="m-0 font-semibold">Signed in as: {adminIdentifier}</p>
+                    <p className="m-0 mt-1 text-red-100/80">Keep your real admin profile name updated before making sensitive changes.</p>
+                  </div>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <button type="button" onClick={closeAdminWelcome} className="glass-button bg-red-600/80 px-5 py-3 font-bold text-white hover:bg-red-500">
+                      Enter Dashboard
+                    </button>
+                    <button type="button" onClick={() => navigate('/admin/profile')} className="glass-button px-5 py-3 font-bold text-white">
+                      Update Admin Name
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
@@ -222,7 +289,7 @@ const AdminDashboard = () => {
           const isPositive = card.change > 0
           
           return (
-            <button key={index} type="button" onClick={() => navigate(card.path)} className="bg-white rounded-lg shadow p-6 text-left transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-red-500">
+            <button key={index} type="button" onClick={() => navigate(card.path)} className="glass-panel rounded-3xl p-6 text-left transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-red-500">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">{card.title}</p>
@@ -248,7 +315,7 @@ const AdminDashboard = () => {
         })}
       </div>
 
-      <div className="bg-white rounded-lg shadow">
+      <div className="glass-panel rounded-3xl">
         <div className="flex items-center justify-between border-b border-gray-200 p-6">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Latest Abandoned Carts</h2>
@@ -256,7 +323,7 @@ const AdminDashboard = () => {
           </div>
           <ShoppingCart className="h-5 w-5 text-gray-500" />
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-b-3xl">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
@@ -300,7 +367,7 @@ const AdminDashboard = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Orders */}
-        <div className="bg-white rounded-lg shadow">
+        <div className="glass-panel rounded-3xl">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Recent Orders</h2>
           </div>
@@ -346,7 +413,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Top Products */}
-        <div className="bg-white rounded-lg shadow">
+        <div className="glass-panel rounded-3xl">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Top Products</h2>
           </div>

@@ -13,6 +13,7 @@ interface ProductCardProps {
   isInWishlist?: boolean
   className?: string
   onClick?: () => void
+  priority?: boolean
 }
 
 const ProductCard = ({ 
@@ -21,7 +22,8 @@ const ProductCard = ({
   onToggleWishlist, 
   isInWishlist = false,
   className = '',
-  onClick
+  onClick,
+  priority = false
 }: ProductCardProps) => {
   const { profile } = useSiteContent()
   const { t } = useLanguage()
@@ -81,7 +83,7 @@ const ProductCard = ({
 
   return (
     <div 
-        className={`group overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl ${onClick ? 'cursor-pointer' : ''} ${className}`}
+        className={`glass-panel group overflow-hidden rounded-3xl border border-white/70 bg-white/85 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl ${onClick ? 'cursor-pointer' : ''} ${className}`}
         onClick={onClick}
       >
       {/* Product Image */}
@@ -89,7 +91,8 @@ const ProductCard = ({
         <img
           src={product.image}
           alt={product.name}
-          loading="lazy"
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'auto'}
           decoding="async"
           onError={(event) => {
             event.currentTarget.src = fallbackImage
@@ -159,7 +162,7 @@ const ProductCard = ({
             <button
               onClick={handleAddToCart}
               disabled={!product.inStock || isAdding}
-              className="flex flex-1 items-center justify-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+              className="glass-button flex flex-1 items-center justify-center gap-2 bg-red-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-400"
             >
               {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
               {isAdding ? t('product.adding') : t('product.add')}

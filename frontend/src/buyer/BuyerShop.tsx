@@ -16,23 +16,6 @@ interface BuyerShopProps {
   wishlistItems?: Set<string>
 }
 
-const fallbackProducts: Product[] = HINCTON_PRODUCTS.map((product, index) => ({
-  id: `hincton-${product.category}`,
-  name: product.name,
-  price: 0,
-  image: product.image,
-  images: [product.image],
-  rating: 5,
-  reviews: 0,
-  category: product.name,
-  categorySlug: product.category,
-  inStock: true,
-  stockQuantity: 1,
-  description: product.description,
-  origin: 'Hincton Meat Products',
-  sku: `HMP-${String(index + 1).padStart(3, '0')}`,
-}))
-
 const filterProducts = (items: Product[], categoryId: string, query: string) => {
   const normalizedCategory = categoryId.trim().toLowerCase()
   const normalizedQuery = query.trim().toLowerCase()
@@ -51,6 +34,63 @@ const filterProducts = (items: Product[], categoryId: string, query: string) => 
   })
 }
 
+const SHOP_CACHE_KEY = 'hincton:shop-products:v1'
+const CATEGORY_CACHE_KEY = 'hincton:shop-categories:v1'
+
+const readCachedProducts = () => {
+  if (typeof window === 'undefined') return []
+  try {
+    return JSON.parse(window.sessionStorage.getItem(SHOP_CACHE_KEY) || '[]') as Product[]
+  } catch {
+    return []
+  }
+}
+
+const readCachedCategories = () => {
+  if (typeof window === 'undefined') return []
+  try {
+    return JSON.parse(window.sessionStorage.getItem(CATEGORY_CACHE_KEY) || '[]') as Array<{ id: string; name: string }>
+  } catch {
+    return []
+  }
+}
+
+const writeShopCache = (products: Product[], categories: Array<{ id: string; name: string }>) => {
+  if (typeof window === 'undefined') return
+  window.sessionStorage.setItem(SHOP_CACHE_KEY, JSON.stringify(products))
+  window.sessionStorage.setItem(CATEGORY_CACHE_KEY, JSON.stringify(categories))
+  products.forEach((product) => {
+    window.sessionStorage.setItem(`hincton:product:${product.id}`, JSON.stringify(product))
+  })
+}
+
+const transformApiProduct = (product: any): Product => {
+  const images = (product.images || product.productImages?.map((img: any) => img.url) || []).map((url: string) => resolveMediaUrl(url))
+  return {
+    id: product.id,
+    name: product.name,
+    price: Number(product.price) || 0,
+    originalPrice: product.comparePrice ? Number(product.comparePrice) : undefined,
+    image: images[0] || 'https://images.unsplash.com/photo-1546823998-b7c00af72b9d?w=600&h=600&fit=crop',
+    images,
+    rating: Number(product.averageRating || product.rating || 0),
+    reviews: Number(product.reviewCount || product.totalReviews || 0),
+    category: product.category?.name || 'Uncategorized',
+    categorySlug: product.category?.slug || product.categoryId || product.category?.id,
+    inStock: product.stockQuantity > 0 && product.isPublished !== false,
+    stockQuantity: Number(product.stockQuantity) || 0,
+    lowStockThreshold: Number(product.lowStockThreshold) || undefined,
+    description: product.description || `${product.name}. Prices are subject to change without prior notice.`,
+    weight: [product.weight, product.weightUnit].filter(Boolean).join(' ') || product.weightUnit || '',
+    weightValue: Number(product.weight) || undefined,
+    weightUnit: product.weightUnit || undefined,
+    origin: product.brand || 'Hincton Meat Products',
+    sku: product.sku,
+    videos: (product.videos || product.productVideos?.map((video: any) => video.url) || []).map((url: string) => resolveMediaUrl(url)),
+    productVideos: product.productVideos || [],
+  }
+}
+
 const BuyerShop = ({ 
   onProductClick, 
   onAddToCart, 
@@ -61,19 +101,15 @@ const BuyerShop = ({
   const [searchParams, setSearchParams] = useSearchParams()
   const { t } = useLanguage()
   const [products, setProducts] = useState<Product[]>(() => filterProducts(
-    fallbackProducts,
+    readCachedProducts(),
     searchParams.get('category') || '',
     searchParams.get('q') || '',
   ))
   const [categories, setCategories] = useState<any[]>([
     { id: '', name: t('shop.allProducts'), count: 0 },
-    ...HINCTON_PRODUCTS.map((product) => ({
-      id: product.category,
-      name: product.name,
-      count: 0,
-    })),
+    ...readCachedCategories().map((category) => ({ ...category, count: 0 })),
   ])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(() => readCachedProducts().length === 0)
 
   // Define sortOptions with translations
     const sortOptions = [
@@ -108,7 +144,8 @@ const BuyerShop = ({
 
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(false)
+      const hasCachedProducts = readCachedProducts().length > 0
+      setLoading(!hasCachedProducts)
       try {
           // Fetch products with filters
         const currentSort = searchParams.get('sort') || 'featured'
@@ -134,37 +171,11 @@ const BuyerShop = ({
           api.getCategories(),
         ])
         
-        // Transform API data to component format
-        const transformedProducts = (productsData.products || []).map((product: any) => {
-          const images = (product.images || product.productImages?.map((img: any) => img.url) || []).map((url: string) => resolveMediaUrl(url))
-          return {
-            id: product.id,
-            name: product.name,
-            price: Number(product.price) || 0,
-            originalPrice: product.comparePrice ? Number(product.comparePrice) : undefined,
-            image: images[0] || 'https://images.unsplash.com/photo-1546823998-b7c00af72b9d?w=600&h=600&fit=crop',
-            images,
-            rating: Number(product.averageRating || product.rating || 0),
-            reviews: Number(product.reviewCount || product.totalReviews || 0),
-            category: product.category?.name || 'Uncategorized',
-            categorySlug: product.category?.slug || product.categoryId || product.category?.id,
-            inStock: product.stockQuantity > 0 && product.isPublished !== false,
-            stockQuantity: Number(product.stockQuantity) || 0,
-            lowStockThreshold: Number(product.lowStockThreshold) || undefined,
-            description: product.description || `${product.name}. Prices are subject to change without prior notice.`,
-            weight: [product.weight, product.weightUnit].filter(Boolean).join(' ') || product.weightUnit || '',
-            weightValue: Number(product.weight) || undefined,
-            weightUnit: product.weightUnit || undefined,
-            origin: product.brand || 'Hincton Meat Products',
-            sku: product.sku,
-            videos: (product.videos || product.productVideos?.map((video: any) => video.url) || []).map((url: string) => resolveMediaUrl(url)),
-            productVideos: product.productVideos || [],
-          }
-        })
+        const transformedProducts = (productsData.products || []).map(transformApiProduct)
         
         const activeProducts = transformedProducts.length
           ? transformedProducts
-          : filterProducts(fallbackProducts, currentCategory, currentQuery)
+          : filterProducts(readCachedProducts(), currentCategory, currentQuery)
         setProducts(activeProducts)
 
         const backendCategories = (categoriesData.categories || []).map((category: any) => ({
@@ -193,18 +204,19 @@ const BuyerShop = ({
         ]
         
         setCategories(transformedCategories)
+        if (transformedProducts.length) writeShopCache(transformedProducts, visibleCategories)
       } catch (error) {
         console.error('Failed to fetch shop data:', error)
         const currentCategory = searchParams.get('category') || ''
         const currentQuery = searchParams.get('q') || ''
-        const visibleProducts = filterProducts(fallbackProducts, currentCategory, currentQuery)
+        const visibleProducts = filterProducts(readCachedProducts(), currentCategory, currentQuery)
         setProducts(visibleProducts)
         setCategories([
           { id: '', name: t('shop.allProducts'), count: visibleProducts.length },
-          ...HINCTON_PRODUCTS.map((product) => ({
-            id: product.category,
-            name: product.name,
-            count: visibleProducts.filter((item) => item.categorySlug === product.category).length,
+          ...readCachedCategories().map((category) => ({
+            id: category.id,
+            name: category.name,
+            count: visibleProducts.filter((item) => item.categorySlug === category.id || item.category === category.name).length,
           })),
         ])
       } finally {
@@ -263,6 +275,9 @@ const BuyerShop = ({
       medium: 'product-card',
       path: window.location.pathname + window.location.search,
     }).catch(() => {})
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem(`hincton:product:${product.id}`, JSON.stringify(product))
+    }
     navigate(`/product/${product.id}`, { state: { product } })
     onProductClick?.(product)
   }
@@ -373,10 +388,11 @@ const BuyerShop = ({
             {/* Products Grid */}
             {filteredProducts.length > 0 ? (
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {filteredProducts.map((product) => (
+                {filteredProducts.map((product, index) => (
                   <ProductCard
                     key={product.id}
                     product={product}
+                    priority={index < 6}
                     onAddToCart={onAddToCart}
                     onToggleWishlist={onToggleWishlist}
                     isInWishlist={wishlistItems.has(product.id)}

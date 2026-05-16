@@ -16,6 +16,8 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
   const [otpRequested, setOtpRequested] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [failedAttempts, setFailedAttempts] = useState(0)
+  const [shakeForm, setShakeForm] = useState(false)
   const { login, requestPhoneOtp, verifyPhoneOtp } = useAuth()
   const navigate = useNavigate()
   const { t } = useLanguage()
@@ -28,13 +30,19 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setIsLoading(true)
+    setShakeForm(false)
 
     try {
       await login(formData.email, formData.password)
       const user = JSON.parse(localStorage.getItem('user') || '{}')
+      if (user.role === 'admin' || user.role === 'ADMIN') {
+        sessionStorage.setItem('hincton:admin-welcome-pending', 'true')
+      }
       navigate(user.role === 'admin' || user.role === 'ADMIN' ? '/admin/dashboard' : '/profile')
     } catch {
-      // AuthContext already shows the API error as a toast.
+      setFailedAttempts((attempts) => attempts + 1)
+      setShakeForm(true)
+      window.setTimeout(() => setShakeForm(false), 500)
     } finally {
       setIsLoading(false)
     }
@@ -223,7 +231,13 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
 
                   {/* Form */}
                   {authMode === 'password' ? (
-                    <form onSubmit={handleSubmit} className="space-y-5">
+                    <form onSubmit={handleSubmit} className={`space-y-5 ${shakeForm ? 'auth-shake' : ''}`}>
+                      {failedAttempts >= 5 && (
+                        <div className="glass-panel flex items-center gap-3 rounded-2xl border-red-400/40 bg-red-950/40 p-3 text-sm text-red-100">
+                          <KeyRound className="animated-lock h-6 w-6 shrink-0 text-yellow-300" />
+                          <p className="m-0">Secure lock is active after repeated failed attempts. Confirm the real admin email and password or reset access.</p>
+                        </div>
+                      )}
                       <div className="relative group">
                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 z-10" />
                         <input
@@ -286,7 +300,7 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                       <button
                         type="submit"
                         disabled={isLoading}
-                        className="relative w-full py-4 rounded-xl font-semibold text-white overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 transition-transform"
+                        className="glass-button relative w-full py-4 font-semibold text-white overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 transition-transform"
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-700" />
                         <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-red-600 opacity-0 group-hover:opacity-100 transition-opacity" />

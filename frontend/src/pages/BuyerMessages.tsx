@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Star, Trash2, Send, MessageSquare, User, Check, CheckCheck, Phone, Paperclip } from 'lucide-react';
+import { Search, Star, Trash2, Send, MessageSquare, User, Check, CheckCheck, Phone, Paperclip, Mail } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import { chatApi } from '../services/buyerApi';
 import { getApiHost } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useSiteContent } from '../contexts/SiteContentContext';
 import ConfirmationDialog from '../components/ui/ConfirmationDialog';
 import LinkifiedText from '../components/ui/LinkifiedText';
 
@@ -45,6 +46,7 @@ interface Conversation {
 const BuyerMessages: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { profile } = useSiteContent();
   const [loading, setLoading] = useState(true);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -267,6 +269,44 @@ const BuyerMessages: React.FC = () => {
     return { label: 'Offline', className: 'bg-gray-400' };
   };
 
+  const supportPhoneHref = profile.brand.phoneHref || (profile.brand.phone ? `tel:${profile.brand.phone.replace(/\s+/g, '')}` : '');
+  const supportEmailHref = profile.brand.emailHref || (profile.brand.email ? `mailto:${profile.brand.email}` : '');
+  const whatsappDigits = (profile.brand.phoneHref || profile.brand.phone || '').replace(/\D/g, '');
+  const whatsappPhone = whatsappDigits.startsWith('254') ? whatsappDigits : whatsappDigits.startsWith('0') ? `254${whatsappDigits.slice(1)}` : whatsappDigits;
+  const whatsappHref = whatsappPhone ? `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(`Hello ${profile.brand.name}, I need support from my buyer account.`)}` : '';
+
+  const renderSupportActions = () => (
+    <div className="glass-panel rounded-2xl p-4">
+      <div className="flex items-center gap-3">
+        <img src={profile.images.logo || profile.brand.logo} alt={profile.brand.name} className="h-12 w-12 rounded-full bg-white object-contain p-1" />
+        <div>
+          <p className="m-0 text-sm font-bold text-gray-950">{profile.brand.name} Support</p>
+          <p className="m-0 text-xs text-gray-600">Message, call, email, or WhatsApp admin support.</p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        {supportPhoneHref && (
+          <a href={supportPhoneHref} className="glass-button inline-flex items-center justify-center gap-2 bg-red-600 px-3 py-2 text-sm font-bold text-white hover:text-white">
+            <Phone className="h-4 w-4" />
+            Call
+          </a>
+        )}
+        {supportEmailHref && (
+          <a href={supportEmailHref} className="glass-button inline-flex items-center justify-center gap-2 bg-white/75 px-3 py-2 text-sm font-bold text-gray-900 hover:text-red-700">
+            <Mail className="h-4 w-4" />
+            Email
+          </a>
+        )}
+        {whatsappHref && (
+          <a href={whatsappHref} target="_blank" rel="noreferrer" className="glass-button inline-flex items-center justify-center gap-2 bg-green-600 px-3 py-2 text-sm font-bold text-white hover:text-white">
+            <Phone className="h-4 w-4" />
+            WhatsApp
+          </a>
+        )}
+      </div>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -284,6 +324,9 @@ const BuyerMessages: React.FC = () => {
             <div className="w-80 border-r border-gray-200 flex flex-col">
               <div className="p-4 border-b border-gray-200">
                 <h1 className="text-xl font-semibold text-gray-900 mb-4">Messages</h1>
+                <div className="mb-4">
+                  {renderSupportActions()}
+                </div>
                 
                 {/* Search */}
                 <div className="relative mb-3">
@@ -450,6 +493,16 @@ const BuyerMessages: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex gap-2">
+                        {supportPhoneHref && (
+                          <a href={supportPhoneHref} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 hover:text-red-700" aria-label="Call support">
+                            <Phone className="w-5 h-5" />
+                          </a>
+                        )}
+                        {supportEmailHref && (
+                          <a href={supportEmailHref} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 hover:text-red-700" aria-label="Email support">
+                            <Mail className="w-5 h-5" />
+                          </a>
+                        )}
                         <button
                           onClick={() => starConversation(selectedConversation.id)}
                           className="p-2 hover:bg-gray-100 rounded-lg"
@@ -563,9 +616,10 @@ const BuyerMessages: React.FC = () => {
                 </>
               ) : (
                 <div className="flex-1 flex items-center justify-center text-gray-500">
-                  <div className="text-center">
+                  <div className="w-full max-w-md text-center">
                     <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-2" />
                     <p>Select a conversation to start messaging</p>
+                    <div className="mt-5 text-left">{renderSupportActions()}</div>
                   </div>
                 </div>
               )}
