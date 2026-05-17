@@ -1293,7 +1293,29 @@ router.put('/profile', async (req, res) => {
     const split = splitName(name || '')
     const firstName = providedFirstName ?? split.firstName
     const lastName = providedLastName ?? split.lastName
-    const fullName = name || [firstName, lastName].filter(Boolean).join(' ')
+    const fullName = String(name || [firstName, lastName].filter(Boolean).join(' ')).trim()
+    const decodedRoles = Array.isArray(decoded.roles) ? decoded.roles : []
+    const isAdminAccount = decodedRoles.includes(Role.ADMIN) || decodedRoles.includes(Role.SUPER_ADMIN) || decoded.role === 'ADMIN'
+
+    if (isAdminAccount && fullName) {
+      const duplicateAdminName = await prisma.userProfile.findFirst({
+        where: {
+          userId: { not: decoded.userId },
+          fullName: { equals: fullName, mode: 'insensitive' },
+          user: {
+            roles: { hasSome: [Role.ADMIN, Role.SUPER_ADMIN] },
+            deletedAt: null,
+          },
+        },
+        select: { user: { select: { email: true } } },
+      })
+
+      if (duplicateAdminName) {
+        return res.status(409).json({
+          error: `Another admin already uses "${fullName}". Use a distinct admin name so actions can be traced clearly.`,
+        })
+      }
+    }
 
     const user = await prisma.user.update({
       where: { id: decoded.userId },

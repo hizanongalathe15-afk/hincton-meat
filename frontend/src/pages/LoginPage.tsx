@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, Github, KeyRound, Lock, Mail, Smartphone, Truck, Star, Shield } from 'lucide-react'
+import { Eye, EyeOff, Github, KeyRound, Loader2, Lock, Mail, Smartphone, Truck, Star, Shield } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
 import PhoneNumberInput from '../components/ui/PhoneNumberInput'
@@ -18,6 +18,7 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
   const [isLoading, setIsLoading] = useState(false)
   const [failedAttempts, setFailedAttempts] = useState(0)
   const [shakeForm, setShakeForm] = useState(false)
+  const [hasAuthError, setHasAuthError] = useState(false)
   const { login, requestPhoneOtp, verifyPhoneOtp } = useAuth()
   const navigate = useNavigate()
   const { t } = useLanguage()
@@ -31,16 +32,15 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
     event.preventDefault()
     setIsLoading(true)
     setShakeForm(false)
+    setHasAuthError(false)
 
     try {
       await login(formData.email, formData.password)
       const user = JSON.parse(localStorage.getItem('user') || '{}')
-      if (user.role === 'admin' || user.role === 'ADMIN') {
-        sessionStorage.setItem('hincton:admin-welcome-pending', 'true')
-      }
       navigate(user.role === 'admin' || user.role === 'ADMIN' ? '/admin/dashboard' : '/profile')
     } catch {
       setFailedAttempts((attempts) => attempts + 1)
+      setHasAuthError(true)
       setShakeForm(true)
       window.setTimeout(() => setShakeForm(false), 500)
     } finally {
@@ -118,8 +118,8 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
       </div>
 
       {/* Animated Gradient Orbs */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-red-600/30 to-white/10 rounded-full blur-3xl animate-pulse" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-br from-white/10 to-red-600/30 rounded-full blur-3xl animate-pulse" />
+      <div className="absolute top-0 left-0 hidden h-96 w-96 rounded-full bg-gradient-to-br from-red-600/30 to-white/10 blur-3xl sm:block sm:animate-pulse" />
+      <div className="absolute bottom-0 right-0 hidden h-96 w-96 rounded-full bg-gradient-to-br from-white/10 to-red-600/30 blur-3xl sm:block sm:animate-pulse" />
 
       {/* Main Content */}
       <div className="relative z-10 flex items-center justify-center min-h-screen p-4">
@@ -127,7 +127,7 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
           {/* Card Container */}
           <div className="relative">
             {/* Animated Border Gradient */}
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-red-600 via-white to-red-600 rounded-3xl blur opacity-30 animate-spin" style={{animationDuration: '20s'}} />
+            <div className="absolute -inset-0.5 rounded-3xl bg-gradient-to-r from-red-600 via-white to-red-600 opacity-25 blur sm:animate-spin" style={{animationDuration: '20s'}} />
 
             {/* Main Card */}
             <div className="relative bg-zinc-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-red-600/20 overflow-hidden">
@@ -248,7 +248,8 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                           required
                           value={formData.email}
                           onChange={handleChange}
-                          className="w-full pl-12 pr-4 py-4 bg-zinc-800/50 border-2 border-zinc-700/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all"
+                          aria-invalid={hasAuthError ? 'true' : 'false'}
+                          className={`w-full pl-12 pr-4 py-4 bg-zinc-800/50 border-2 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all ${hasAuthError ? 'auth-field-error border-red-500' : 'border-zinc-700/50'}`}
                           placeholder={t('login.emailPlaceholder')}
                         />
                         <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-red-600/20 to-white/10 opacity-0 group-focus-within:opacity-100 transition-opacity -z-10 blur" />
@@ -264,7 +265,8 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                           required
                           value={formData.password}
                           onChange={handleChange}
-                          className="w-full pl-12 pr-12 py-4 bg-zinc-800/50 border-2 border-zinc-700/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all"
+                          aria-invalid={hasAuthError ? 'true' : 'false'}
+                          className={`w-full pl-12 pr-12 py-4 bg-zinc-800/50 border-2 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all ${hasAuthError ? 'auth-field-error border-red-500' : 'border-zinc-700/50'}`}
                           placeholder={t('login.passwordPlaceholder')}
                         />
                         <button
@@ -304,7 +306,8 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-700" />
                         <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-red-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <span className="relative z-10">
+                        <span className="relative z-10 inline-flex items-center justify-center gap-2">
+                          {isLoading && <Loader2 className="h-5 w-5 animate-spin" />}
                           {isLoading ? t('login.signingIn') : t('login.signIn')}
                         </span>
                       </button>
@@ -334,7 +337,8 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                           >
                             <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-700" />
                             <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-red-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            <span className="relative z-10">
+                            <span className="relative z-10 inline-flex items-center justify-center gap-2">
+                              {isLoading && <Loader2 className="h-5 w-5 animate-spin" />}
                               {isLoading ? t('login.sendingOtp') : t('login.sendOtp')}
                             </span>
                           </button>
@@ -361,7 +365,8 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                           >
                             <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-700" />
                             <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-red-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            <span className="relative z-10">
+                            <span className="relative z-10 inline-flex items-center justify-center gap-2">
+                              {isLoading && <Loader2 className="h-5 w-5 animate-spin" />}
                               {isLoading ? t('login.verifying') : t('login.verifyOtp')}
                             </span>
                           </button>

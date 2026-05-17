@@ -143,6 +143,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await authService.login({ email, password })
       localStorage.setItem('token', response.token)
       localStorage.setItem('user', JSON.stringify(response.user))
+      if (response.user?.role === 'admin' || response.user?.role === 'ADMIN') {
+        sessionStorage.setItem('hincton:admin-welcome-pending', 'true')
+      }
       setUser(response.user)
       toast.success(response.message || 'Login successful. Welcome back!')
     } catch (error: any) {

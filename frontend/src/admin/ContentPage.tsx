@@ -153,6 +153,22 @@ const ContentPage = () => {
     })
   }
 
+  const appendPageMediaSections = (pageKey: string, field: 'image' | 'video', urls: string[]) => {
+    if (!urls.length) return
+    setProfile((current) => {
+      const page = current.pages[pageKey] || defaultSiteProfile.pages.about
+      const sections = [
+        ...(page.sections || []),
+        ...urls.map((url) => ({
+          title: '',
+          body: '',
+          [field]: url,
+        })),
+      ]
+      return { ...current, pages: { ...current.pages, [pageKey]: { ...page, sections } } }
+    })
+  }
+
   const updateTerms = (index: number, field: 'title' | 'body', value: string) => {
     setProfile((current) => ({
       ...current,
@@ -246,31 +262,39 @@ const ContentPage = () => {
     }
   }
 
-  const uploadPageMedia = async (pageKey: string, field: 'image' | 'video', file?: File) => {
-    if (!file) return
+  const uploadPageMediaFiles = async (pageKey: string, field: 'image' | 'video', files?: FileList | File[]) => {
+    const selected = Array.from(files || [])
+    if (!selected.length) return
     try {
-      const data = await contentApi.uploadContentImage(file)
-      updatePage(pageKey, field, data.url)
-      toast.success('Media uploaded')
+      const uploads = await Promise.all(selected.map((file) => contentApi.uploadContentImage(file)))
+      const urls = uploads.map((item) => item.url).filter(Boolean)
+      if (!urls.length) return
+      updatePage(pageKey, field, urls[0])
+      appendPageMediaSections(pageKey, field, urls.slice(1))
+      toast.success(`${urls.length} ${field === 'image' ? 'image' : 'video'}${urls.length === 1 ? '' : 's'} uploaded`)
     } catch {
-      toast.error('Could not upload media')
+      toast.error(`Could not upload ${field === 'image' ? 'images' : 'videos'}`)
     }
   }
 
-  const uploadPageSectionMedia = async (pageKey: string, index: number, field: 'image' | 'video', file?: File) => {
-    if (!file) return
+  const uploadPageSectionMediaFiles = async (pageKey: string, index: number, field: 'image' | 'video', files?: FileList | File[]) => {
+    const selected = Array.from(files || [])
+    if (!selected.length) return
     try {
-      const data = await contentApi.uploadContentImage(file)
-      updatePageSection(pageKey, index, field, data.url)
-      toast.success('Section media uploaded')
+      const uploads = await Promise.all(selected.map((file) => contentApi.uploadContentImage(file)))
+      const urls = uploads.map((item) => item.url).filter(Boolean)
+      if (!urls.length) return
+      updatePageSection(pageKey, index, field, urls[0])
+      appendPageMediaSections(pageKey, field, urls.slice(1))
+      toast.success(`${urls.length} section ${field === 'image' ? 'image' : 'video'}${urls.length === 1 ? '' : 's'} uploaded`)
     } catch {
-      toast.error('Could not upload section media')
+      toast.error(`Could not upload section ${field === 'image' ? 'images' : 'videos'}`)
     }
   }
 
-  const handleMediaDrop = (event: DragEvent<HTMLElement>, upload: (file?: File) => void) => {
+  const handleMediaDrop = (event: DragEvent<HTMLElement>, upload: (files?: FileList) => void) => {
     event.preventDefault()
-    upload(event.dataTransfer.files?.[0])
+    upload(event.dataTransfer.files)
   }
 
   const uploadCategoryImage = async (categoryId: string | 'draft', file?: File) => {
@@ -532,21 +556,21 @@ const ContentPage = () => {
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <label
                     onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => handleMediaDrop(event, (file) => uploadPageMedia(key, 'image', file))}
+                    onDrop={(event) => handleMediaDrop(event, (files) => uploadPageMediaFiles(key, 'image', files))}
                     className="flex cursor-pointer flex-col items-center justify-center rounded border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-center text-sm font-semibold text-gray-700 hover:border-red-400 hover:bg-red-50"
                   >
                     <Upload className="mb-2 h-5 w-5" />
-                    Drop hero image or browse
-                    <input type="file" accept="image/*" onChange={(event) => uploadPageMedia(key, 'image', event.target.files?.[0])} className="hidden" />
+                    Drop hero images or browse
+                    <input type="file" multiple accept="image/*" onChange={(event) => uploadPageMediaFiles(key, 'image', event.target.files || undefined)} className="hidden" />
                   </label>
                   <label
                     onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => handleMediaDrop(event, (file) => uploadPageMedia(key, 'video', file))}
+                    onDrop={(event) => handleMediaDrop(event, (files) => uploadPageMediaFiles(key, 'video', files))}
                     className="flex cursor-pointer flex-col items-center justify-center rounded border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-center text-sm font-semibold text-gray-700 hover:border-red-400 hover:bg-red-50"
                   >
                     <Upload className="mb-2 h-5 w-5" />
-                    Drop hero video or browse
-                    <input type="file" accept="video/*" onChange={(event) => uploadPageMedia(key, 'video', event.target.files?.[0])} className="hidden" />
+                    Drop hero videos or browse
+                    <input type="file" multiple accept="video/*" onChange={(event) => uploadPageMediaFiles(key, 'video', event.target.files || undefined)} className="hidden" />
                   </label>
                 </div>
                 {(page.image || page.video) && (
@@ -575,21 +599,21 @@ const ContentPage = () => {
                       <div className="mt-2 grid gap-2 md:grid-cols-2">
                         <label
                           onDragOver={(event) => event.preventDefault()}
-                          onDrop={(event) => handleMediaDrop(event, (file) => uploadPageSectionMedia(key, index, 'image', file))}
+                          onDrop={(event) => handleMediaDrop(event, (files) => uploadPageSectionMediaFiles(key, index, 'image', files))}
                           className="flex cursor-pointer items-center justify-center gap-2 rounded border-2 border-dashed border-gray-300 bg-white px-3 py-3 text-sm font-semibold text-gray-700 hover:border-red-400 hover:bg-red-50"
                         >
                           <Upload className="h-4 w-4" />
-                          Drop section image
-                          <input type="file" accept="image/*" onChange={(event) => uploadPageSectionMedia(key, index, 'image', event.target.files?.[0])} className="hidden" />
+                          Drop section images
+                          <input type="file" multiple accept="image/*" onChange={(event) => uploadPageSectionMediaFiles(key, index, 'image', event.target.files || undefined)} className="hidden" />
                         </label>
                         <label
                           onDragOver={(event) => event.preventDefault()}
-                          onDrop={(event) => handleMediaDrop(event, (file) => uploadPageSectionMedia(key, index, 'video', file))}
+                          onDrop={(event) => handleMediaDrop(event, (files) => uploadPageSectionMediaFiles(key, index, 'video', files))}
                           className="flex cursor-pointer items-center justify-center gap-2 rounded border-2 border-dashed border-gray-300 bg-white px-3 py-3 text-sm font-semibold text-gray-700 hover:border-red-400 hover:bg-red-50"
                         >
                           <Upload className="h-4 w-4" />
-                          Drop section video
-                          <input type="file" accept="video/*" onChange={(event) => uploadPageSectionMedia(key, index, 'video', event.target.files?.[0])} className="hidden" />
+                          Drop section videos
+                          <input type="file" multiple accept="video/*" onChange={(event) => uploadPageSectionMediaFiles(key, index, 'video', event.target.files || undefined)} className="hidden" />
                         </label>
                       </div>
                       {(section.image || section.video) && (

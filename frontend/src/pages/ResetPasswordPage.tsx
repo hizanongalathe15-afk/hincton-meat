@@ -63,8 +63,8 @@ const ResetPasswordPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }
       </div>
 
       {/* Animated Gradient Orbs */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-red-600/30 to-white/10 rounded-full blur-3xl animate-pulse" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-br from-white/10 to-red-600/30 rounded-full blur-3xl animate-pulse" />
+      <div className="absolute top-0 left-0 hidden h-96 w-96 rounded-full bg-gradient-to-br from-red-600/30 to-white/10 blur-3xl sm:block sm:animate-pulse" />
+      <div className="absolute bottom-0 right-0 hidden h-96 w-96 rounded-full bg-gradient-to-br from-white/10 to-red-600/30 blur-3xl sm:block sm:animate-pulse" />
 
       {/* Main Content */}
       <div className="relative z-10 flex items-center justify-center min-h-screen p-4">
@@ -72,7 +72,7 @@ const ResetPasswordPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }
           {/* Card Container */}
           <div className="relative">
             {/* Animated Border Gradient */}
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-red-600 via-white to-red-600 rounded-3xl blur opacity-30 animate-spin" style={{animationDuration: '20s'}} />
+            <div className="absolute -inset-0.5 rounded-3xl bg-gradient-to-r from-red-600 via-white to-red-600 opacity-25 blur sm:animate-spin" style={{animationDuration: '20s'}} />
 
             {/* Main Card */}
             <div className="relative bg-zinc-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-red-600/20 overflow-hidden">

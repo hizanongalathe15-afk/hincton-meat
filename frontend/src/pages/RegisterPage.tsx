@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, Github, Lock, Mail, User, Truck, Star, Shield } from 'lucide-react'
+import { Eye, EyeOff, Github, Loader2, Lock, Mail, User, Truck, Star, Shield } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
 import { HINCTON_BRAND } from '../utils/hinctonBrand'
@@ -23,6 +23,8 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showTermsError, setShowTermsError] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [shakeForm, setShakeForm] = useState(false)
+  const [invalidFields, setInvalidFields] = useState<string[]>([])
   const { register } = useAuth()
   const navigate = useNavigate()
   const { t } = useLanguage()
@@ -30,7 +32,15 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = event.target
     setFormData((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }))
+    setInvalidFields((current) => current.filter((field) => field !== name))
     if (name === 'agreed' && checked) setShowTermsError(false)
+  }
+
+  const failValidation = (fields: string[], message: string) => {
+    setInvalidFields(fields)
+    setShakeForm(true)
+    toast.error(message)
+    window.setTimeout(() => setShakeForm(false), 500)
   }
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -38,22 +48,22 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
 
     if (!formData.agreed) {
       setShowTermsError(true)
-      toast.error(t('register.termsAgreementError'))
+      failValidation(['agreed'], t('register.termsAgreementError'))
       return
     }
 
     if (formData.password !== formData.confirmPassword) {
-      toast.error(t('register.passwordsDoNotMatch'))
+      failValidation(['password', 'confirmPassword'], t('register.passwordsDoNotMatch'))
       return
     }
 
     if (!emailPattern.test(formData.email.trim())) {
-      toast.error('Use a real email address with a valid domain, for example name@gmail.com')
+      failValidation(['email'], 'Use a real email address with a valid domain, for example name@gmail.com')
       return
     }
 
     if (!strongPasswordPattern.test(formData.password)) {
-      toast.error('Password must be at least 8 characters and include uppercase, lowercase, number, and symbol')
+      failValidation(['password', 'confirmPassword'], 'Password must be at least 8 characters and include uppercase, lowercase, number, and symbol')
       return
     }
 
@@ -67,7 +77,7 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
       })
       navigate('/profile')
     } catch (error: any) {
-      toast.error(error.message || t('register.registrationFailed'))
+      failValidation(['email', 'password', 'confirmPassword'], error.message || t('register.registrationFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -97,8 +107,8 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
       </div>
 
       {/* Animated Gradient Orbs */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-red-600/30 to-white/10 rounded-full blur-3xl animate-pulse" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-br from-white/10 to-red-600/30 rounded-full blur-3xl animate-pulse" />
+      <div className="absolute top-0 left-0 hidden h-96 w-96 rounded-full bg-gradient-to-br from-red-600/30 to-white/10 blur-3xl sm:block sm:animate-pulse" />
+      <div className="absolute bottom-0 right-0 hidden h-96 w-96 rounded-full bg-gradient-to-br from-white/10 to-red-600/30 blur-3xl sm:block sm:animate-pulse" />
 
       {/* Main Content */}
       <div className="relative z-10 flex items-center justify-center min-h-screen p-4">
@@ -106,7 +116,7 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
           {/* Card Container */}
           <div className="relative">
             {/* Animated Border Gradient */}
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-red-600 via-white to-red-600 rounded-3xl blur opacity-30 animate-spin" style={{animationDuration: '20s'}} />
+            <div className="absolute -inset-0.5 rounded-3xl bg-gradient-to-r from-red-600 via-white to-red-600 opacity-25 blur sm:animate-spin" style={{animationDuration: '20s'}} />
 
             {/* Main Card */}
             <div className="relative bg-zinc-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-red-600/20 overflow-hidden">
@@ -181,7 +191,7 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
                   </div>
 
                   {/* Form */}
-                  <form onSubmit={handleSubmit} className="space-y-5">
+                  <form onSubmit={handleSubmit} className={`space-y-5 ${shakeForm ? 'auth-shake' : ''}`}>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="relative group">
                         <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 z-10" />
@@ -194,7 +204,7 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
                           onChange={handleChange}
                           placeholder={t('register.firstName')}
                           required
-                          className="w-full pl-12 pr-4 py-4 bg-zinc-800/50 border-2 border-zinc-700/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all"
+                          className={`w-full pl-12 pr-4 py-4 bg-zinc-800/50 border-2 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all ${invalidFields.includes('firstName') ? 'auth-field-error border-red-500' : 'border-zinc-700/50'}`}
                         />
                         <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-red-600/20 to-white/10 opacity-0 group-focus-within:opacity-100 transition-opacity -z-10 blur" />
                       </div>
@@ -210,7 +220,7 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
                           onChange={handleChange}
                           placeholder={t('register.lastName')}
                           required
-                          className="w-full pl-12 pr-4 py-4 bg-zinc-800/50 border-2 border-zinc-700/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all"
+                          className={`w-full pl-12 pr-4 py-4 bg-zinc-800/50 border-2 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all ${invalidFields.includes('lastName') ? 'auth-field-error border-red-500' : 'border-zinc-700/50'}`}
                         />
                         <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-red-600/20 to-white/10 opacity-0 group-focus-within:opacity-100 transition-opacity -z-10 blur" />
                       </div>
@@ -229,7 +239,7 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
                         required
                         pattern="^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$"
                         title="Use a real email address with a valid domain, for example name@gmail.com"
-                        className="w-full pl-12 pr-4 py-4 bg-zinc-800/50 border-2 border-zinc-700/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all"
+                        className={`w-full pl-12 pr-4 py-4 bg-zinc-800/50 border-2 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all ${invalidFields.includes('email') ? 'auth-field-error border-red-500' : 'border-zinc-700/50'}`}
                       />
                       <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-red-600/20 to-white/10 opacity-0 group-focus-within:opacity-100 transition-opacity -z-10 blur" />
                     </div>
@@ -248,7 +258,7 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
                         minLength={8}
                         pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$"
                         title="Use at least 8 characters with uppercase, lowercase, number, and symbol"
-                        className="w-full pl-12 pr-12 py-4 bg-zinc-800/50 border-2 border-zinc-700/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all"
+                        className={`w-full pl-12 pr-12 py-4 bg-zinc-800/50 border-2 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all ${invalidFields.includes('password') ? 'auth-field-error border-red-500' : 'border-zinc-700/50'}`}
                       />
                       <button
                         type="button"
@@ -274,7 +284,7 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
                         minLength={8}
                         pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$"
                         title="Use at least 8 characters with uppercase, lowercase, number, and symbol"
-                        className="w-full pl-12 pr-12 py-4 bg-zinc-800/50 border-2 border-zinc-700/50 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all"
+                        className={`w-full pl-12 pr-12 py-4 bg-zinc-800/50 border-2 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-red-600 transition-all ${invalidFields.includes('confirmPassword') ? 'auth-field-error border-red-500' : 'border-zinc-700/50'}`}
                       />
                       <button
                         type="button"
@@ -322,7 +332,8 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
                     >
                       <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-700" />
                       <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-red-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <span className="relative z-10">
+                      <span className="relative z-10 inline-flex items-center justify-center gap-2">
+                        {isLoading && <Loader2 className="h-5 w-5 animate-spin" />}
                         {isLoading ? t('register.creatingAccount') : t('register.createAccount')}
                       </span>
                     </button>
