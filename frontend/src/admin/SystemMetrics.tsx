@@ -608,7 +608,7 @@ const SystemMetrics = () => {
 
           <div className="bg-white p-6 rounded-lg shadow">
             <h3 className="text-lg font-semibold text-gray-900 mb-1">Server Storage Details</h3>
-            <p className="mb-4 text-sm text-gray-500">These numbers are from the backend host filesystem, not your phone or laptop disk.</p>
+            <p className="mb-4 text-sm text-gray-500">These numbers are from the server host filesystem, not your phone or laptop disk.</p>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-600">Server Total Storage:</span>

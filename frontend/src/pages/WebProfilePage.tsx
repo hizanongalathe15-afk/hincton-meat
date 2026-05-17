@@ -176,7 +176,7 @@ const WebProfilePage = () => {
             <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="text-sm font-bold uppercase tracking-wide text-red-700">Live catalog</p>
-                <h2 className="mt-3 text-4xl font-extrabold text-gray-950">Featured products from backend</h2>
+                <h2 className="mt-3 text-4xl font-extrabold text-gray-950">Featured products</h2>
               </div>
               <Link to="/shop" className="inline-flex rounded bg-[#9f2f20] px-7 py-3 font-bold text-white hover:bg-[#842719]">
                 View full shop

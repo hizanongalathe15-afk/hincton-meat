@@ -634,7 +634,7 @@ const ContentPage = () => {
 
       <section className="rounded bg-white p-6 shadow-sm">
         <h2 className="text-lg font-bold text-gray-950">Blog Posts</h2>
-        <p className="mt-1 text-sm text-gray-600">Create real backend blog posts with images, categories, tags, and Read More pages.</p>
+        <p className="mt-1 text-sm text-gray-600">Create real blog posts with images, categories, tags, and Read More pages.</p>
         <div className="mt-5 grid gap-3 md:grid-cols-2">
           <input value={blogDraft.title} onChange={(event) => setBlogDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Post title" className="rounded border border-gray-300 px-3 py-2" />
           <input value={blogDraft.category} onChange={(event) => setBlogDraft((current) => ({ ...current, category: event.target.value }))} placeholder="Category" className="rounded border border-gray-300 px-3 py-2" />
