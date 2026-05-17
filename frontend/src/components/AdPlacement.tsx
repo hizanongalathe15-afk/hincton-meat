@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ExternalLink, X } from 'lucide-react'
-import { API_URL, resolveMediaUrl } from '../services/api'
+import { API_URL, getEmbedVideoUrl, isDirectVideoUrl, resolveMediaUrl } from '../services/api'
 
 interface AdPlacementProps {
   placementId: string
@@ -41,14 +41,11 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
       try {
         setLoading(true)
         
-        // Get user location (simplified - in production would use geolocation API)
-        const location = await getUserLocation()
-        
         // Get device info
         const device = getDeviceType()
         const userAgent = navigator.userAgent
 
-        const response = await fetch(`${API_URL}/marketing/serve?placementId=${placementId}&location=${location}&device=${device}&userAgent=${encodeURIComponent(userAgent)}`)
+        const response = await fetch(`${API_URL}/marketing/serve?placementId=${encodeURIComponent(placementId)}&device=${device}&userAgent=${encodeURIComponent(userAgent)}`)
         const data = await response.json()
 
         if (data.ad) {
@@ -67,32 +64,8 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
       }
     }
 
-    // Check if user has consented to ads
-    const adConsent = document.cookie.split(';').find(cookie => cookie.trim().startsWith('advertising_consent='))
-    if (adConsent && adConsent.split('=')[1] === 'true') {
-      fetchAd()
-    } else {
-      setLoading(false)
-      setError('Ad consent required')
-    }
+    fetchAd()
   }, [placementId])
-
-  const getUserLocation = async (): Promise<string> => {
-    // Try to get location from localStorage or IP geolocation
-    const storedLocation = localStorage.getItem('userLocation')
-    if (storedLocation) return storedLocation
-
-    // Fallback to IP-based location (simplified)
-    try {
-      const response = await fetch('https://ipapi.co/json/')
-      const data = await response.json()
-      const location = `${data.city}, ${data.country}`
-      localStorage.setItem('userLocation', location)
-      return location
-    } catch {
-      return 'Unknown'
-    }
-  }
 
   const getDeviceType = (): string => {
     const width = window.innerWidth
@@ -136,9 +109,11 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
     const mediaUrl = resolveMediaUrl(ad.mediaUrl || ad.imageUrl)
     const imageUrl = resolveMediaUrl(ad.imageUrl || ad.mediaUrl)
     const stickerUrl = resolveMediaUrl(ad.stickerUrl)
+    const embedUrl = ad.mediaType === 'video' ? getEmbedVideoUrl(mediaUrl) : ''
     const adStyle = {
-      width: `${placement.size.width}px`,
-      height: `${placement.size.height}px`
+      width: '100%',
+      maxWidth: `${placement.size.width}px`,
+      minHeight: `${placement.size.height}px`
     }
 
     return (
@@ -151,7 +126,9 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
           <div className="flex h-full w-full items-center justify-center bg-gray-900 p-3">
             <audio src={mediaUrl} controls className="w-full" />
           </div>
-        ) : ad.mediaType === 'video' && mediaUrl ? (
+        ) : embedUrl ? (
+          <iframe src={embedUrl} title={ad.title} className="h-full min-h-[inherit] w-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
+        ) : ad.mediaType === 'video' && mediaUrl && isDirectVideoUrl(mediaUrl) ? (
           <video src={mediaUrl} className="h-full w-full object-cover" muted autoPlay loop playsInline />
         ) : imageUrl ? (
           <img 
@@ -199,6 +176,7 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
     if (!ad || !showPopup) return null
     const mediaUrl = resolveMediaUrl(ad.mediaUrl || ad.imageUrl)
     const imageUrl = resolveMediaUrl(ad.imageUrl || ad.mediaUrl)
+    const embedUrl = ad.mediaType === 'video' ? getEmbedVideoUrl(mediaUrl) : ''
 
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -216,6 +194,8 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
             
             {ad.mediaType === 'audio' && mediaUrl ? (
               <audio src={mediaUrl} controls className="mb-4 w-full" />
+            ) : embedUrl ? (
+              <iframe src={embedUrl} title={ad.title} className="mb-4 h-56 w-full rounded-lg" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
             ) : ad.mediaType === 'video' && mediaUrl ? (
               <video src={mediaUrl} controls className="mb-4 h-48 w-full rounded-lg object-cover" />
             ) : imageUrl && (
@@ -270,7 +250,7 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
     ) : (
       <div className={`bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center ${className}`}>
         <div className="text-gray-400 text-xs text-center p-2">
-          {error === 'Ad consent required' ? 'Ad consent required' : 'Ad space available'}
+          Ad space available
         </div>
       </div>
     )

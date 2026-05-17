@@ -203,7 +203,7 @@ const getRecommendedProducts = async (productId?: string, limitNum = 8) => {
     pushProducts(await prisma.product.findMany({
       where: { id: { not: current.id }, categoryId: current.categoryId, isPublished: true, deletedAt: null, stockQuantity: { gt: 0 } },
       take: limitNum,
-      orderBy: [{ totalSold: 'desc' }, { averageRating: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ isFeatured: 'desc' }, { totalSold: 'desc' }, { averageRating: 'desc' }, { createdAt: 'desc' }],
       include: productInclude,
     }))
   }

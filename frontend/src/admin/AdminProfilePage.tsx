@@ -1,9 +1,12 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react'
-import { Camera, Eye, EyeOff, Lock, Mail, Save, ShieldCheck, User } from 'lucide-react'
+import { Camera, Eye, EyeOff, Lock, Mail, RefreshCw, Save, ShieldCheck, User } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { getApiHost } from '../services/api'
 import { userApi } from '../services/buyerApi'
+import { systemApi } from '../services/adminApi'
 import toast from 'react-hot-toast'
+import { useConfirmationDialog } from '../hooks/useConfirmationDialog'
+import ConfirmationDialog from '../components/ui/ConfirmationDialog'
 
 type ProfileForm = {
   name: string
@@ -42,8 +45,10 @@ const AdminProfilePage = () => {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [passwordVisibility, setPasswordVisibility] = useState({ current: false, next: false, confirm: false })
+  const { isOpen, options, confirm, handleConfirm, handleCancel } = useConfirmationDialog()
 
   useEffect(() => {
     setForm({
@@ -139,6 +144,28 @@ const AdminProfilePage = () => {
       toast.error(error?.message || 'Could not change password')
     } finally {
       setChangingPassword(false)
+    }
+  }
+
+  const handleStoreReset = async () => {
+    const confirmed = await confirm({
+      title: 'Reset store data',
+      message: 'This permanently empties products, categories, carts, orders, ads, blog posts, public content, and commerce settings. Admin accounts are kept. This cannot be undone.',
+      confirmText: 'Reset everything',
+      cancelText: 'Cancel',
+      type: 'danger',
+      icon: 'warning',
+    })
+    if (!confirmed) return
+
+    setResetting(true)
+    try {
+      const response = await systemApi.resetStore()
+      toast.success(response?.message || 'Store reset completed')
+    } catch (error: any) {
+      toast.error(error?.message || 'Could not reset store data')
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -323,6 +350,40 @@ const AdminProfilePage = () => {
           </button>
         </div>
       </form>
+
+      <section className="rounded-lg border border-red-200 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex items-start gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-red-50 text-red-700">
+            <RefreshCw className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-gray-950">Reset Store Data</h2>
+            <p className="text-sm text-gray-600">Empty storefront data and return editable content/settings to defaults while keeping admin access.</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleStoreReset}
+          disabled={resetting}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-red-700 px-5 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-60"
+        >
+          <RefreshCw className={`h-4 w-4 ${resetting ? 'animate-spin' : ''}`} />
+          {resetting ? 'Resetting...' : 'Reset Everything'}
+        </button>
+      </section>
+
+      <ConfirmationDialog
+        isOpen={isOpen}
+        onClose={handleCancel}
+        onConfirm={handleConfirm}
+        title={options?.title || ''}
+        message={options?.message || ''}
+        confirmText={options?.confirmText}
+        cancelText={options?.cancelText}
+        type={options?.type}
+        icon={options?.icon}
+        isConfirming={resetting}
+      />
     </div>
   )
 }

@@ -19,7 +19,15 @@ const saveLocalMedia = (file: Express.Multer.File) => {
   const filename = `${file.fieldname}-${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`
   const localPath = path.join(adUploadPath, filename)
   fs.writeFileSync(localPath, file.buffer)
-  return `/${localPath.replace(/\\/g, '/')}`
+  return `/uploads/ads/${filename}`
+}
+
+const inferMediaType = (url?: string, fallback: 'image' | 'gif' | 'video' | 'audio' | 'sticker' = 'image') => {
+  const value = String(url || '')
+  if (/\.(mp3|wav|ogg|m4a)(\?|#|$)/i.test(value)) return 'audio'
+  if (/\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(value) || /(youtube\.com|youtu\.be|vimeo\.com)/i.test(value)) return 'video'
+  if (/\.gif(\?|#|$)/i.test(value)) return 'gif'
+  return fallback
 }
 
 const upload = multer({
@@ -378,8 +386,17 @@ router.get('/serve', async (req, res) => {
     const { placementId, location, device, userAgent } = req.query
     
     // Get placement details
-    const placement = await prisma.adPlacement?.findUnique({
-      where: { id: placementId as string },
+    const placementKey = String(placementId || '').trim()
+    if (!placementKey) return res.json({ ad: null, reason: 'placement_required' })
+
+    const placement = await prisma.adPlacement?.findFirst({
+      where: {
+        OR: [
+          { id: placementKey },
+          { position: placementKey },
+          { name: placementKey },
+        ],
+      },
       select: {
         id: true,
         name: true,
@@ -405,7 +422,7 @@ router.get('/serve', async (req, res) => {
           description: placementCreative.description || '',
           imageUrl: placementCreative.imageUrl || placementCreative.mediaUrl,
           mediaUrl: placementCreative.mediaUrl || placementCreative.imageUrl,
-          mediaType: placementCreative.mediaType || 'image',
+          mediaType: placementCreative.mediaType || inferMediaType(placementCreative.mediaUrl || placementCreative.imageUrl),
           landingUrl: placementCreative.landingUrl || '/shop',
           buttonText: placementCreative.buttonText || 'Shop now',
           advertiser: 'Hincton',
@@ -483,7 +500,7 @@ router.get('/serve', async (req, res) => {
         description: creative?.description,
         imageUrl: creative?.imageUrl || creative?.mediaUrl,
         mediaUrl: creative?.mediaUrl || creative?.imageUrl,
-        mediaType: creative?.mediaType || (String(creative?.mediaUrl || creative?.imageUrl || '').match(/\.(mp3|wav|ogg|m4a)(\?|$)/i) ? 'audio' : String(creative?.mediaUrl || creative?.imageUrl || '').match(/\.(mp4|webm|mov)(\?|$)/i) ? 'video' : 'image'),
+        mediaType: creative?.mediaType || inferMediaType(creative?.mediaUrl || creative?.imageUrl),
         stickerUrl: creative?.stickerUrl,
         landingUrl: creative?.landingUrl,
         buttonText: creative?.buttonText,

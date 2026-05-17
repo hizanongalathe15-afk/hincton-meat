@@ -163,7 +163,7 @@ const BuyerShop = ({
             sortBy: apiSort.sortBy,
             sortOrder: apiSort.sortOrder,
             page: 1,
-            limit: 50
+            limit: 100
           }
         
         const [productsData, categoriesData] = await Promise.all([
@@ -336,7 +336,7 @@ const BuyerShop = ({
     <div className="bg-gray-50">
       {/* Header */}
       <section className="bg-neutral-950 text-white">
-        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1800px] px-4 py-12 sm:px-6 lg:px-8">
           <div className="grid gap-8 lg:grid-cols-[1fr_420px] lg:items-end">
             <div className="max-w-2xl">
               <p className="text-sm font-bold uppercase tracking-wide text-yellow-300">{t('shop.premiumCounter')}</p>
@@ -364,8 +364,8 @@ const BuyerShop = ({
       </section>
 
       {/* Main Content */}
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="grid gap-8 lg:grid-cols-[250px_minmax(0,1fr)_240px]">
+      <section className="mx-auto max-w-[1800px] px-4 py-10 sm:px-6 lg:px-8">
+        <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)_240px]">
           {/* Category Sidebar */}
           <div>
             <CategoryFilter
@@ -393,7 +393,7 @@ const BuyerShop = ({
 
             {/* Products Grid */}
             {filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {filteredProducts.map((product, index) => (
                   <ProductCard
                     key={product.id}

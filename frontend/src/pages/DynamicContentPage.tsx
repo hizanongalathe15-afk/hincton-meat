@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import { useSiteContent } from '../contexts/SiteContentContext'
-import { resolveMediaUrl } from '../services/api'
+import { getEmbedVideoUrl, isDirectVideoUrl, resolveMediaUrl } from '../services/api'
 
 type DynamicContentPageProps = {
   pageKey: string
@@ -13,11 +13,27 @@ const DynamicContentPage = ({ pageKey }: DynamicContentPageProps) => {
 
   if (!page) return null
 
+  const renderParagraphs = (body?: string, className = 'text-gray-700 leading-7') => (
+    <div className="space-y-4">
+      {(body || '').split(/\n{1,}/).map((paragraph, index) => (
+        paragraph.trim() ? <p key={index} className={className}>{paragraph.trim()}</p> : null
+      ))}
+    </div>
+  )
+
+  const renderVideo = (url: string, title: string, className: string) => {
+    const videoUrl = resolveMediaUrl(url)
+    const embedUrl = getEmbedVideoUrl(videoUrl)
+    if (embedUrl) return <iframe src={embedUrl} title={title} className={className} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
+    if (isDirectVideoUrl(videoUrl)) return <video src={videoUrl} autoPlay muted loop playsInline controls className={className} />
+    return null
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <section className="relative overflow-hidden bg-gray-950 px-4 py-20 text-white sm:px-6 lg:px-8">
         {page.video ? (
-          <video src={resolveMediaUrl(page.video)} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover opacity-45" />
+          renderVideo(page.video, page.title, 'absolute inset-0 h-full w-full object-cover opacity-45')
         ) : page.image ? (
           <img src={resolveMediaUrl(page.image)} alt={page.title} className="absolute inset-0 h-full w-full object-cover opacity-45" />
         ) : null}
@@ -31,19 +47,19 @@ const DynamicContentPage = ({ pageKey }: DynamicContentPageProps) => {
 
       <section className="px-4 py-16 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
-          {page.body && <p className="max-w-4xl text-xl leading-9 text-gray-700">{page.body}</p>}
+          {page.body && <div className="max-w-4xl text-xl leading-9">{renderParagraphs(page.body, 'text-gray-700 leading-9')}</div>}
 
-          <div className="mt-12 grid gap-6 md:grid-cols-2">
+          <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {(page.sections || []).map((section, index) => (
               <article key={`${section.title}-${index}`} className="overflow-hidden rounded bg-white shadow-sm ring-1 ring-gray-200">
                 {section.video ? (
-                  <video src={resolveMediaUrl(section.video)} controls className="h-64 w-full object-cover" />
+                  renderVideo(section.video, section.title || page.title, 'h-64 w-full object-cover')
                 ) : section.image ? (
                   <img src={resolveMediaUrl(section.image)} alt={section.title} className="h-64 w-full object-cover" />
                 ) : null}
                 <div className="p-6">
                   <h2 className="text-2xl font-extrabold text-gray-950">{section.title}</h2>
-                  {section.body && <p className="mt-3 text-gray-700 leading-7">{section.body}</p>}
+                  {section.body && <div className="mt-3">{renderParagraphs(section.body)}</div>}
                   {section.linkUrl && (
                     <Link to={section.linkUrl} className="mt-5 inline-flex items-center gap-2 font-bold text-red-700 hover:text-red-800">
                       {section.linkLabel || 'Read More'}

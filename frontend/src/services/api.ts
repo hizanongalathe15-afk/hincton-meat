@@ -50,6 +50,24 @@ export const resolveMediaUrl = (url?: string): string => {
   return url
 }
 
+export const getEmbedVideoUrl = (url?: string): string => {
+  if (!url) return ''
+  const resolved = resolveMediaUrl(url)
+
+  const youtubeMatch = resolved.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([^&?/]+)/i)
+  if (youtubeMatch?.[1]) return `https://www.youtube.com/embed/${youtubeMatch[1]}`
+
+  const vimeoMatch = resolved.match(/vimeo\.com\/(?:video\/)?(\d+)/i)
+  if (vimeoMatch?.[1]) return `https://player.vimeo.com/video/${vimeoMatch[1]}`
+
+  return ''
+}
+
+export const isDirectVideoUrl = (url?: string): boolean => {
+  if (!url) return false
+  return /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(url) || /\/video\/upload\//i.test(url)
+}
+
 export const getApiErrorMessage = (error: any, fallback = 'Something went wrong. Please try again.') => {
   if (!error.response) {
     if (error instanceof Error && error.message) return error.message

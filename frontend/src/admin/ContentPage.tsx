@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { type DragEvent, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Save, Trash2, Upload, X } from 'lucide-react'
 import { contentApi, settingsApi } from '../services/adminApi'
 import { defaultSiteProfile, SiteProfile, useSiteContent } from '../contexts/SiteContentContext'
+import { getEmbedVideoUrl, isDirectVideoUrl, resolveMediaUrl } from '../services/api'
 
 const toLines = (values: string[]) => values.join('\n')
 const fromLines = (value: string) => value.split('\n').map((line) => line.trim()).filter(Boolean)
@@ -12,6 +13,20 @@ const copyLabels: Record<'companyProfile' | 'mission' | 'vision' | 'procurementC
   mission: 'Mission',
   vision: 'Vision',
   procurementCommitment: 'Procurement commitment',
+}
+
+const renderMediaPreview = (url: string, type: 'image' | 'video') => {
+  const mediaUrl = resolveMediaUrl(url)
+  const embedUrl = type === 'video' ? getEmbedVideoUrl(mediaUrl) : ''
+
+  if (!mediaUrl) return null
+  if (type === 'video' && embedUrl) {
+    return <iframe src={embedUrl} title="Media preview" className="h-44 w-full rounded object-cover" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
+  }
+  if (type === 'video' && isDirectVideoUrl(mediaUrl)) {
+    return <video src={mediaUrl} controls className="h-44 w-full rounded object-cover" />
+  }
+  return <img src={mediaUrl} alt="" className="h-44 w-full rounded object-cover" />
 }
 
 const ContentPage = () => {
@@ -240,6 +255,22 @@ const ContentPage = () => {
     } catch {
       toast.error('Could not upload media')
     }
+  }
+
+  const uploadPageSectionMedia = async (pageKey: string, index: number, field: 'image' | 'video', file?: File) => {
+    if (!file) return
+    try {
+      const data = await contentApi.uploadContentImage(file)
+      updatePageSection(pageKey, index, field, data.url)
+      toast.success('Section media uploaded')
+    } catch {
+      toast.error('Could not upload section media')
+    }
+  }
+
+  const handleMediaDrop = (event: DragEvent<HTMLElement>, upload: (file?: File) => void) => {
+    event.preventDefault()
+    upload(event.dataTransfer.files?.[0])
   }
 
   const uploadCategoryImage = async (categoryId: string | 'draft', file?: File) => {
@@ -499,9 +530,31 @@ const ContentPage = () => {
                   <input value={page.video || ''} onChange={(event) => updatePage(key, 'video', event.target.value)} placeholder="Optional hero video URL" className="rounded border border-gray-300 px-3 py-2" />
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <input type="file" accept="image/*" onChange={(event) => uploadPageMedia(key, 'image', event.target.files?.[0])} className="text-sm text-gray-600" />
-                  <input type="file" accept="video/*" onChange={(event) => uploadPageMedia(key, 'video', event.target.files?.[0])} className="text-sm text-gray-600" />
+                  <label
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => handleMediaDrop(event, (file) => uploadPageMedia(key, 'image', file))}
+                    className="flex cursor-pointer flex-col items-center justify-center rounded border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-center text-sm font-semibold text-gray-700 hover:border-red-400 hover:bg-red-50"
+                  >
+                    <Upload className="mb-2 h-5 w-5" />
+                    Drop hero image or browse
+                    <input type="file" accept="image/*" onChange={(event) => uploadPageMedia(key, 'image', event.target.files?.[0])} className="hidden" />
+                  </label>
+                  <label
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => handleMediaDrop(event, (file) => uploadPageMedia(key, 'video', file))}
+                    className="flex cursor-pointer flex-col items-center justify-center rounded border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-center text-sm font-semibold text-gray-700 hover:border-red-400 hover:bg-red-50"
+                  >
+                    <Upload className="mb-2 h-5 w-5" />
+                    Drop hero video or browse
+                    <input type="file" accept="video/*" onChange={(event) => uploadPageMedia(key, 'video', event.target.files?.[0])} className="hidden" />
+                  </label>
                 </div>
+                {(page.image || page.video) && (
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {page.image && renderMediaPreview(page.image, 'image')}
+                    {page.video && renderMediaPreview(page.video, 'video')}
+                  </div>
+                )}
                 <textarea value={page.body} onChange={(event) => updatePage(key, 'body', event.target.value)} rows={4} placeholder="Page body" className="mt-3 w-full rounded border border-gray-300 px-3 py-2" />
                 <div className="mt-4 space-y-3">
                   {(page.sections || []).map((section, index) => (
@@ -519,6 +572,32 @@ const ContentPage = () => {
                         <input value={section.video || ''} onChange={(event) => updatePageSection(key, index, 'video', event.target.value)} placeholder="Video URL" className="rounded border border-gray-300 px-3 py-2" />
                         <input value={section.linkUrl || ''} onChange={(event) => updatePageSection(key, index, 'linkUrl', event.target.value)} placeholder="Optional link URL" className="rounded border border-gray-300 px-3 py-2" />
                       </div>
+                      <div className="mt-2 grid gap-2 md:grid-cols-2">
+                        <label
+                          onDragOver={(event) => event.preventDefault()}
+                          onDrop={(event) => handleMediaDrop(event, (file) => uploadPageSectionMedia(key, index, 'image', file))}
+                          className="flex cursor-pointer items-center justify-center gap-2 rounded border-2 border-dashed border-gray-300 bg-white px-3 py-3 text-sm font-semibold text-gray-700 hover:border-red-400 hover:bg-red-50"
+                        >
+                          <Upload className="h-4 w-4" />
+                          Drop section image
+                          <input type="file" accept="image/*" onChange={(event) => uploadPageSectionMedia(key, index, 'image', event.target.files?.[0])} className="hidden" />
+                        </label>
+                        <label
+                          onDragOver={(event) => event.preventDefault()}
+                          onDrop={(event) => handleMediaDrop(event, (file) => uploadPageSectionMedia(key, index, 'video', file))}
+                          className="flex cursor-pointer items-center justify-center gap-2 rounded border-2 border-dashed border-gray-300 bg-white px-3 py-3 text-sm font-semibold text-gray-700 hover:border-red-400 hover:bg-red-50"
+                        >
+                          <Upload className="h-4 w-4" />
+                          Drop section video
+                          <input type="file" accept="video/*" onChange={(event) => uploadPageSectionMedia(key, index, 'video', event.target.files?.[0])} className="hidden" />
+                        </label>
+                      </div>
+                      {(section.image || section.video) && (
+                        <div className="mt-2 grid gap-2 md:grid-cols-2">
+                          {section.image && renderMediaPreview(section.image, 'image')}
+                          {section.video && renderMediaPreview(section.video, 'video')}
+                        </div>
+                      )}
                       <textarea value={section.body || ''} onChange={(event) => updatePageSection(key, index, 'body', event.target.value)} rows={3} placeholder="Section body" className="mt-2 w-full rounded border border-gray-300 px-3 py-2" />
                     </div>
                   ))}

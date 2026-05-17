@@ -81,9 +81,8 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{
-                type: "spring",
-                damping: 25,
-                stiffness: 300
+                duration: 0.18,
+                ease: 'easeOut'
               }}
               className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4"
               role="dialog"
@@ -127,15 +126,13 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
                 >
                   {cancelText}
                 </button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                <button
                   onClick={() => void onConfirm()}
                   disabled={isConfirming}
                   className={`px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${getConfirmButtonStyle()}`}
                 >
                   {isConfirming ? 'Working...' : confirmText}
-                </motion.button>
+                </button>
               </div>
             </motion.div>
           </motion.div>

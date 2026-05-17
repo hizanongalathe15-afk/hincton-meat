@@ -373,6 +373,11 @@ export const systemApi = {
   clearAdminSessions: async (scope: 'inactive' | 'all' = 'inactive') => {
     const response = await apiClient.delete('/user-sessions/admin/sessions', { params: { scope } })
     return response.data
+  },
+
+  resetStore: async () => {
+    const response = await apiClient.post('/admin/reset-store')
+    return response.data
   }
 }
 

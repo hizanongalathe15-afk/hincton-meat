@@ -25,6 +25,7 @@ interface ProductFormData {
   weight: number
   unit: string
   isPublished: boolean
+  isFeatured: boolean
   tags: string[]
   images: File[]
   videos: File[]
@@ -57,6 +58,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     weight: 500,
     unit: 'g',
     isPublished: true,
+    isFeatured: false,
     tags: [],
     images: [],
     videos: [],
@@ -86,6 +88,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
           weight: product.weight || 500,
           unit: product.weightUnit || product.unit || 'g',
           isPublished: product.isPublished ?? true,
+          isFeatured: product.isFeatured ?? false,
           tags: product.tags || [],
           images: [],
           videos: [],
@@ -163,6 +166,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
       weight: 500,
       unit: 'g',
       isPublished: true,
+      isFeatured: false,
       tags: [],
       images: [],
       videos: [],
@@ -219,7 +223,15 @@ const ProductModal: React.FC<ProductModalProps> = ({
     setDragActive(false)
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleImageUpload(e.dataTransfer.files)
+      const files = Array.from(e.dataTransfer.files)
+      const imageTransfer = new DataTransfer()
+      const videoTransfer = new DataTransfer()
+      files.forEach((file) => {
+        if (file.type.startsWith('video/')) videoTransfer.items.add(file)
+        if (file.type.startsWith('image/')) imageTransfer.items.add(file)
+      })
+      if (imageTransfer.files.length) handleImageUpload(imageTransfer.files)
+      if (videoTransfer.files.length) handleVideoUpload(videoTransfer.files)
     }
   }
 
@@ -483,7 +495,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
           </div>
 
           {/* Stock and Weight */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Stock Quantity *
@@ -547,6 +559,18 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 <span className="text-sm font-medium text-gray-700">Published</span>
               </label>
             </div>
+            <div className="flex items-center">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="isFeatured"
+                  checked={formData.isFeatured}
+                  onChange={handleInputChange}
+                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Featured / You might also like</span>
+              </label>
+            </div>
           </div>
 
           {/* Image Upload */}
@@ -589,10 +613,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
             >
               <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600 mb-2">
-                Drag and drop images here, or click to select
+                Drag and drop images or videos here, or click to select images
               </p>
               <p className="text-sm text-gray-500 mb-4">
-                PNG, JPG, GIF up to 10MB each
+                PNG, JPG, GIF, WebP images, plus video files from drop
               </p>
               <input
                 type="file"
@@ -638,7 +662,13 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 ))}
               </div>
             )}
-            <div className="rounded-lg border-2 border-dashed border-gray-300 p-6 text-center">
+            <div
+              className="rounded-lg border-2 border-dashed border-gray-300 p-6 text-center"
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
               <Upload className="mx-auto mb-3 h-10 w-10 text-gray-400" />
               <p className="mb-2 text-gray-600">Upload one or more product videos</p>
               <p className="mb-4 text-sm text-gray-500">MP4, WebM, MOV up to 50MB each</p>

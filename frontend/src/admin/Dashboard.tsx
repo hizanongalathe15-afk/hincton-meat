@@ -253,9 +253,8 @@ const AdminDashboard = () => {
                       <img src={profile.images.logo || profile.brand.logo} alt={profile.brand.name} className="h-28 w-28 object-contain" />
                     </div>
                     <div>
-                      <p className="m-0 text-sm font-bold uppercase tracking-[0.3em] text-yellow-200">Diagonal Reveal</p>
-                      <h2 className="particle-text mt-2 text-4xl font-black">Hincton Command</h2>
-                      <p className="mt-3 text-red-50/90">Every product edit, chat reply, price change, and order action is linked to the real admin name you confirm here.</p>
+                      <h2 className="particle-text mt-2 text-4xl font-black">Welcome Back</h2>
+                      <p className="mt-3 text-red-50/90">Your admin workspace is ready for products, orders, content, and customer care.</p>
                     </div>
                   </div>
                 </div>
@@ -268,7 +267,7 @@ const AdminDashboard = () => {
                     <span className="typewriter-glow">Welcome, {adminDisplayName.trim() || adminName}</span>
                   </h1>
                   <p className="mt-4 text-base leading-7 text-red-50 md:text-lg">
-                    You are entering the Hincton Meat control room. Product updates, orders, content, chat replies, and operational changes are tied to your authenticated admin identity so the team can trace decisions and resolve issues clearly.
+                    Product updates, orders, content, chat replies, and operational changes are tied to your authenticated admin identity so the team can trace decisions and resolve issues clearly.
                   </p>
                   <div className="mt-5 rounded-2xl border border-white/15 bg-white/10 p-4 text-sm text-red-50">
                     <p className="m-0 font-semibold">Signed in as: {adminIdentifier}</p>

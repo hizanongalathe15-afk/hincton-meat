@@ -6,6 +6,7 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import { uploadImage } from '../config/cloudinary'
+import { cacheService } from '../services/cacheService'
 
 const router = express.Router()
 
@@ -20,6 +21,67 @@ const requireAdmin = (req: any, res: any, next: any) => {
 
 // Apply admin middleware to all routes
 router.use(requireAdmin)
+
+router.post('/reset-store', async (_req, res) => {
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`
+        TRUNCATE TABLE
+          "ad_clicks",
+          "ad_conversions",
+          "ad_impressions",
+          "ad_campaigns",
+          "ad_placements",
+          "ads",
+          "blog_comments",
+          "blog_images",
+          "blog_videos",
+          "blog_posts",
+          "cart_items",
+          "carts",
+          "order_pickup_audits",
+          "order_status_history",
+          "order_items",
+          "orders",
+          "product_images",
+          "product_videos",
+          "product_attributes",
+          "product_variants",
+          "product_views",
+          "reviews",
+          "review_images",
+          "favorites",
+          "wishlist_items",
+          "wishlists",
+          "inventory_logs",
+          "price_history",
+          "products",
+          "categories"
+        RESTART IDENTITY CASCADE
+      `)
+      await tx.systemSetting.deleteMany({
+        where: {
+          OR: [
+            { key: 'site_profile' },
+            { key: 'commerce_settings' },
+            { group: { in: ['site', 'banner', 'navigation', 'commerce'] } },
+          ],
+        },
+      })
+    }, { timeout: 30000 })
+
+    await Promise.all([
+      cacheService.deleteByPrefix('products:'),
+      cacheService.deleteByPrefix('categories:'),
+      cacheService.deleteByPrefix('content:'),
+    ]).catch(() => undefined)
+
+    res.json({ message: 'Store reset completed. Admin accounts were kept.' })
+  } catch (error) {
+    console.error('Store reset error:', error)
+    res.status(500).json({ error: 'Failed to reset store data' })
+  }
+})
 
 // === DASHBOARD OVERVIEW ===
 router.get('/dashboard', async (req, res) => {
