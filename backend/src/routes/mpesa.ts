@@ -34,7 +34,17 @@ const MPESA_CONFIG = {
 const isMpesaConfigured = () =>
   Boolean(MPESA_CONFIG.consumerKey && MPESA_CONFIG.consumerSecret && MPESA_CONFIG.passkey && MPESA_CONFIG.passkey !== 'your_passkey')
 
+let mpesaTokenCache: { token: string; expiresAt: number } = {
+  token: '',
+  expiresAt: 0,
+}
+
 async function getMpesaToken() {
+  const now = Date.now()
+  if (mpesaTokenCache.token && mpesaTokenCache.expiresAt > now + 10_000) {
+    return mpesaTokenCache.token
+  }
+
   const auth = Buffer.from(`${MPESA_CONFIG.consumerKey}:${MPESA_CONFIG.consumerSecret}`).toString('base64')
   const url =
     MPESA_CONFIG.environment === 'production'
@@ -48,7 +58,14 @@ async function getMpesaToken() {
     },
   })
 
-  return response.data.access_token
+  const accessToken = response.data.access_token
+  const expiresIn = Number(response.data.expires_in) || 3500
+  mpesaTokenCache = {
+    token: accessToken,
+    expiresAt: Date.now() + Math.max(0, expiresIn - 30) * 1000,
+  }
+
+  return accessToken
 }
 
 const getGuestSessionId = (req: AuthRequest): string | null => {
