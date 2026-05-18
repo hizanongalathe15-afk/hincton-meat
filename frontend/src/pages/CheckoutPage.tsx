@@ -38,6 +38,9 @@ const CheckoutPage: React.FC = () => {
     title: string
     message: string
   } | null>(null);
+  const [showMpesaConfirmationModal, setShowMpesaConfirmationModal] = useState(false);
+  const [mpesaConfirmationMessage, setMpesaConfirmationMessage] = useState('Waiting for M-Pesa confirmation...');
+  const [mpesaConfirmationElapsed, setMpesaConfirmationElapsed] = useState('00:00');
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -264,22 +267,78 @@ const CheckoutPage: React.FC = () => {
             orderId: orderResponse.order.id,
           });
 
+          const checkoutRequestID = paymentResult.checkoutRequestID || paymentResult.CheckoutRequestID
+          if (!checkoutRequestID) {
+            throw new Error('Missing checkout request ID from M-PESA initiation response.')
+          }
+
           const displayPhone = formatMpesaDisplayPhone(formData.mpesaPhone)
           setPaymentNotification({
-            variant: 'success',
+            variant: 'info',
             title: paymentResult?.message || 'STK Push sent',
             message: paymentResult?.message || `STK Push sent to ${displayPhone}. Check your phone and enter your M-PESA PIN to complete payment.`,
           })
           toast.success(paymentResult?.message || `STK Push sent to ${displayPhone}`)
+          setShowMpesaConfirmationModal(true)
+          setMpesaConfirmationMessage('Waiting for the M-Pesa prompt on your phone...')
+          setMpesaConfirmationElapsed('00:00')
+
+          const startTime = Date.now()
+          const timeoutMs = 3 * 60 * 1000
+          let lastStatus = ''
+          let transactionData: any = null
+
+          while (Date.now() - startTime < timeoutMs) {
+            const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000)
+            const minutes = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')
+            const seconds = String(elapsedSeconds % 60).padStart(2, '0')
+            setMpesaConfirmationElapsed(`${minutes}:${seconds}`)
+
+            const txResult = await paymentsApi.checkMpesaTransactionStatus(checkoutRequestID)
+            const status = String(txResult?.status || '').toUpperCase()
+            lastStatus = status
+            transactionData = txResult?.transaction || null
+
+            if (status === 'COMPLETED' || status === 'PAID' || status === 'SUCCESS') {
+              setShowMpesaConfirmationModal(false)
+              setPaymentNotification({
+                variant: 'success',
+                title: 'Payment confirmed',
+                message: `M-PESA payment confirmed. Receipt: ${transactionData?.mpesaReceipt || checkoutRequestID}`,
+              })
+              clearCart(false)
+              navigate('/order-confirmation', {
+                state: { order: orderResponse.order, paymentTransaction: transactionData },
+              })
+              return
+            }
+
+            if (status === 'FAILED' || status === 'ERROR') {
+              const errMsg = txResult?.message || transactionData?.errorMessage || 'M-PESA payment failed. Please try again.'
+              throw new Error(errMsg)
+            }
+
+            setMpesaConfirmationMessage('Waiting for M-Pesa to confirm the payment on your phone...')
+            setPaymentNotification({
+              variant: 'info',
+              title: 'Waiting for M-PESA confirmation',
+              message: `Checking payment status... (${minutes}:${seconds} elapsed)`,
+            })
+            await new Promise((resolve) => setTimeout(resolve, 3000))
+          }
+
+          throw new Error(`M-PESA payment confirmation timed out. Last status: ${lastStatus || 'UNKNOWN'}`)
         } catch (paymentError) {
-          const errorMessage = getApiErrorMessage(paymentError, 'Order was created, but M-PESA payment could not start. Admin can follow up.')
-          console.error('MPESA initiation failed:', paymentError)
+          const errorMessage = getApiErrorMessage(paymentError, 'Order was created, but M-PESA payment could not complete.')
+          console.error('MPESA processing failed:', paymentError)
+          setShowMpesaConfirmationModal(false)
           setPaymentNotification({
             variant: 'error',
             title: 'M-PESA payment failed',
             message: errorMessage,
           })
           toast.error(errorMessage)
+          return
         }
       }
       
@@ -305,6 +364,24 @@ const CheckoutPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {showMpesaConfirmationModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8">
+            <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white p-6 shadow-2xl shadow-black/20">
+              <div className="flex flex-col items-center gap-4 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-50 text-green-600">
+                  <Smartphone className="h-8 w-8" />
+                </div>
+                <h2 className="text-xl font-semibold text-gray-900">Waiting for M-Pesa</h2>
+                <p className="text-sm text-gray-600">{mpesaConfirmationMessage}</p>
+                <div className="text-sm text-gray-500">Elapsed time: {mpesaConfirmationElapsed}</div>
+                <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                  <div className="h-full w-3/4 animate-pulse rounded-full bg-green-500" />
+                </div>
+                <div className="text-xs text-gray-500">Do not close this page until the payment is confirmed.</div>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">{t('checkout.title')}</h1>
           <p className="mt-2 text-gray-600">{t('checkout.completeOrder')}</p>

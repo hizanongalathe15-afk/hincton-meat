@@ -618,7 +618,16 @@ export const paymentsApi = {
     } catch (error) {
       throw new Error(getApiErrorMessage(error, 'Failed to initiate M-PESA payment.'))
     }
-  }
+  },
+
+  checkMpesaTransactionStatus: async (checkoutRequestID: string) => {
+    try {
+      const response = await apiClient.get(`/mpesa/transaction/${checkoutRequestID}`)
+      return response.data
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Failed to fetch M-PESA transaction status.'))
+    }
+  },
 }
 
 export default apiClient
