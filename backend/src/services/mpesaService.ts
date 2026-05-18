@@ -45,8 +45,8 @@ class MpesaService {
     this.consumerKey = process.env.MPESA_CONSUMER_KEY!
     this.consumerSecret = process.env.MPESA_CONSUMER_SECRET!
     this.passKey = process.env.MPESA_PASSKEY!
-    this.shortCode = process.env.MPESA_SHORT_CODE!
-    this.callbackUrl = process.env.MPESA_CALLBACK_URL || `${process.env.BACKEND_URL}/api/v1/mpesa/callback`
+    this.shortCode = process.env.MPESA_SHORTCODE!
+    this.callbackUrl = process.env.MPESA_CALLBACK_URL || `${process.env.BACKEND_URL || process.env.API_URL || 'https://hincton-meat-api.onrender.com'}/api/mpesa/callback`
   }
 
   private async getAccessToken(): Promise<string> {
@@ -81,7 +81,7 @@ class MpesaService {
   private generatePassword(): string {
     const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)
     const passwordString = `${this.shortCode}${this.passKey}${timestamp}`
-    return crypto.createHash('sha256').update(passwordString).digest('base64')
+    return Buffer.from(passwordString).toString('base64')
   }
 
   private formatPhoneNumber(phoneNumber: string): string {
