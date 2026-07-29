@@ -312,7 +312,8 @@ router.get('/support/tickets/mine', authenticate, async (req: any, res) => {
         order: undefined as any,
       },
     } as any)
-    res.json({ tickets: (tickets as any[]).map(serializeTicket) })
+    const { attachTicketNumbers } = await import('../utils/ticketUtils')
+    res.json({ tickets: attachTicketNumbers((tickets as any[]).map(serializeTicket)) })
   } catch (err) {
     console.error('GET /support/tickets/mine', err)
     res.status(500).json({ error: 'Failed to load tickets' })
@@ -338,7 +339,8 @@ router.get('/support/tickets/:id', authenticate, async (req: any, res) => {
     if (!isAdmin(req)) {
       await prisma.supportTicket.update({ where: { id }, data: { readAt: new Date() } })
     }
-    res.json({ ticket: serializeTicket(ticket) })
+    const { attachTicketNumber } = await import('../utils/ticketUtils')
+    res.json({ ticket: attachTicketNumber(serializeTicket(ticket)) })
   } catch (err) {
     console.error('GET /support/tickets/:id', err)
     res.status(500).json({ error: 'Failed to load ticket' })
@@ -443,8 +445,9 @@ router.get('/admin/support/tickets', authenticate, async (req: any, res) => {
       by: ['status'],
       _count: { status: true },
     })
+    const { attachTicketNumbers } = await import('../utils/ticketUtils')
     res.json({
-      tickets: (tickets as any[]).map(serializeTicket),
+      tickets: attachTicketNumbers((tickets as any[]).map(serializeTicket)),
       stats: counts.map(c => ({ status: c.status, count: c._count.status })),
     })
   } catch (err) {

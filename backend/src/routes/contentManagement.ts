@@ -1071,6 +1071,7 @@ router.get('/admin/contact-messages', requireAdmin, async (req, res) => {
       success: true,
       messages: tickets.map(ticket => ({
         ...ticket,
+        ticketNumber: `T-${String(ticket.id).slice(0,8).toUpperCase()}`,
         contactInfo: {
           senderName: ticket.user.profile?.fullName || ticket.user.email,
           senderEmail: ticket.user.email,

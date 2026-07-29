@@ -2,6 +2,7 @@ import { Request, Response } from 'express'
 import { prisma } from '../config/prisma'
 import { AuthRequest } from '../middleware/auth'
 import { TicketPriority, TicketStatus } from '@prisma/client'
+import { attachTicketNumber, attachTicketNumbers } from '../utils/ticketUtils'
 
 /**
  * NOTE:
@@ -37,7 +38,7 @@ export const createHelpTicket = async (req: AuthRequest, res: Response) => {
       }
     })
 
-    res.status(201).json({ ticket })
+    res.status(201).json({ ticket: attachTicketNumber(ticket) })
   } catch (error) {
     console.error('Create help ticket error:', error)
     res.status(500).json({ message: 'Server error while creating help ticket' })
@@ -74,7 +75,7 @@ export const getHelpTickets = async (req: AuthRequest, res: Response) => {
     const total = await prisma.supportTicket.count({ where })
 
     res.json({
-      tickets,
+      tickets: attachTicketNumbers(tickets),
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -113,7 +114,7 @@ export const getHelpTicket = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'Help ticket not found' })
     }
 
-    res.json({ ticket })
+    res.json({ ticket: attachTicketNumber(ticket) })
   } catch (error) {
     console.error('Get help ticket error:', error)
     res.status(500).json({ message: 'Server error while fetching help ticket' })
@@ -221,7 +222,7 @@ export const getAllHelpTickets = async (req: AuthRequest, res: Response) => {
     const total = await prisma.supportTicket.count({ where })
 
     res.json({
-      tickets,
+      tickets: attachTicketNumbers(tickets),
       pagination: {
         page: Number(page),
         limit: Number(limit),
