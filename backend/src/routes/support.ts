@@ -304,7 +304,13 @@ router.get('/support/tickets/mine', authenticate, async (req: any, res) => {
     const tickets = await prisma.supportTicket.findMany({
       where: { userId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
-      include: { responses: { orderBy: { createdAt: 'asc' }, include: { user: { include: { profile: true } } } }, order: undefined as any,
+      include: {
+        responses: {
+          orderBy: { createdAt: 'asc' },
+          include: { user: { include: { profile: true } } },
+        },
+        order: undefined as any,
+      } as any,
     } as any)
     res.json({ tickets: (tickets as any[]).map(serializeTicket) })
   } catch (err) {
@@ -725,8 +731,14 @@ router.get('/alerts/mine', authenticate, async (req: any, res) => {
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })
   try {
     const [bis, pda] = await Promise.all([
-      prisma.backInStockAlert.findMany({ where: { userId, cancelledAt: null }, include: { product: { include: { productImages: { take: 1 } } } as any }),
-      prisma.priceDropAlert.findMany({ where: { userId, cancelledAt: null }, include: { product: { include: { productImages: { take: 1 } } } as any }),
+      prisma.backInStockAlert.findMany({
+        where: { userId, cancelledAt: null },
+        include: { product: { include: { productImages: { take: 1 } } } } as any,
+      }),
+      prisma.priceDropAlert.findMany({
+        where: { userId, cancelledAt: null },
+        include: { product: { include: { productImages: { take: 1 } } } } as any,
+      }),
     ])
     res.json({
       backInStockAlerts: (bis as any[]).map(a => ({
