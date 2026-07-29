@@ -262,6 +262,44 @@ export const contentApi = {
     return response.data
   },
 
+  getSiteTheme: async () => {
+    const response = await apiClient.get('/admin/content/site-theme')
+    return response.data
+  },
+
+  updateSiteTheme: async (theme: Record<string, string>) => {
+    const response = await apiClient.put('/admin/content/site-theme', { theme })
+    return response.data
+  },
+
+  patchSiteThemeColor: async (key: string, value: string) => {
+    const response = await apiClient.patch('/admin/content/site-theme/color', { key, value })
+    return response.data
+  },
+
+  getAppearance: async () => {
+    const response = await apiClient.get('/admin/content/appearance')
+    return response.data
+  },
+
+  updateAppearance: async (data: { profile?: any; theme?: Record<string, string> }) => {
+    const response = await apiClient.put('/admin/content/appearance', data)
+    return response.data
+  },
+
+  resetAppearance: async (data: {
+    mode: 'blank' | 'defaults'
+    targets?: Array<'profile' | 'theme' | 'all'>
+  }) => {
+    const response = await apiClient.post('/admin/content/appearance/reset', data)
+    return response.data
+  },
+
+  resetProfileBlank: async () => {
+    const response = await apiClient.post('/admin/content/appearance/reset-profile-blank')
+    return response.data
+  },
+
   uploadContentImage: async (file: File) => {
     const data = new FormData()
     data.append('media', file)

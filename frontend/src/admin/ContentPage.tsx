@@ -37,6 +37,7 @@ const ContentPage = () => {
   const [qualityText, setQualityText] = useState(toLines(defaultSiteProfile.qualityPoints))
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const [categories, setCategories] = useState<any[]>([])
   const [categoryDraft, setCategoryDraft] = useState({ name: '', description: '', image: '' })
   const [blogPosts, setBlogPosts] = useState<any[]>([])
@@ -725,6 +726,36 @@ const ContentPage = () => {
     }
   }
 
+  const resetAppearance = async (mode: 'blank' | 'defaults', targets: Array<'profile' | 'theme' | 'all'> = ['profile']) => {
+    const label = mode === 'blank'
+      ? 'remove all branding, names, logos, and images from the live site'
+      : 'restore the original Hincton factory content'
+    if (!window.confirm(`${mode === 'blank' ? 'Clear everything' : 'Restore defaults'}? This will ${label}.`)) return
+
+    setResetting(true)
+    try {
+      const result = await contentApi.resetAppearance({ mode, targets })
+      const next = result.profile || {}
+      if (result.profile) {
+        setProfile({
+          ...defaultSiteProfile,
+          ...next,
+          brand: { ...defaultSiteProfile.brand, ...(next.brand || {}) },
+          images: { ...defaultSiteProfile.images, ...(next.images || {}) },
+          footer: { ...defaultSiteProfile.footer, ...(next.footer || {}) },
+        })
+        setMarketsText(toLines(next.markets || []))
+        setQualityText(toLines(next.qualityPoints || []))
+      }
+      await refresh()
+      toast.success(result.message || 'Appearance reset')
+    } catch {
+      toast.error('Could not reset appearance')
+    } finally {
+      setResetting(false)
+    }
+  }
+
   if (loading) {
     return <div className="p-6 text-gray-600">Loading content...</div>
   }
@@ -735,7 +766,7 @@ const ContentPage = () => {
         <h1 className="text-2xl font-bold text-gray-950">Site Content</h1>
         <p className="mt-1 text-gray-600">Update public brand, home, about, and contact content from one place.</p>
       </div>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
         <button
           type="button"
           onClick={save}
@@ -746,6 +777,24 @@ const ContentPage = () => {
           {saving ? 'Saving...' : 'Save Content'}
         </button>
       </div>
+
+      <section className="rounded-2xl border border-red-200 bg-red-50 p-5">
+        <h2 className="text-lg font-bold text-red-900">Reset storefront branding</h2>
+        <p className="mt-1 text-sm text-red-800">
+          Blank clears your store name, logo, images, and page media. Factory defaults restores the original Hincton content. Colours can be reset from Theme &amp; colours.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button type="button" disabled={resetting} onClick={() => resetAppearance('blank', ['profile'])} className="rounded-xl border border-red-300 bg-white px-4 py-2 text-sm font-bold text-red-800 hover:bg-red-100 disabled:opacity-60">
+            Clear branding &amp; images
+          </button>
+          <button type="button" disabled={resetting} onClick={() => resetAppearance('blank', ['all'])} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800 disabled:opacity-60">
+            Full blank slate
+          </button>
+          <button type="button" disabled={resetting} onClick={() => resetAppearance('defaults', ['all'])} className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-bold text-stone-800 hover:bg-stone-50 disabled:opacity-60">
+            Restore factory defaults
+          </button>
+        </div>
+      </section>
 
       <section className="rounded bg-white p-6 shadow-sm">
         <h2 className="text-lg font-bold text-gray-950">Brand and Contact</h2>

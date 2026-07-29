@@ -382,7 +382,7 @@ router.get('/', async (req, res) => {
           { slug: { contains: term, mode: 'insensitive' } },
           { sku: { contains: term, mode: 'insensitive' } },
           { brand: { contains: term, mode: 'insensitive' } },
-          { tags: { has: term } },
+          { metaKeywords: { contains: term, mode: 'insensitive' } },
           { category: { is: { name: { contains: term, mode: 'insensitive' } } } },
           { category: { is: { slug: { contains: term, mode: 'insensitive' } } } },
         ]),

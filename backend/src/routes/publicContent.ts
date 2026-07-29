@@ -4,6 +4,7 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import { z } from 'zod'
+import { DEFAULT_SITE_THEME, mergeTheme } from '../constants/siteAppearance'
 
 const router = express.Router()
 
@@ -223,17 +224,14 @@ const defaultCommerceSettings = {
   },
 }
 
-const defaultSiteTheme = {
-  primary: '#dc2626', accent: '#f59e0b', page: '#fffaf7', surface: '#ffffff', text: '#1c1917', muted: '#78716c', border: '#e7e5e4', buttonText: '#ffffff', header: '#ffffff', ad: '#fff1f2', success: '#16a34a', info: '#2563eb',
-}
-
 router.get('/site-theme', async (_req, res) => {
   try {
     const setting = await prisma.systemSetting.findUnique({ where: { key: 'site_theme' } })
-    res.json({ theme: setting ? { ...defaultSiteTheme, ...parseJsonValue(setting.value, {}) } : defaultSiteTheme })
+    const saved = setting ? parseJsonValue<Record<string, string>>(setting.value, {}) : {}
+    res.json({ theme: mergeTheme(saved) })
   } catch (error) {
     console.error('Public site theme error:', error)
-    res.json({ theme: defaultSiteTheme })
+    res.json({ theme: DEFAULT_SITE_THEME })
   }
 })
 

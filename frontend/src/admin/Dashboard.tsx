@@ -60,7 +60,7 @@ interface SystemHealth {
   status: 'healthy' | 'warning' | 'critical'
   score: number
   issues: string[]
-  metrics: { cpu: number; memory: number; storage: number; latency: number }
+  metrics?: { cpu: number; memory: number; storage: number; latency: number }
 }
 
 const AdminDashboard = () => {
@@ -167,10 +167,22 @@ const AdminDashboard = () => {
     }
 
     fetchDashboardData()
-    systemApi.getHealth().then((response) => setSystemHealth(response.health)).catch(() => undefined)
+    systemApi.getHealth().then((response) => {
+      if (!response?.health) return
+      setSystemHealth({
+        ...response.health,
+        metrics: response.metrics || response.health.metrics,
+      })
+    }).catch(() => undefined)
     const intervalId = window.setInterval(fetchDashboardData, 15000)
     const healthIntervalId = window.setInterval(() => {
-      systemApi.getHealth().then((response) => setSystemHealth(response.health)).catch(() => undefined)
+      systemApi.getHealth().then((response) => {
+      if (!response?.health) return
+      setSystemHealth({
+        ...response.health,
+        metrics: response.metrics || response.health.metrics,
+      })
+    }).catch(() => undefined)
     }, 60000)
     const handleVisibilityChange = () => {
       if (!document.hidden) fetchDashboardData()
@@ -369,10 +381,10 @@ const AdminDashboard = () => {
           </div>
         </button>
         {[
-          { label: 'CPU', value: systemHealth?.metrics.cpu, icon: Activity },
-          { label: 'Memory', value: systemHealth?.metrics.memory, icon: Gauge },
-          { label: 'Storage', value: systemHealth?.metrics.storage, icon: Package },
-          { label: 'Network', value: systemHealth?.metrics.latency, icon: Activity, suffix: 'ms' },
+          { label: 'CPU', value: systemHealth?.metrics?.cpu, icon: Activity },
+          { label: 'Memory', value: systemHealth?.metrics?.memory, icon: Gauge },
+          { label: 'Storage', value: systemHealth?.metrics?.storage, icon: Package },
+          { label: 'Network', value: systemHealth?.metrics?.latency, icon: Activity, suffix: 'ms' },
         ].map((item) => {
           const Icon = item.icon
           const value = item.value

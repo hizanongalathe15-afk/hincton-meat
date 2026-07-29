@@ -41,6 +41,7 @@ import featureRoutes from './features'
 import flashSaleRoutes from './flashSales'
 import dealBannerRoutes from './dealBanners'
 import supportRoutes from './support'
+import communityRoutes from './community'
 
 const router = Router()
 
@@ -65,6 +66,7 @@ router.use('/api/content', publicContentRoutes)
 router.use('/api', flashSaleRoutes)
 router.use('/api', dealBannerRoutes)
 router.use('/api', supportRoutes)
+router.use('/api', communityRoutes)
 router.use('/api/admin', adminRoutes)
 router.use('/api/admin/dashboard', adminDashboardRoutes)
 router.use('/api/admin/content', contentRoutes)

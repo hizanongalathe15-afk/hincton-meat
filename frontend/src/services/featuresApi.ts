@@ -2,6 +2,24 @@ import axios from 'axios'
 import { API_TIMEOUT_MS, API_URL } from './api'
 import { getAuthHeaders } from './adminApi'
 
+const FEATURES_DISABLED_KEY = 'hincton:features-api-disabled'
+
+const isFeaturesApiDisabled = () => {
+  try {
+    return sessionStorage.getItem(FEATURES_DISABLED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+const disableFeaturesApi = () => {
+  try {
+    sessionStorage.setItem(FEATURES_DISABLED_KEY, '1')
+  } catch {
+    // ignore storage failures
+  }
+}
+
 const apiClient = axios.create({
   baseURL: `${API_URL}/features`,
   timeout: API_TIMEOUT_MS,
@@ -9,12 +27,33 @@ const apiClient = axios.create({
 })
 
 apiClient.interceptors.request.use((config) => {
+  if (isFeaturesApiDisabled()) {
+    return Promise.reject(new axios.CanceledError('features-api-disabled'))
+  }
   const authHeaders = getAuthHeaders()
   if (authHeaders.Authorization) {
     config.headers.set('Authorization', authHeaders.Authorization)
   }
   return config
 })
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 404) {
+      disableFeaturesApi()
+    }
+    return Promise.reject(error)
+  }
+)
+
+const call = <T>(fn: () => Promise<T>) => {
+  if (isFeaturesApiDisabled()) return Promise.resolve(undefined as T)
+  return fn().catch((error) => {
+    if (axios.isCancel(error)) return undefined as T
+    throw error
+  })
+}
 
 export const featuresApi = {
   // Newsletter
@@ -76,13 +115,13 @@ export const featuresApi = {
 
   // Experiments + telemetry
   assignExperiment(payload: { experimentKey: string; variant: string; sessionId: string }) {
-    return apiClient.post('/experiments/assign', payload).then(r => r.data)
+    return call(() => apiClient.post('/experiments/assign', payload).then(r => r.data))
   },
   reportCwv(payload: { name: 'LCP' | 'FID' | 'CLS' | 'INP' | 'TTFB' | 'FCP'; value: number; rating: 'good' | 'needs-improvement' | 'poor'; path?: string; sessionId?: string; connectionType?: string }) {
-    return apiClient.post('/telemetry/cwv', payload).then(r => r.data)
+    return call(() => apiClient.post('/telemetry/cwv', payload).then(r => r.data))
   },
   trackPwaInstall(payload: { acceptedInstall: boolean; platform?: string; sessionId?: string }) {
-    return apiClient.post('/telemetry/pwa-install', payload).then(r => r.data)
+    return call(() => apiClient.post('/telemetry/pwa-install', payload).then(r => r.data))
   },
 
   // Coupon best deal auto-apply

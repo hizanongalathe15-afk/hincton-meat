@@ -9,6 +9,8 @@ import path from 'path'
 import fs from 'fs'
 import { uploadImage } from '../config/cloudinary'
 import { cacheService } from '../services/cacheService'
+import { siteAppearanceService } from '../services/siteAppearanceService'
+import { DEFAULT_SITE_THEME, THEME_COLOR_KEYS, normalizeTheme } from '../constants/siteAppearance'
 
 const router = express.Router()
 const emitContactUpdate = (req: any, event: string, payload: Record<string, unknown>) => {
@@ -507,6 +509,115 @@ router.put('/site-profile', async (req, res) => {
   } catch (error) {
     console.error('Update site profile error:', error)
     res.status(500).json({ error: 'Failed to update site profile' })
+  }
+})
+
+// === SITE APPEARANCE (theme, colours, full reset) ===
+
+const themeSchema = z.record(z.string().min(1).max(40), z.string().min(1).max(80))
+
+router.get('/site-theme', async (_req, res) => {
+  try {
+    const theme = await siteAppearanceService.getTheme()
+    res.json({ theme, colorKeys: THEME_COLOR_KEYS })
+  } catch (error) {
+    console.error('Get site theme error:', error)
+    res.status(500).json({ error: 'Failed to get site theme' })
+  }
+})
+
+router.put('/site-theme', async (req, res) => {
+  try {
+    const theme = await siteAppearanceService.saveTheme(themeSchema.parse(req.body.theme || req.body))
+    res.json({ message: 'Site theme saved', theme })
+  } catch (error: any) {
+    console.error('Update site theme error:', error)
+    res.status(400).json({ error: error?.message || 'Failed to update site theme' })
+  }
+})
+
+router.patch('/site-theme/color', async (req, res) => {
+  try {
+    const { key, value } = z.object({
+      key: z.string().min(1).max(40),
+      value: z.string().min(1).max(80),
+    }).parse(req.body)
+    const current = await siteAppearanceService.getTheme()
+    const theme = await siteAppearanceService.saveTheme({ ...current, [key]: value })
+    res.json({ message: 'Colour updated', key, value, theme })
+  } catch (error: any) {
+    res.status(400).json({ error: error?.message || 'Failed to update colour' })
+  }
+})
+
+router.delete('/site-theme/color/:key', async (req, res) => {
+  try {
+    const key = String(req.params.key)
+    const current = await siteAppearanceService.getTheme()
+    const { [key]: _removed, ...rest } = current
+    const fallback = DEFAULT_SITE_THEME[key] || '#6b7280'
+    const theme = await siteAppearanceService.saveTheme({ ...rest, [key]: fallback })
+    res.json({ message: 'Colour reset to default', key, theme })
+  } catch (error: any) {
+    res.status(400).json({ error: error?.message || 'Failed to reset colour' })
+  }
+})
+
+router.get('/appearance', async (_req, res) => {
+  try {
+    const appearance = await siteAppearanceService.getAppearance(defaultSiteProfile)
+    res.json({ ...appearance, colorKeys: THEME_COLOR_KEYS })
+  } catch (error) {
+    console.error('Get appearance error:', error)
+    res.status(500).json({ error: 'Failed to load appearance settings' })
+  }
+})
+
+router.put('/appearance', async (req, res) => {
+  try {
+    const body = z.object({
+      profile: siteProfileSchema.optional(),
+      theme: themeSchema.optional(),
+    }).parse(req.body)
+
+    const [profile, theme] = await Promise.all([
+      body.profile ? siteAppearanceService.saveProfile(body.profile) : siteAppearanceService.getProfile(defaultSiteProfile),
+      body.theme ? siteAppearanceService.saveTheme(body.theme) : siteAppearanceService.getTheme(),
+    ])
+
+    res.json({ message: 'Appearance updated', profile, theme })
+  } catch (error: any) {
+    console.error('Update appearance error:', error)
+    res.status(400).json({ error: error?.message || 'Failed to update appearance' })
+  }
+})
+
+router.post('/appearance/reset', async (req, res) => {
+  try {
+    const { mode, targets } = z.object({
+      mode: z.enum(['blank', 'defaults']),
+      targets: z.array(z.enum(['profile', 'theme', 'all'])).default(['all']),
+    }).parse(req.body)
+
+    const result = await siteAppearanceService.resetAppearance(mode, targets, defaultSiteProfile)
+    res.json({
+      message: mode === 'blank'
+        ? 'Storefront reset to a blank slate (no branding, no images, neutral colours)'
+        : 'Storefront restored to factory defaults',
+      ...result,
+    })
+  } catch (error: any) {
+    console.error('Reset appearance error:', error)
+    res.status(400).json({ error: error?.message || 'Failed to reset appearance' })
+  }
+})
+
+router.post('/appearance/reset-profile-blank', async (_req, res) => {
+  try {
+    const result = await siteAppearanceService.resetAppearance('blank', ['profile'], defaultSiteProfile)
+    res.json({ message: 'Branding and media cleared', profile: result.profile })
+  } catch (error: any) {
+    res.status(400).json({ error: error?.message || 'Failed to reset profile' })
   }
 })
 
