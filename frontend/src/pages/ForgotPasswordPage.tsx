@@ -9,6 +9,8 @@ const ForgotPasswordPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void 
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const { t } = useLanguage()
+  const { profile } = useSiteContent()
+  const brand = profile.brand
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -75,12 +77,16 @@ const ForgotPasswordPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void 
                     <div className="flex items-center gap-3 mb-6">
                       <div className="relative">
                         <div className="relative bg-white p-3 rounded-3xl shadow-lg">
-                          <img src={HINCTON_BRAND.logo} alt={HINCTON_BRAND.name} className="h-14 w-14 object-contain" />
+                          {brand.logo ? (
+                            <img src={brand.logo} alt={brand.name || ''} className="h-14 w-14 object-contain" />
+                          ) : (
+                            <div className="h-14 w-14 rounded-3xl border border-stone-200 bg-white" />
+                          )}
                         </div>
                       </div>
                       <div>
-                        <h2 className="text-3xl font-bold text-white">{HINCTON_BRAND.name}</h2>
-                        <p className="text-red-400">{HINCTON_BRAND.tagline}</p>
+                        <h2 className="text-3xl font-bold text-white">{brand.name || ''}</h2>
+                        <p className="text-red-400">{brand.tagline || ''}</p>
                       </div>
                     </div>
 

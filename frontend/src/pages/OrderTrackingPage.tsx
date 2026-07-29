@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Package, Truck, MapPin, Check, Phone, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { HINCTON_BRAND } from '../utils/hinctonBrand';
+import { useSiteContent } from '../contexts/SiteContentContext';
 import { ordersApi } from '../services/buyerApi';
 
 interface TrackingStep {
@@ -37,6 +37,7 @@ interface OrderDetails {
 const OrderTrackingPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { profile } = useSiteContent();
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const [trackingSteps, setTrackingSteps] = useState<TrackingStep[]>([]);
   const [loading, setLoading] = useState(true);
@@ -181,7 +182,7 @@ const OrderTrackingPage: React.FC = () => {
   };
 
   const handleEmailSupport = () => {
-    window.open(HINCTON_BRAND.emailHref);
+    window.open(profile.brand.emailHref || 'mailto:support@example.com');
   };
 
   if (loading) {

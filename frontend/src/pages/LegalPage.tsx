@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { HINCTON_BRAND } from '../utils/hinctonBrand'
+import { useSiteContent } from '../contexts/SiteContentContext'
 import { contentApi } from '../services/contentApi'
 import LinkifiedText from '../components/ui/LinkifiedText'
 
@@ -18,6 +18,7 @@ const updatedDate = 'May 14, 2026'
 const LegalPage = ({ type }: LegalPageProps) => {
   const [sections, setSections] = useState<LegalSection[]>([])
   const [loading, setLoading] = useState(true)
+  const { profile } = useSiteContent()
 
   useEffect(() => {
     const loadContent = async () => {
@@ -55,7 +56,7 @@ const LegalPage = ({ type }: LegalPageProps) => {
     <div className="min-h-screen bg-gray-50">
       <section className="bg-gray-950 px-4 py-16 text-white sm:px-6 lg:px-8">
         <div className="mx-auto max-w-4xl">
-          <p className="text-sm font-bold uppercase tracking-wide text-red-300">{HINCTON_BRAND.name}</p>
+          <p className="text-sm font-bold uppercase tracking-wide text-red-300">{profile.brand.name || ''}</p>
           <h1 className="mt-3 text-4xl font-extrabold sm:text-5xl">{title}</h1>
           <p className="mt-4 max-w-3xl text-gray-300">Last updated: {updatedDate}</p>
         </div>

@@ -3,8 +3,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { ShoppingCart, User, Menu, X, Search, LogOut, Package, Settings } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCart } from '../../contexts/CartContext'
+import { useSiteContent } from '../../contexts/SiteContentContext'
 import { formatCurrency } from '../../utils/helpers'
-import { HINCTON_BRAND } from '../../utils/hinctonBrand'
 import { useLanguage } from '../../contexts/LanguageContext'
 
 const Navbar: React.FC = () => {
@@ -12,6 +12,8 @@ const Navbar: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const { user, logout } = useAuth()
   const { getTotalItems, getTotalPrice } = useCart()
+  const { profile } = useSiteContent()
+  const brand = profile.brand
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useLanguage()
@@ -36,8 +38,12 @@ const Navbar: React.FC = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <img src={HINCTON_BRAND.logo} alt={HINCTON_BRAND.name} className="h-10 w-auto" />
-            <span className="text-xl font-bold text-gray-900">{HINCTON_BRAND.name}</span>
+            {brand.logo ? (
+              <img src={brand.logo} alt={brand.name || ''} className="h-10 w-auto" />
+            ) : (
+              <div className="h-10 w-10 rounded-full border border-stone-200 bg-stone-50" />
+            )}
+            <span className="text-xl font-bold text-gray-900">{brand.name || ''}</span>
           </Link>
 
           {/* Desktop Navigation */}

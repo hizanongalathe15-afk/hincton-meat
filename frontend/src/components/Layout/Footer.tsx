@@ -19,8 +19,12 @@ const Footer: React.FC = () => {
           {/* Company Info */}
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center space-x-2 mb-4">
-              <img src={brand.logo} alt={brand.name} className="h-12 w-auto rounded bg-white p-1" />
-              <span className="text-xl font-bold">{brand.name}</span>
+              {brand.logo ? (
+                <img src={brand.logo} alt={brand.name || ''} className="h-12 w-auto rounded bg-white p-1" />
+              ) : (
+                <div className="h-12 w-12 rounded bg-white/10" />
+              )}
+              <span className="text-xl font-bold">{brand.name || ''}</span>
             </div>
             <p className="text-gray-300 mb-4 max-w-md">
               {brand.tagline}. Fresh, safe, and nutritious meat products from Nairobi, Kenya.
@@ -88,11 +92,11 @@ const Footer: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
                 <Phone className="w-5 h-5 text-primary-400" />
-                <span className="text-gray-300">{HINCTON_BRAND.phone}</span>
+                <span className="text-gray-300">{brand.phone || HINCTON_BRAND.phone}</span>
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="w-5 h-5 text-primary-400" />
-                <span className="text-gray-300">{HINCTON_BRAND.email}</span>
+                <span className="text-gray-300">{brand.email || HINCTON_BRAND.email}</span>
               </div>
               <div className="flex items-start space-x-3">
                 <MapPin className="w-5 h-5 text-primary-400 mt-1" />

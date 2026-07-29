@@ -5,12 +5,13 @@ import { productService } from '../services/productService'
 import { MEAT_CATEGORIES, SORT_OPTIONS, PRICE_RANGES, WEIGHT_RANGES } from '../utils/constants'
 import ProductCard from '../components/ProductCard'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
-import { HINCTON_BRAND } from '../utils/hinctonBrand'
+import { useSiteContent } from '../contexts/SiteContentContext'
 import { useLanguage } from '../contexts/LanguageContext'
 
 
 const ShopPage: React.FC = () => {
   const { t } = useLanguage()
+  const { profile } = useSiteContent()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
   const [priceRange, setPriceRange] = useState('')
@@ -76,7 +77,7 @@ const ShopPage: React.FC = () => {
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('shop.shopBrand').replace('{brand}', HINCTON_BRAND.name)}</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('shop.shopBrand').replace('{brand}', profile.brand.name || '')}</h1>
           <p className="text-gray-600">{t('shop.discoverProducts')}</p>
         </div>
 
