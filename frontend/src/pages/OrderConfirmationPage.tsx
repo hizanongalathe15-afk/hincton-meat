@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Check, Package, Truck, Clock, MapPin, Phone, Mail } from 'lucide-react'
+import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
 import { ordersApi } from '../services/buyerApi'
 import { formatPrice } from '../utils/currency'
@@ -15,6 +16,7 @@ const OrderConfirmationPage: React.FC = () => {
   const { t } = useLanguage()
   const [order, setOrder] = useState<any>((location.state as any)?.order || null)
   const [loading, setLoading] = useState(!order)
+  const [trackingQr, setTrackingQr] = useState('')
 
   const orderId = searchParams.get('orderId') || searchParams.get('orderNumber') || order?.orderNumber || order?.id
 
@@ -41,6 +43,11 @@ const OrderConfirmationPage: React.FC = () => {
   const address = order?.shippingAddress || {}
   const items = order?.orderItems || []
   const trackingId = order?.trackingNumber || order?.orderNumber || order?.id
+
+  useEffect(() => {
+    if (!trackingId) return
+    QRCode.toDataURL(`${window.location.origin}/order-tracking/${encodeURIComponent(trackingId)}`, { width: 220, margin: 2, errorCorrectionLevel: 'M' }).then(setTrackingQr).catch(() => setTrackingQr(''))
+  }, [trackingId])
   const whatsappHref = useMemo(() => {
     const digits = (profile.brand.phoneHref || profile.brand.phone || '').replace(/\D/g, '')
     const phone = digits.startsWith('254') ? digits : digits.startsWith('0') ? `254${digits.slice(1)}` : digits
@@ -194,6 +201,8 @@ const OrderConfirmationPage: React.FC = () => {
                   </a>
                 )}
               </div>
+
+              {trackingQr && <div className="mt-5 border-t pt-5 text-center"><p className="text-sm font-bold text-gray-900">Receipt & tracking QR</p><p className="mt-1 text-xs text-gray-500">Scan to open this order’s live delivery tracking.</p><img src={trackingQr} alt={`QR code for order ${trackingId} tracking`} className="mx-auto mt-3 h-32 w-32 rounded-lg border border-gray-200 p-1" /></div>}
 
               <div className="mt-6 pt-6 border-t">
                 <h3 className="font-medium text-gray-900 mb-3">{t('order.needHelp')}</h3>

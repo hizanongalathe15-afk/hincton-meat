@@ -36,6 +36,11 @@ import fileUploadRoutes from './fileUpload'
 import dashboardRoutes from './dashboard'
 import reviewRoutes from './reviews'
 import userSessionRoutes from './userSessions'
+import companyRoutes from './companies'
+import featureRoutes from './features'
+import flashSaleRoutes from './flashSales'
+import dealBannerRoutes from './dealBanners'
+import supportRoutes from './support'
 
 const router = Router()
 
@@ -56,6 +61,10 @@ router.use('/api/returns', returnRoutes)
 router.use('/api/blog', blogRoutes)
 router.use('/api/chat', chatRoutes)
 router.use('/api/content', publicContentRoutes)
+// Mount flash sales & deal banners BEFORE /api/admin so paths like /admin/deal-banners route correctly
+router.use('/api', flashSaleRoutes)
+router.use('/api', dealBannerRoutes)
+router.use('/api', supportRoutes)
 router.use('/api/admin', adminRoutes)
 router.use('/api/admin/dashboard', adminDashboardRoutes)
 router.use('/api/admin/content', contentRoutes)
@@ -75,6 +84,8 @@ router.use('/api/files', fileUploadRoutes)
 router.use('/api/dashboard', dashboardRoutes)
 router.use('/api/reviews', reviewRoutes)
 router.use('/api/user-sessions', userSessionRoutes)
+router.use('/api/companies', companyRoutes)
+router.use('/api/features', featureRoutes)
 
 // Health check
 router.get('/api/health', (req, res) => {

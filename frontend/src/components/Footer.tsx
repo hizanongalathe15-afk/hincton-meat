@@ -1,7 +1,8 @@
 import type { SVGProps } from 'react'
 import { Link } from 'react-router-dom'
-import { Instagram, Mail, MapPin, Phone, X } from 'lucide-react'
+import { Facebook, Instagram, Linkedin, Mail, MapPin, Phone, Send, Youtube, X } from 'lucide-react'
 import { useSiteContent } from '../contexts/SiteContentContext'
+import { buildCopyrightText } from '../utils/copyright'
 
 const productLinks = [
   { label: 'Beef', to: '/shop?category=beef' },
@@ -64,15 +65,24 @@ const defaultSocialLinks = [
   },
 ]
 
+const socialAppearance = (label: string) => {
+  const name = label.trim().toLowerCase()
+  if (name.includes('instagram')) return { icon: Instagram, bgClass: 'bg-gradient-to-br from-[#f58529] via-[#dd2a7b] to-[#8134af] text-white' }
+  if (name.includes('tiktok')) return { icon: TikTokIcon, bgClass: 'bg-black text-white' }
+  if (name.includes('snapchat')) return { icon: SnapchatIcon, bgClass: 'bg-[#FFFC00] text-black' }
+  if (name === 'x' || name.includes('twitter')) return { icon: X, bgClass: 'bg-black text-white' }
+  if (name.includes('facebook')) return { icon: Facebook, bgClass: 'bg-[#1877f2] text-white' }
+  if (name.includes('youtube')) return { icon: Youtube, bgClass: 'bg-[#ff0000] text-white' }
+  if (name.includes('linkedin')) return { icon: Linkedin, bgClass: 'bg-[#0a66c2] text-white' }
+  if (name.includes('telegram')) return { icon: Send, bgClass: 'bg-[#229ed9] text-white' }
+  return { icon: Instagram, bgClass: 'bg-[var(--site-primary)] text-[var(--site-buttonText)]' }
+}
+
 const Footer = () => {
   const { profile } = useSiteContent()
   const brand = profile.brand
-  const visibleSocialLinks = (brand.socialLinks?.length ? brand.socialLinks.map((link) => ({
-    label: link.label,
-    href: link.url,
-    icon: Instagram,
-    bgClass: 'bg-gray-800 text-white',
-  })) : defaultSocialLinks)
+  const copyrightText = buildCopyrightText(profile.footer, brand.name)
+  const visibleSocialLinks = (brand.socialLinks?.length ? brand.socialLinks.map((link) => ({ label: link.label, href: link.url, ...socialAppearance(link.label) })) : defaultSocialLinks)
 
   return (
     <footer className="mt-auto bg-gray-950 py-14 text-white" aria-label="Site footer">
@@ -141,7 +151,7 @@ const Footer = () => {
 
         <div className="mt-10 flex flex-col gap-4 border-t border-gray-800 pt-8 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-gray-400">Connect with us for fresh updates, special offers, and product drops.</p>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             {visibleSocialLinks.map((link) => {
               const Icon = link.icon
               return (
@@ -150,10 +160,12 @@ const Footer = () => {
                   href={link.href}
                   target="_blank"
                   rel="noreferrer"
-                  className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold transition ${link.bgClass} hover:opacity-90`}
+                  title={link.label}
+                  aria-label={`Follow Hincton Meat on ${link.label}`}
+                  className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl shadow-lg transition duration-200 hover:-translate-y-1 hover:scale-105 hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-950 ${link.bgClass}`}
                 >
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                  <span>{link.label}</span>
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                  <span className="sr-only">{link.label}</span>
                 </a>
               )
             })}
@@ -161,7 +173,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-8 border-t border-gray-800 pt-8 text-center text-sm text-gray-400">
-          <p>© 2026 {brand.name}. All rights reserved.</p>
+          <p>{copyrightText}</p>
         </div>
       </div>
     </footer>

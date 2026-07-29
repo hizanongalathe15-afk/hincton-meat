@@ -7,6 +7,8 @@ interface AdPlacementProps {
   type: 'BANNER' | 'SIDEBAR' | 'FOOTER' | 'HEADER' | 'IN_CONTENT' | 'POPUP' | 'VIDEO'
   className?: string
   fallback?: React.ReactNode
+  /** Opens POPUP placements as soon as a live ad is available. */
+  autoOpen?: boolean
 }
 
 interface AdData {
@@ -16,6 +18,7 @@ interface AdData {
   imageUrl?: string
   mediaUrl?: string
   mediaType?: 'image' | 'gif' | 'video' | 'audio' | 'sticker'
+  shape?: 'rectangle' | 'square' | 'circle' | 'triangle'
   stickerUrl?: string
   landingUrl: string
   buttonText?: string
@@ -30,7 +33,7 @@ interface AdData {
   }
 }
 
-const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacementProps) => {
+const AdPlacement = ({ placementId, type, className = '', fallback, autoOpen = false }: AdPlacementProps) => {
   const [ad, setAd] = useState<AdData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -66,6 +69,10 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
 
     fetchAd()
   }, [placementId])
+
+  useEffect(() => {
+    if (autoOpen && type === 'POPUP' && ad) setShowPopup(true)
+  }, [ad, autoOpen, type])
 
   const getDeviceType = (): string => {
     const width = window.innerWidth
@@ -115,10 +122,11 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
       maxWidth: `${placement.size.width}px`,
       minHeight: `${placement.size.height}px`
     }
+    const shapeClass = ad.shape === 'circle' ? 'rounded-full aspect-square' : ad.shape === 'square' ? 'aspect-square rounded-2xl' : ad.shape === 'triangle' ? '[clip-path:polygon(50%_0,100%_100%,0_100%)] rounded-none' : 'rounded-2xl'
 
     return (
       <div 
-        className="relative bg-gray-100 border border-gray-300 rounded-lg overflow-hidden cursor-pointer hover:border-blue-400 transition-colors"
+        className={`relative bg-gray-100 border border-gray-300 overflow-hidden cursor-pointer hover:border-blue-400 transition-colors ${shapeClass}`}
         style={adStyle}
         onClick={handleClick}
       >
@@ -180,7 +188,7 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
 
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-auto">
+        <div className="relative max-w-md w-full max-h-[80vh] overflow-auto rounded-3xl bg-white shadow-2xl">
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">{ad.title}</h3>
@@ -258,9 +266,7 @@ const AdPlacement = ({ placementId, type, className = '', fallback }: AdPlacemen
 
   return (
     <>
-      <div className={className}>
-        {renderAdContent()}
-      </div>
+      {type !== 'POPUP' && <div className={className}>{renderAdContent()}</div>}
       {renderPopup()}
     </>
   )

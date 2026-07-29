@@ -1,5 +1,5 @@
 // Authentication & Authorization
-export { authenticate, optionalAuthenticate, authorize } from './auth'
+export { authenticate, optionalAuthenticate, authorize, type AuthRequest } from './auth'
 export { requireAdmin } from './admin'
 export { authenticateApiKey, requireApiKeyPermission, generateApiKey, revokeApiKey, API_PERMISSIONS, type ApiKeyRequest } from './apiKey'
 
@@ -14,7 +14,7 @@ export {
 
 // Security & Protection
 export { cors, developmentCors, productionCors, apiCors, type CorsOptions } from './cors'
-export { sanitizeInput, preventSqlInjection, preventNoSqlInjection, securityMiddleware } from './sanitizer'
+export { sanitizeInput, rejectUnsafeKeys, preventSqlInjection, preventNoSqlInjection, securityMiddleware } from './sanitizer'
 export { 
   createFileUpload,
   imageUpload,

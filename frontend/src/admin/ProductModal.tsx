@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Upload, Trash2, Plus, Save } from 'lucide-react'
+import { X, Upload, Trash2, Plus, Save, Tag } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 import { contentApi } from '../services/adminApi'
@@ -26,6 +26,7 @@ interface ProductFormData {
   unit: string
   isPublished: boolean
   isFeatured: boolean
+  isOnSale: boolean
   tags: string[]
   images: File[]
   videos: File[]
@@ -59,6 +60,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     unit: 'g',
     isPublished: true,
     isFeatured: false,
+    isOnSale: false,
     tags: [],
     images: [],
     videos: [],
@@ -89,6 +91,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
           unit: product.weightUnit || product.unit || 'g',
           isPublished: product.isPublished ?? true,
           isFeatured: product.isFeatured ?? false,
+          isOnSale: product.isOnSale ?? Boolean(product.comparePrice && product.price < product.comparePrice),
           tags: product.tags || [],
           images: [],
           videos: [],
@@ -167,6 +170,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
       unit: 'g',
       isPublished: true,
       isFeatured: false,
+      isOnSale: false,
       tags: [],
       images: [],
       videos: [],
@@ -495,7 +499,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
           </div>
 
           {/* Stock and Weight */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Stock Quantity *
@@ -568,10 +572,42 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   onChange={handleInputChange}
                   className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
                 />
-                <span className="text-sm font-medium text-gray-700">Featured / You might also like</span>
+                <span className="text-sm font-medium text-gray-700">Featured</span>
+              </label>
+            </div>
+            <div className="flex items-center">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="isOnSale"
+                  checked={formData.isOnSale}
+                  onChange={handleInputChange}
+                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                />
+                <span className="text-sm font-medium text-gray-700">On Sale / Hot Deal</span>
               </label>
             </div>
           </div>
+
+          {/* Discount Hint */}
+          {formData.comparePrice && formData.price > 0 && formData.comparePrice > formData.price && (
+            <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+              <Tag className="h-5 w-5 text-red-600" />
+              <div className="text-sm">
+                <span className="font-semibold text-red-700">
+                  -{Math.round(((formData.comparePrice - formData.price) / formData.comparePrice) * 100)}%
+                </span>
+                <span className="text-red-700/80 ml-2">
+                  discount. Save {formatPrice(formData.comparePrice - formData.price)}.
+                </span>
+                {!formData.isOnSale && (
+                  <span className="text-red-700/70 ml-2">
+                    Tip: toggle <span className="font-semibold">On Sale</span> above to feature it in the deals banner.
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Image Upload */}
           <div>

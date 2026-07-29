@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { Award, ChevronLeft, ChevronRight, Globe2, Shield, Snowflake, Truck } from 'lucide-react'
+import { motion, useReducedMotion } from 'framer-motion'
 import HeroSection from './HeroSection'
 import ProductCard from './ProductCard'
 import { Product } from '../types/index'
@@ -37,6 +38,7 @@ const BuyerHome = ({
   const [categories, setCategories] = useState<any[]>([])
   const [productTiles, setProductTiles] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const reduceMotion = useReducedMotion()
   const topProductScrollerRef = useRef<HTMLDivElement>(null)
   const bottomProductScrollerRef = useRef<HTMLDivElement>(null)
 
@@ -185,6 +187,12 @@ const BuyerHome = ({
       }))
   const topProductTiles = displayedTiles.filter((_, index) => index % 2 === 0)
   const bottomProductTiles = displayedTiles.filter((_, index) => index % 2 === 1)
+  const reveal = {
+    initial: reduceMotion ? false : { opacity: 0, y: 34 },
+    whileInView: { opacity: 1, y: 0 },
+    viewport: { once: true, amount: 0.18 },
+    transition: { duration: 0.7 },
+  }
 
   if (loading) {
     return (
@@ -205,27 +213,42 @@ const BuyerHome = ({
   }
 
   return (
-    <div className="bg-white">
+    <div className="ambient-page bg-white">
       <HeroSection onSearch={handleSearch} />
 
-      <section className="bg-gray-50 py-14">
+      <section className="gravity-panel border-y border-stone-200/70 bg-white/75 py-5">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-5 text-center sm:grid-cols-3 sm:px-8">
+          {[
+            ['Freshness first', 'Prepared with careful cold-chain handling.'],
+            ['Clear ordering', 'Browse, save favourites, and track your order.'],
+            ['Account control', 'Manage addresses, alerts, devices, and preferences.'],
+          ].map(([title, description]) => (
+            <div key={title} className="px-4 sm:border-r sm:border-stone-200 last:border-0">
+              <p className="font-semibold text-stone-900">{title}</p>
+              <p className="mt-1 text-sm text-stone-500">{description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <motion.section {...reveal} className="relative bg-[#f6f4f1]/75 py-16">
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-4 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
           {features.map((feature) => {
             const Icon = feature.icon
             return (
-              <div key={feature.title} className="text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+              <motion.div key={feature.title} whileHover={reduceMotion ? undefined : { y: -7 }} className="group text-center">
+                <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-red-700 shadow-[0_12px_30px_rgba(34,25,21,.08)] transition-transform duration-300 group-hover:rotate-3">
                   <Icon className="h-8 w-8 text-red-600" />
                 </div>
                 <h3 className="mb-2 text-lg font-bold text-gray-950">{feature.title}</h3>
                 <p className="text-sm leading-6 text-gray-600">{feature.description}</p>
-              </div>
+              </motion.div>
             )
           })}
         </div>
-      </section>
+      </motion.section>
 
-      <section id="products" className="py-20">
+      <motion.section {...reveal} id="products" className="py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-12 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="text-center md:text-left">
@@ -287,7 +310,7 @@ const BuyerHome = ({
                     }).catch(() => {})}
                     className="group block w-[82vw] shrink-0 sm:w-[24rem] lg:w-[30rem]"
                   >
-                    <div className="relative mb-4 aspect-[4/3] overflow-hidden rounded-lg shadow-lg">
+                    <div className="relative mb-4 aspect-[4/3] overflow-hidden rounded-2xl shadow-[0_18px_45px_rgba(31,24,20,.18)]">
                       <img
                         src={category.image}
                         alt={category.name}
@@ -299,7 +322,7 @@ const BuyerHome = ({
                         <p className="text-sm text-gray-200">{category.description}</p>
                       </div>
                     </div>
-                    <span className="block rounded bg-red-600 py-3 text-center font-bold text-white transition-colors group-hover:bg-red-700">
+                    <span className="block rounded-xl bg-[#262321] py-3 text-center font-bold text-white transition-colors group-hover:bg-red-700">
                       {category.cta}
                     </span>
                   </Link>
@@ -308,9 +331,9 @@ const BuyerHome = ({
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="bg-white py-20">
+      <motion.section {...reveal} className="bg-white py-24">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
           <div>
             <p className="text-sm font-bold uppercase tracking-wide text-red-700">{t('buyerHome.marketPresence')}</p>
@@ -324,7 +347,7 @@ const BuyerHome = ({
               ))}
             </div>
           </div>
-          <div className="overflow-hidden rounded bg-gray-950">
+          <div className="overflow-hidden rounded-3xl bg-gray-950 shadow-[0_24px_70px_rgba(35,24,20,.2)]">
             <img src={profile.images.market} alt={t('buyerHome.marketImageAlt')} className="h-72 w-full object-cover opacity-90" />
             <div className="p-8">
               <h3 className="text-3xl font-extrabold text-white">{t('buyerHome.procurementTitle')}</h3>
@@ -334,9 +357,9 @@ const BuyerHome = ({
             </div>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="bg-gray-50 py-20">
+      <motion.section {...reveal} className="bg-[#f6f4f1] py-24">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
           <div>
             <p className="text-sm font-bold uppercase tracking-wide text-red-700">{t('buyerHome.processing.header')}</p>
@@ -344,15 +367,15 @@ const BuyerHome = ({
           </div>
           <div className="space-y-4">
                 {localizedQualityPoints.map((point) => (
-              <div key={point} className="rounded bg-white p-5 shadow-sm">
+              <div key={point} className="rounded-2xl border border-black/[.04] bg-white p-5 shadow-sm">
                 <p className="text-lg leading-7 text-gray-700">{point}</p>
               </div>
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="bg-white py-20">
+      <motion.section {...reveal} className="bg-white py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
@@ -377,9 +400,10 @@ const BuyerHome = ({
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="bg-[#333437] py-20">
+      <motion.section {...reveal} className="relative isolate overflow-hidden bg-[#242220] py-24">
+        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-red-600/30 blur-3xl" aria-hidden="true" />
         <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
           <h2 className="text-4xl font-extrabold text-white">{brandMantra}</h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-red-100">
@@ -392,7 +416,7 @@ const BuyerHome = ({
             {t('buyerHome.startShopping')}
           </Link>
         </div>
-      </section>
+      </motion.section>
     </div>
   )
 }

@@ -69,4 +69,27 @@ export const productService = {
     const response = await api.get(`/products/search?${params.toString()}`)
     return response.data
   },
+
+  async getActiveDealBanners(): Promise<Array<{
+    id: string
+    title: string
+    subtitle?: string
+    bannerColor: string
+    textColor: string
+    bannerImage?: string
+    seeAllUrl?: string
+    seeAllLabel?: string
+    products: Product[]
+  }>> {
+    const response = await api.get('/deal-banners/active')
+    return response.data.banners || []
+  },
+
+  async trackDealBannerEvent(id: string, event: 'click' | 'impression', increment = 1) {
+    try {
+      await api.post(`/deal-banners/${id}/track`, { event, increment })
+    } catch {
+      // tracking is best-effort, never break the UI
+    }
+  },
 }

@@ -2,14 +2,18 @@ import en from './dictionaries/en.json'
 import sw from './dictionaries/sw.json'
 import fr from './dictionaries/fr.json'
 import de from './dictionaries/de.json'
+import es from './dictionaries/es.json'
+import ar from './dictionaries/ar.json'
 
-export type LocaleCode = 'en' | 'sw' | 'fr' | 'de'
+export type LocaleCode = 'en' | 'sw' | 'fr' | 'de' | 'es' | 'ar'
 
 const DICTS: Record<LocaleCode, Record<string, string>> = {
   en,
   sw,
   fr,
   de,
+  es,
+  ar,
 }
 
 const COMMON_LITERALS: Record<LocaleCode, Record<string, string>> = {
@@ -146,13 +150,101 @@ const COMMON_LITERALS: Record<LocaleCode, Record<string, string>> = {
     'Notifications': 'Benachrichtigungen',
     'Mark all read': 'Alle als gelesen markieren',
   },
+  es: {
+    'Analytics Overview': 'Resumen de análisis',
+    'Key performance metrics and trends': 'Métricas clave y tendencias',
+    'Live Visits': 'Visitas en vivo',
+    'Real project page opens and link taps today': 'Aperturas de páginas y clics de enlaces de hoy',
+    'Visits Today': 'Visitas hoy',
+    'Unique Visitors': 'Visitantes únicos',
+    'Active Now': 'Activos ahora',
+    'Link Taps Today': 'Clics de enlaces hoy',
+    'Top Pages Today': 'Páginas principales hoy',
+    'Top Link Taps Today': 'Enlaces principales hoy',
+    'Recent Visits': 'Visitas recientes',
+    'Refresh': 'Actualizar',
+    'Auto Sync ON': 'Sincronización automática ACTIVADA',
+    'Auto Sync OFF': 'Sincronización automática DESACTIVADA',
+    'Page': 'Página',
+    'Device': 'Dispositivo',
+    'Language': 'Idioma',
+    'Referrer': 'Referente',
+    'Time': 'Hora',
+    'No visits recorded today yet.': 'Aún no hay visitas registradas hoy.',
+    'No link taps recorded today yet.': 'Aún no hay clics de enlaces registrados hoy.',
+    'No recent visits yet.': 'Aún no hay visitas recientes.',
+    'Total Revenue': 'Ingresos totales',
+    'Total Orders': 'Pedidos totales',
+    'Total Customers': 'Clientes totales',
+    'Total Products': 'Productos totales',
+    'Orders Management': 'Gestión de pedidos',
+    'Product Reviews': 'Reseñas de productos',
+    'Communications': 'Comunicaciones',
+    'Settings': 'Configuración',
+    'Products': 'Productos',
+    'Orders': 'Pedidos',
+    'Customers': 'Clientes',
+    'Users': 'Usuarios',
+    'Search': 'Buscar',
+    'Send': 'Enviar',
+    'Cancel': 'Cancelar',
+    'Save': 'Guardar',
+    'Loading...': 'Cargando...',
+    'No notifications yet': 'Aún no hay notificaciones',
+    'Notifications': 'Notificaciones',
+    'Mark all read': 'Marcar todas como leídas',
+  },
+  ar: {
+    'Analytics Overview': 'نظرة عامة على التحليلات',
+    'Key performance metrics and trends': 'مؤشرات الأداء الرئيسية والاتجاهات',
+    'Live Visits': 'الزيارات المباشرة',
+    'Real project page opens and link taps today': 'فتحات الصفحات ونقرات الروابط اليوم',
+    'Visits Today': 'زيارات اليوم',
+    'Unique Visitors': 'الزوار الفريدون',
+    'Active Now': 'متصلون الآن',
+    'Link Taps Today': 'نقرات الروابط اليوم',
+    'Top Pages Today': 'أهم الصفحات اليوم',
+    'Top Link Taps Today': 'أهم الروابط من حيث النقر اليوم',
+    'Recent Visits': 'الزيارات الأخيرة',
+    'Refresh': 'تحديث',
+    'Auto Sync ON': 'المزامنة التلقائية مفعّلة',
+    'Auto Sync OFF': 'المزامنة التلقائية متوقّفة',
+    'Page': 'الصفحة',
+    'Device': 'الجهاز',
+    'Language': 'اللغة',
+    'Referrer': 'المحيل',
+    'Time': 'الوقت',
+    'No visits recorded today yet.': 'لا توجد زيارات مسجلة اليوم بعد.',
+    'No link taps recorded today yet.': 'لا توجد نقرات روابط مسجلة اليوم بعد.',
+    'No recent visits yet.': 'لا توجد زيارات حديثة بعد.',
+    'Total Revenue': 'إجمالي الإيرادات',
+    'Total Orders': 'إجمالي الطلبات',
+    'Total Customers': 'إجمالي العملاء',
+    'Total Products': 'إجمالي المنتجات',
+    'Orders Management': 'إدارة الطلبات',
+    'Product Reviews': 'تقييمات المنتجات',
+    'Communications': 'المراسلات',
+    'Settings': 'الإعدادات',
+    'Products': 'المنتجات',
+    'Orders': 'الطلبات',
+    'Customers': 'العملاء',
+    'Users': 'المستخدمون',
+    'Search': 'بحث',
+    'Send': 'إرسال',
+    'Cancel': 'إلغاء',
+    'Save': 'حفظ',
+    'Loading...': 'جاري التحميل...',
+    'No notifications yet': 'لا توجد إشعارات بعد',
+    'Notifications': 'الإشعارات',
+    'Mark all read': 'تمييز الكل كمقروء',
+  },
 }
 
 export const FALLBACK_LOCALE: LocaleCode = 'en'
 
 export const resolveLocale = (raw?: string | null): LocaleCode => {
   const code = String(raw || '').trim().toLowerCase()
-  if (code === 'sw' || code === 'en' || code === 'fr' || code === 'de') return code
+  if (code === 'sw' || code === 'en' || code === 'fr' || code === 'de' || code === 'es' || code === 'ar') return code
   return FALLBACK_LOCALE
 }
 

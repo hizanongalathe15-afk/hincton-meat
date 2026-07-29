@@ -14,6 +14,11 @@ const apiClient = axios.create({
 
 const UPLOAD_TIMEOUT_MS = 120000
 
+export const getAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem('token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 // Add auth interceptor
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
@@ -519,6 +524,145 @@ export const contactMessagesApi = {
     const response = await apiClient.patch(`/admin/content/admin/contact-messages/${ticketId}/close`)
     return response.data
   }
+}
+
+// Deals & Offers API (Deal Banners, Flash Sales, Bulk Product Discounts)
+export const dealsApi = {
+  // Deal Banners (colored section headers with product lists, e.g. Top Deals | Clearance Sale)
+  listDealBanners: async () => {
+    const response = await apiClient.get('/admin/deal-banners')
+    return response.data
+  },
+
+  createDealBanner: async (data: any) => {
+    const response = await apiClient.post('/admin/deal-banners', data)
+    return response.data
+  },
+
+  updateDealBanner: async (id: string, data: any) => {
+    const response = await apiClient.put(`/admin/deal-banners/${id}`, data)
+    return response.data
+  },
+
+  deleteDealBanner: async (id: string) => {
+    const response = await apiClient.delete(`/admin/deal-banners/${id}`)
+    return response.data
+  },
+
+  // Tracking (bump click / impression counters)
+  trackDealBannerEvent: async (id: string, event: 'click' | 'impression', increment = 1) => {
+    const response = await apiClient.post(`/deal-banners/${id}/track`, { event, increment })
+    return response.data
+  },
+
+  // Public active banners (used by homepage)
+  getActiveDealBanners: async () => {
+    const response = await apiClient.get('/deal-banners/active')
+    return response.data
+  },
+
+  // Flash Sales (time-limited, per-product sale prices with stock allocations)
+  listFlashSales: async () => {
+    const response = await apiClient.get('/admin/flash-sales')
+    return response.data
+  },
+
+  getActiveFlashSales: async () => {
+    const response = await apiClient.get('/flash-sales/active')
+    return response.data
+  },
+
+  createFlashSale: async (data: any) => {
+    const response = await apiClient.post('/admin/flash-sales', data)
+    return response.data
+  },
+
+  updateFlashSale: async (id: string, data: any) => {
+    const response = await apiClient.put(`/admin/flash-sales/${id}`, data)
+    return response.data
+  },
+
+  stopFlashSale: async (id: string) => {
+    const response = await apiClient.post(`/admin/flash-sales/${id}/stop`)
+    return response.data
+  },
+
+  deleteFlashSale: async (id: string) => {
+    const response = await apiClient.delete(`/admin/flash-sales/${id}`)
+    return response.data
+  },
+
+  // Bulk product discounting — REAL price changes (apply percentage and/or isOnSale toggle)
+  applyBulkDiscount: async (data: {
+    productIds: string[]
+    discountPercentage: number
+    isOnSale?: boolean
+  }) => {
+    const response = await apiClient.post('/admin/products/bulk-discount', data)
+    return response.data
+  },
+
+  removeBulkDiscount: async (data: { productIds: string[] }) => {
+    const response = await apiClient.post('/admin/products/remove-discount', data)
+    return response.data
+  }
+}
+
+// Support / Ticketing / FAQ / Knowledge Base admin API
+export const supportApi = {
+  // Tickets
+  listTickets: async (params?: { status?: string; priority?: string; q?: string }) => {
+    const response = await apiClient.get('/admin/support/tickets', { params })
+    return response.data
+  },
+  patchTicket: async (id: string, data: { status?: string; priority?: string; assignedTo?: string }) => {
+    const response = await apiClient.patch(`/admin/support/tickets/${id}`, data)
+    return response.data
+  },
+  getTicket: async (id: string) => {
+    const response = await apiClient.get(`/support/tickets/${id}`)
+    return response.data
+  },
+  replyTicket: async (id: string, data: { message: string; attachments?: string[]; status?: string; priority?: string }) => {
+    const response = await apiClient.post(`/support/tickets/${id}/replies`, data)
+    return response.data
+  },
+  deleteTicket: async (id: string) => {
+    const response = await apiClient.delete(`/admin/support/tickets/${id}`)
+    return response.data
+  },
+  listFaqs: async () => {
+    const response = await apiClient.get('/admin/faq')
+    return response.data
+  },
+  createFaq: async (data: any) => {
+    const response = await apiClient.post('/admin/faq', data)
+    return response.data
+  },
+  updateFaq: async (id: string, data: any) => {
+    const response = await apiClient.put(`/admin/faq/${id}`, data)
+    return response.data
+  },
+  deleteFaq: async (id: string) => {
+    const response = await apiClient.delete(`/admin/faq/${id}`)
+    return response.data
+  },
+  listArticles: async () => {
+    const response = await apiClient.get('/admin/kb/articles')
+    return response.data
+  },
+  createArticle: async (data: any) => {
+    const response = await apiClient.post('/admin/kb/articles', data)
+    return response.data
+  },
+  updateArticle: async (id: string, data: any) => {
+    const response = await apiClient.put(`/admin/kb/articles/${id}`, data)
+    return response.data
+  },
+  deleteArticle: async (id: string) => {
+    const response = await apiClient.delete(`/admin/kb/articles/${id}`)
+    return response.data
+  },
 }
 
 // Reviews API

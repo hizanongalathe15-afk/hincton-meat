@@ -57,6 +57,116 @@ const defaultSiteProfile = {
     socialHandle: '@hinctonmeatproducts',
     logo: '/hincton/logo.png',
   },
+  footer: {
+    startYear: 2018,
+    autoUpdateCurrentYear: true,
+    endYear: null,
+    companyName: null,
+    allRightsReservedText: 'All rights reserved.',
+    customCopyrightLine: null,
+  },
+  featureToggles: {
+    quickViewModal: true,
+    wishlistSharing: true,
+    couponAutoApply: true,
+    printableReturnLabel: true,
+    oneClickReorder: true,
+    reviewHelpfulVotes: true,
+    backInStockAlerts: true,
+    lowStockBadge: true,
+    lowStockThreshold: 5,
+    currencySwitcher: true,
+    socialLoginButtons: true,
+    bnplOptions: true,
+    newsletterExitIntent: true,
+    productShareButtons: true,
+    instagramFeed: true,
+    instagramFeedHandle: '@hinctonmeatproducts',
+    sustainabilityBadges: true,
+    trustBadges: true,
+    livePurchaseNotifications: true,
+    pwaInstallPrompt: true,
+    loyaltyProgram: true,
+    spinToWin: true,
+    arProductTryOn: false,
+    voiceSearchMetadata: true,
+    cryptoPayments: false,
+    abTestingEnabled: true,
+    analyticsTelemetry: true,
+    socialProofViewers: true,
+    subscriptionPlans: true,
+    carbonNeutralClaims: true,
+  },
+  payments: {
+    bnpl: [
+      { code: 'KLARNA', label: 'Klarna', enabled: false, description: 'Pay in 30 days or split into installments.', learnMoreUrl: 'https://www.klarna.com/' },
+      { code: 'AFTERPAY', label: 'Afterpay', enabled: false, description: 'Four interest-free payments every two weeks.', learnMoreUrl: 'https://www.afterpay.com/' },
+    ],
+    digitalWallets: [
+      { code: 'MPESA', label: 'M-PESA', enabled: true },
+      { code: 'APPLE_PAY', label: 'Apple Pay', enabled: false },
+      { code: 'GOOGLE_PAY', label: 'Google Pay', enabled: false },
+      { code: 'PAYPAL', label: 'PayPal', enabled: true },
+    ],
+    crypto: [
+      { code: 'BTC', label: 'Bitcoin', enabled: false, walletAddress: '' },
+      { code: 'ETH', label: 'Ethereum', enabled: false, walletAddress: '' },
+      { code: 'USDC', label: 'USDC', enabled: false, walletAddress: '' },
+    ],
+  },
+  trust: {
+    badges: [
+      { code: 'SSL', label: 'Secure Checkout', description: '256-bit SSL encryption' },
+      { code: 'MONEY_BACK', label: 'Satisfaction Guarantee', description: 'Full refund for valid quality issues' },
+      { code: 'HACCP', label: 'HACCP Certified', description: 'Food safety management system' },
+      { code: 'COLD_CHAIN', label: 'Cold Chain Assured', description: 'Chilled end-to-end delivery' },
+    ],
+    sustainability: [
+      { code: 'ETHICAL_SOURCING', label: 'Ethically Sourced Livestock', icon: 'leaf' },
+      { code: 'COLD_CHAIN_EFFICIENCY', label: 'Efficient Cold-Chain Logistics', icon: 'snowflake' },
+      { code: 'CARBON_OFFSET', label: 'Carbon-Neutral Deliveries', icon: 'circle-dot' },
+      { code: 'ZERO_WASTE', label: 'Responsible Waste Disposal', icon: 'recycle' },
+    ],
+    viewCounterWindowMinutes: 15,
+    recentPurchaseWindowHours: 48,
+    socialProofMode: 'REAL_FALLBACK_SIMULATED',
+  },
+  gamification: {
+    welcomePoints: 100,
+    pointsPerOrder: 10,
+    pointsPerReview: 20,
+    pointsPerReferral: 100,
+    spinWinDailyLimit: 1,
+    loyaltyBadgeThresholds: {
+      FIRST_ORDER: { requiredOrders: 1 },
+      FREQUENT_BUYER: { requiredOrders: 5 },
+      REVIEWER: { requiredReviews: 3 },
+      AMBASSADOR: { requiredOrders: 20 },
+      TOP_CUSTOMER: { requiredSpent: 100000 },
+    },
+  },
+  seo: {
+    enableJsonLd: true,
+    enableBreadcrumbsLd: true,
+    enableFaqsLd: true,
+    enableVoiceSearchMeta: true,
+    defaultKeywords: ['fresh meat', 'beef', 'goat meat', 'chicken', 'nairobi butcher', 'kenya meat delivery'],
+  },
+  newsletter: {
+    exitIntentEnabled: true,
+    exitIntentDelayMs: 5000,
+    popupTitle: 'Get 10% off your first order',
+    popupSubtitle: 'Subscribe to our newsletter for exclusive offers and new cuts.',
+    footerCta: 'Stay up to date with new arrivals and offers.',
+  },
+  currencies: [
+    { code: 'KES', symbol: 'KSh', label: 'Kenyan Shilling', rate: 1.00, isDefault: true },
+    { code: 'USD', symbol: '$', label: 'US Dollar', rate: 0.0068, isDefault: false },
+    { code: 'EUR', symbol: '€', label: 'Euro', rate: 0.0062, isDefault: false },
+    { code: 'GBP', symbol: '£', label: 'British Pound', rate: 0.0053, isDefault: false },
+    { code: 'UGX', symbol: 'USh', label: 'Ugandan Shilling', rate: 26.0, isDefault: false },
+    { code: 'TZS', symbol: 'TSh', label: 'Tanzanian Shilling', rate: 17.5, isDefault: false },
+  ],
   companyProfile:
     'Hincton Meat Products is a leading supplier of high-quality meat products specializing in goat, beef, chicken, and other livestock products. Located in Nairobi, Kenya, we serve both local and international markets with fresh, safe, and nutritious meat products.',
   mission:
@@ -112,6 +222,20 @@ const defaultCommerceSettings = {
     lowStockAlerts: true,
   },
 }
+
+const defaultSiteTheme = {
+  primary: '#dc2626', accent: '#f59e0b', page: '#fffaf7', surface: '#ffffff', text: '#1c1917', muted: '#78716c', border: '#e7e5e4', buttonText: '#ffffff', header: '#ffffff', ad: '#fff1f2', success: '#16a34a', info: '#2563eb',
+}
+
+router.get('/site-theme', async (_req, res) => {
+  try {
+    const setting = await prisma.systemSetting.findUnique({ where: { key: 'site_theme' } })
+    res.json({ theme: setting ? { ...defaultSiteTheme, ...parseJsonValue(setting.value, {}) } : defaultSiteTheme })
+  } catch (error) {
+    console.error('Public site theme error:', error)
+    res.json({ theme: defaultSiteTheme })
+  }
+})
 
 router.get('/site-profile', async (_req, res) => {
   try {

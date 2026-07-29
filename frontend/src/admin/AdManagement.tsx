@@ -34,6 +34,7 @@ interface AdPlacement {
       imageUrl?: string
       mediaUrl?: string
       mediaType?: 'image' | 'gif' | 'video' | 'audio' | 'sticker'
+      shape?: 'rectangle' | 'square' | 'circle' | 'triangle'
       landingUrl?: string
       buttonText?: string
     }
@@ -122,6 +123,7 @@ const AdManagement = () => {
     mediaType: 'image' as 'image' | 'gif' | 'video' | 'audio' | 'sticker',
     landingUrl: '/shop',
     buttonText: 'Shop now',
+    shape: 'rectangle' as 'rectangle' | 'square' | 'circle' | 'triangle',
   })
   const [campaignForm, setCampaignForm] = useState({
     name: '',
@@ -250,6 +252,7 @@ const AdManagement = () => {
       mediaType: placement.targeting?.creative?.mediaType || 'image',
       landingUrl: placement.targeting?.creative?.landingUrl || '/shop',
       buttonText: placement.targeting?.creative?.buttonText || 'Shop now',
+      shape: placement.targeting?.creative?.shape || 'rectangle',
     } : {
       name: '',
       type: 'BANNER',
@@ -261,6 +264,7 @@ const AdManagement = () => {
       mediaType: 'image',
       landingUrl: '/shop',
       buttonText: 'Shop now',
+      shape: 'rectangle',
     })
     setShowPlacementModal(true)
   }
@@ -346,6 +350,23 @@ const AdManagement = () => {
     uploadCampaignMedia(event.dataTransfer.files?.[0])
   }
 
+  const createCentreScreenDemo = async () => {
+    setSaving(true)
+    try {
+      const demoArtwork = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#7f1d1d"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs><rect width="640" height="640" fill="url(#g)"/><circle cx="320" cy="320" r="250" fill="#fff" fill-opacity=".12"/><text x="320" y="300" text-anchor="middle" font-family="Arial" font-size="58" font-weight="700" fill="white">WELCOME</text><text x="320" y="365" text-anchor="middle" font-family="Arial" font-size="28" fill="white">Your live ad is ready</text></svg>')}`
+      await adsApi.createPlacement({
+        name: 'Centre screen demo', type: 'POPUP', position: 'centre-screen-demo', size: { width: 480, height: 480 }, isActive: true,
+        targeting: { creative: { title: 'Welcome to Hincton', description: 'This is a live, admin-controlled test ad.', mediaUrl: demoArtwork, imageUrl: demoArtwork, mediaType: 'image', shape: 'rectangle', landingUrl: '/shop', buttonText: 'Explore shop' } }
+      })
+      await fetchPlacements()
+      toast.success('Centre-screen test ad created. You can delete it here any time.')
+    } catch (error: any) {
+      toast.error(error?.message || 'Could not create the test ad')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const savePlacement = async (event: FormEvent) => {
     event.preventDefault()
     setSaving(true)
@@ -366,6 +387,7 @@ const AdManagement = () => {
             mediaType: placementForm.mediaType,
             landingUrl: placementForm.landingUrl || '/shop',
             buttonText: placementForm.buttonText || 'Shop now',
+            shape: placementForm.shape,
           },
         } : editingPlacement?.targeting,
       }
@@ -435,13 +457,16 @@ const AdManagement = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Ad Placements</h2>
-        <button
-          onClick={() => openPlacementModal()}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Placement
-        </button>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button onClick={createCentreScreenDemo} disabled={saving} className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-60">Create test popup</button>
+          <button
+            onClick={() => openPlacementModal()}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Placement
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -770,6 +795,13 @@ const AdManagement = () => {
                 <label className="block text-sm font-medium text-gray-700">Position</label>
                 <input required value={placementForm.position} onChange={(event) => setPlacementForm({ ...placementForm, position: event.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" />
               </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Display shape</label>
+              <select value={placementForm.shape} onChange={(event) => setPlacementForm({ ...placementForm, shape: event.target.value as typeof placementForm.shape })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+                <option value="rectangle">Rectangle</option><option value="square">Square</option><option value="circle">Circle</option><option value="triangle">Triangle</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">Works for images, GIFs, videos, audio, and stickers. POPUP placements open in the centre of the screen.</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

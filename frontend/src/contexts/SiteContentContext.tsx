@@ -14,7 +14,59 @@ export type SitePageContent = {
 export interface SiteProfile {
   brand: typeof HINCTON_BRAND & {
     socialLinks?: Array<{ label: string; url: string }>
+    whatsapp?: string
+    supportPhone?: string
   }
+  footer: {
+    startYear: number
+    autoUpdateCurrentYear: boolean
+    endYear: number | null
+    companyName: string | null
+    allRightsReservedText: string | null
+    customCopyrightLine: string | null
+  }
+  featureToggles: Record<string, boolean | number | string>
+  payments: {
+    bnpl: Array<{ code: string; label: string; enabled: boolean; description?: string; learnMoreUrl?: string }>
+    digitalWallets: Array<{ code: string; label: string; enabled: boolean }>
+    crypto: Array<{ code: string; label: string; enabled: boolean; walletAddress?: string }>
+  }
+  trust: {
+    badges: Array<{ code: string; label: string; description?: string }>
+    sustainability: Array<{ code: string; label: string; icon?: string }>
+    viewCounterWindowMinutes: number
+    recentPurchaseWindowHours: number
+    socialProofMode: 'REAL_ONLY' | 'REAL_FALLBACK_SIMULATED' | 'SIMULATED_ONLY' | 'OFF'
+  }
+  gamification: {
+    welcomePoints: number
+    pointsPerOrder: number
+    pointsPerReview: number
+    pointsPerReferral: number
+    spinWinDailyLimit: number
+    loyaltyBadgeThresholds: Record<string, Record<string, number>>
+  }
+  seo: {
+    enableJsonLd: boolean
+    enableBreadcrumbsLd: boolean
+    enableFaqsLd: boolean
+    enableVoiceSearchMeta: boolean
+    defaultKeywords: string[]
+  }
+  newsletter: {
+    exitIntentEnabled: boolean
+    exitIntentDelayMs: number
+    popupTitle: string
+    popupSubtitle: string
+    footerCta: string
+  }
+  currencies: Array<{
+    code: string
+    symbol: string
+    label: string
+    rate: number
+    isDefault: boolean
+  }>
   companyProfile: string
   mission: string
   vision: string
@@ -34,6 +86,7 @@ export interface SiteProfile {
     wellness?: string
     returns?: string
   }
+  heroSlides: Array<{ image: string; alt?: string }>
   pages: Record<string, SitePageContent>
   terms: Array<{ title: string; body: string }>
   privacy: Array<{ title: string; body: string }>
@@ -56,6 +109,116 @@ export interface SiteProfile {
 
 export const defaultSiteProfile: SiteProfile = {
   brand: HINCTON_BRAND,
+  footer: {
+    startYear: 2018,
+    autoUpdateCurrentYear: true,
+    endYear: null,
+    companyName: null,
+    allRightsReservedText: 'All rights reserved.',
+    customCopyrightLine: null,
+  },
+  featureToggles: {
+    quickViewModal: true,
+    wishlistSharing: true,
+    couponAutoApply: true,
+    printableReturnLabel: true,
+    oneClickReorder: true,
+    reviewHelpfulVotes: true,
+    backInStockAlerts: true,
+    lowStockBadge: true,
+    lowStockThreshold: 5,
+    currencySwitcher: true,
+    socialLoginButtons: true,
+    bnplOptions: true,
+    newsletterExitIntent: true,
+    productShareButtons: true,
+    instagramFeed: true,
+    instagramFeedHandle: '@hinctonmeatproducts',
+    sustainabilityBadges: true,
+    trustBadges: true,
+    livePurchaseNotifications: true,
+    pwaInstallPrompt: true,
+    loyaltyProgram: true,
+    spinToWin: true,
+    arProductTryOn: false,
+    voiceSearchMetadata: true,
+    cryptoPayments: false,
+    abTestingEnabled: true,
+    analyticsTelemetry: true,
+    socialProofViewers: true,
+    subscriptionPlans: true,
+    carbonNeutralClaims: true,
+  },
+  payments: {
+    bnpl: [
+      { code: 'KLARNA', label: 'Klarna', enabled: false, description: 'Pay in 30 days or split into installments.', learnMoreUrl: 'https://www.klarna.com/' },
+      { code: 'AFTERPAY', label: 'Afterpay', enabled: false, description: 'Four interest-free payments every two weeks.', learnMoreUrl: 'https://www.afterpay.com/' },
+    ],
+    digitalWallets: [
+      { code: 'MPESA', label: 'M-PESA', enabled: true },
+      { code: 'APPLE_PAY', label: 'Apple Pay', enabled: false },
+      { code: 'GOOGLE_PAY', label: 'Google Pay', enabled: false },
+      { code: 'PAYPAL', label: 'PayPal', enabled: true },
+    ],
+    crypto: [
+      { code: 'BTC', label: 'Bitcoin', enabled: false, walletAddress: '' },
+      { code: 'ETH', label: 'Ethereum', enabled: false, walletAddress: '' },
+      { code: 'USDC', label: 'USDC', enabled: false, walletAddress: '' },
+    ],
+  },
+  trust: {
+    badges: [
+      { code: 'SSL', label: 'Secure Checkout', description: '256-bit SSL encryption' },
+      { code: 'MONEY_BACK', label: 'Satisfaction Guarantee', description: 'Full refund for valid quality issues' },
+      { code: 'HACCP', label: 'HACCP Certified', description: 'Food safety management system' },
+      { code: 'COLD_CHAIN', label: 'Cold Chain Assured', description: 'Chilled end-to-end delivery' },
+    ],
+    sustainability: [
+      { code: 'ETHICAL_SOURCING', label: 'Ethically Sourced Livestock', icon: 'leaf' },
+      { code: 'COLD_CHAIN_EFFICIENCY', label: 'Efficient Cold-Chain Logistics', icon: 'snowflake' },
+      { code: 'CARBON_OFFSET', label: 'Carbon-Neutral Deliveries', icon: 'circle-dot' },
+      { code: 'ZERO_WASTE', label: 'Responsible Waste Disposal', icon: 'recycle' },
+    ],
+    viewCounterWindowMinutes: 15,
+    recentPurchaseWindowHours: 48,
+    socialProofMode: 'REAL_FALLBACK_SIMULATED',
+  },
+  gamification: {
+    welcomePoints: 100,
+    pointsPerOrder: 10,
+    pointsPerReview: 20,
+    pointsPerReferral: 100,
+    spinWinDailyLimit: 1,
+    loyaltyBadgeThresholds: {
+      FIRST_ORDER: { requiredOrders: 1 },
+      FREQUENT_BUYER: { requiredOrders: 5 },
+      REVIEWER: { requiredReviews: 3 },
+      AMBASSADOR: { requiredOrders: 20 },
+      TOP_CUSTOMER: { requiredSpent: 100000 },
+    },
+  },
+  seo: {
+    enableJsonLd: true,
+    enableBreadcrumbsLd: true,
+    enableFaqsLd: true,
+    enableVoiceSearchMeta: true,
+    defaultKeywords: ['fresh meat', 'beef', 'goat meat', 'chicken', 'nairobi butcher', 'kenya meat delivery'],
+  },
+  newsletter: {
+    exitIntentEnabled: true,
+    exitIntentDelayMs: 5000,
+    popupTitle: 'Get 10% off your first order',
+    popupSubtitle: 'Subscribe to our newsletter for exclusive offers and new cuts.',
+    footerCta: 'Stay up to date with new arrivals and offers.',
+  },
+  currencies: [
+    { code: 'KES', symbol: 'KSh', label: 'Kenyan Shilling', rate: 1.00, isDefault: true },
+    { code: 'USD', symbol: '$', label: 'US Dollar', rate: 0.0068, isDefault: false },
+    { code: 'EUR', symbol: '€', label: 'Euro', rate: 0.0062, isDefault: false },
+    { code: 'GBP', symbol: '£', label: 'British Pound', rate: 0.0053, isDefault: false },
+    { code: 'UGX', symbol: 'USh', label: 'Ugandan Shilling', rate: 26.0, isDefault: false },
+    { code: 'TZS', symbol: 'TSh', label: 'Tanzanian Shilling', rate: 17.5, isDefault: false },
+  ],
   companyProfile: COMPANY_PROFILE,
   mission: 'To deliver fresh, high-quality meat products while upholding the highest standards of food safety, animal welfare, and environmental sustainability.',
   vision: 'To be the leading global provider of premium meat products, known for excellence in quality, sustainability, and ethical sourcing practices.',
@@ -75,6 +238,7 @@ export const defaultSiteProfile: SiteProfile = {
     wellness: '/hincton/beef-fresh.webp',
     returns: '/hincton/hero-platter.webp',
   },
+  heroSlides: [],
   pages: {
     about: {
       title: 'About Us',
@@ -244,6 +408,27 @@ export const SiteContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
         ...defaultSiteProfile,
         ...saved,
         brand: { ...defaultSiteProfile.brand, ...(saved.brand || {}), ...commerceBrand },
+        footer: { ...defaultSiteProfile.footer, ...(saved.footer || {}) },
+        featureToggles: { ...defaultSiteProfile.featureToggles, ...(saved.featureToggles || {}) },
+        payments: {
+          bnpl: saved.payments?.bnpl ?? defaultSiteProfile.payments.bnpl,
+          digitalWallets: saved.payments?.digitalWallets ?? defaultSiteProfile.payments.digitalWallets,
+          crypto: saved.payments?.crypto ?? defaultSiteProfile.payments.crypto,
+        },
+        trust: {
+          ...defaultSiteProfile.trust,
+          ...(saved.trust || {}),
+          badges: saved.trust?.badges ?? defaultSiteProfile.trust.badges,
+          sustainability: saved.trust?.sustainability ?? defaultSiteProfile.trust.sustainability,
+        },
+        gamification: {
+          ...defaultSiteProfile.gamification,
+          ...(saved.gamification || {}),
+          loyaltyBadgeThresholds: saved.gamification?.loyaltyBadgeThresholds ?? defaultSiteProfile.gamification.loyaltyBadgeThresholds,
+        },
+        seo: { ...defaultSiteProfile.seo, ...(saved.seo || {}) },
+        newsletter: { ...defaultSiteProfile.newsletter, ...(saved.newsletter || {}) },
+        currencies: saved.currencies ?? defaultSiteProfile.currencies,
         images: { ...defaultSiteProfile.images, ...(saved.images || {}) },
         pages: { ...defaultSiteProfile.pages, ...(saved.pages || {}) },
         markets: saved.markets || defaultSiteProfile.markets,

@@ -157,7 +157,7 @@ const BuyerProductDetail = ({
   }
 
   return (
-    <div className="bg-gray-50">
+    <div className="ambient-page bg-gray-50">
       <ProductDetails
           product={product}
           onAddToCart={onAddToCart}

@@ -7,6 +7,8 @@ interface ConfirmationOptions {
   cancelText?: string
   type?: 'danger' | 'warning' | 'info'
   icon?: 'delete' | 'logout' | 'remove' | 'warning' | 'info'
+  onConfirm?: () => void | Promise<void>
+  onCancel?: () => void
 }
 
 export const useConfirmationDialog = () => {
@@ -22,22 +24,28 @@ export const useConfirmationDialog = () => {
     })
   }
 
-  const handleConfirm = () => {
-    setIsOpen(false)
-    setOptions(null)
-    if (resolvePromise) {
-      resolvePromise(true)
+  const handleConfirm = async () => {
+    try {
+      if (options?.onConfirm) await options.onConfirm()
+    } finally {
+      setIsOpen(false)
+      const resolve = resolvePromise
+      setOptions(null)
+      setResolvePromise(null)
+      if (resolve) resolve(true)
     }
-    setResolvePromise(null)
   }
 
   const handleCancel = () => {
-    setIsOpen(false)
-    setOptions(null)
-    if (resolvePromise) {
-      resolvePromise(false)
+    try {
+      if (options?.onCancel) options.onCancel()
+    } finally {
+      setIsOpen(false)
+      const resolve = resolvePromise
+      setOptions(null)
+      setResolvePromise(null)
+      if (resolve) resolve(false)
     }
-    setResolvePromise(null)
   }
 
   return {

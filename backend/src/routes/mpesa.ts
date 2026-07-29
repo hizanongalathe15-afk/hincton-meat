@@ -22,12 +22,25 @@ const initiatePaymentSchema = z.object({
   accountReference: z.string().optional(),
 })
 
+const callbackToken = process.env.MPESA_CALLBACK_TOKEN?.trim()
+const rawCallbackUrl = process.env.MPESA_CALLBACK_URL || `${process.env.BACKEND_URL || process.env.API_URL || 'https://hincton-meat.onrender.com'}/api/mpesa/callback`
+const callbackUrl = (() => {
+  if (!callbackToken) return rawCallbackUrl
+  try {
+    const url = new URL(rawCallbackUrl)
+    url.searchParams.set('token', callbackToken)
+    return url.toString()
+  } catch {
+    return rawCallbackUrl
+  }
+})()
+
 const MPESA_CONFIG = {
   consumerKey: process.env.MPESA_CONSUMER_KEY || process.env.MPESA_CONSUMER_KEY_SANDBOX || '',
   consumerSecret: process.env.MPESA_CONSUMER_SECRET || process.env.MPESA_CONSUMER_SECRET_SANDBOX || '',
   shortcode: process.env.MPESA_SHORTCODE || process.env.MPESA_SHORT_CODE || '174379',
   passkey: process.env.MPESA_PASSKEY || 'your_passkey',
-  callbackUrl: process.env.MPESA_CALLBACK_URL || `${process.env.BACKEND_URL || process.env.API_URL || 'https://hincton-meat.onrender.com'}/api/mpesa/callback`,
+  callbackUrl,
   environment: process.env.MPESA_ENV || 'sandbox',
 }
 
@@ -111,6 +124,9 @@ const initiateMpesaPayment = async (req: AuthRequest, res: any) => {
     }
 
     const existingPayment = order.payments[0]
+    if (existingPayment?.status === 'PENDING' && Date.now() - existingPayment.createdAt.getTime() < 90_000) {
+      return res.status(409).json({ error: 'A payment prompt is already pending. Check your phone or wait before trying again.' })
+    }
     const payment = existingPayment
       ? await prisma.payment.update({
           where: { id: existingPayment.id },
@@ -171,7 +187,7 @@ const initiateMpesaPayment = async (req: AuthRequest, res: any) => {
         ? 'https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
         : 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest',
       stkRequest,
-      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } },
+      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, timeout: 15_000 },
     )
 
     const checkoutRequestID = response.data?.CheckoutRequestID
@@ -190,6 +206,7 @@ const initiateMpesaPayment = async (req: AuthRequest, res: any) => {
     })
   } catch (error) {
     console.error('M-PESA initiate error:', error)
+    if (error instanceof z.ZodError) return res.status(400).json({ error: 'Enter a valid M-Pesa phone number and order details.' })
     res.status(500).json(apiMessage(meatShopMessages.payment.mpesaUnavailable))
   }
 }
@@ -199,6 +216,9 @@ router.post('/stk-push', initiateMpesaPayment)
 
 router.post('/callback', async (req, res) => {
   try {
+    if (callbackToken && req.query.token !== callbackToken) {
+      return res.status(401).json({ ResultCode: 1, ResultDesc: 'Invalid callback token' })
+    }
     const body = req.body
     const stkCallback = body?.Body?.stkCallback
     const checkoutRequestId = stkCallback?.CheckoutRequestID
@@ -213,12 +233,17 @@ router.post('/callback', async (req, res) => {
       ? new Date(`${transactionDate.slice(0, 4)}-${transactionDate.slice(4, 6)}-${transactionDate.slice(6, 8)}T${transactionDate.slice(8, 10)}:${transactionDate.slice(10, 12)}:${transactionDate.slice(12, 14)}+03:00`)
       : new Date()
 
-    // Try match by paymentReference/accountReference if available, else skip order update
-    const payment = checkoutRequestId
-      ? await prisma.payment.findFirst({ where: { mpesaReceipt: checkoutRequestId } })
-      : await prisma.payment.findFirst({ where: { status: 'PENDING' } })
+    // A callback must always match the exact STK request. Never attach an unknown callback to an arbitrary pending order.
+    if (!checkoutRequestId) return res.status(200).json({ ResultCode: 0, ResultDesc: 'Callback received without a checkout ID' })
+    const payment = await prisma.payment.findFirst({ where: { mpesaReceipt: checkoutRequestId } })
 
-    if (!payment) return res.status(404).json(apiMessage(meatShopMessages.payment.mpesaTimeout))
+    if (!payment) return res.status(200).json({ ResultCode: 0, ResultDesc: 'Payment reference not found' })
+
+    const callbackAmount = Number(metadataValue('Amount'))
+    if (resultCode === 0 && (!Number.isFinite(callbackAmount) || Math.round(callbackAmount) !== Math.round(Number(payment.amount)))) {
+      await prisma.payment.update({ where: { id: payment.id }, data: { status: 'FAILED', errorMessage: 'M-Pesa callback amount did not match the order total', metadata: stkCallback } })
+      return res.status(200).json({ ResultCode: 0, ResultDesc: 'Amount mismatch recorded' })
+    }
 
     await prisma.payment.update({
       where: { id: payment.id },
@@ -258,9 +283,14 @@ router.get('/transaction/:checkoutRequestID', async (req, res) => {
           { mpesaReceipt: checkoutRequestID },
         ],
       },
+      include: { order: { select: { userId: true, guestSessionId: true } } },
     })
 
     if (!payment) return res.status(404).json(apiMessage(meatShopMessages.payment.mpesaTimeout))
+    const guestSessionId = getGuestSessionId(req as AuthRequest)
+    if ((req as AuthRequest).user?.id !== payment.order.userId && (!guestSessionId || guestSessionId !== payment.order.guestSessionId)) {
+      return res.status(403).json({ error: 'You cannot view this payment status.' })
+    }
 
     if (payment.status === 'PENDING' && isMpesaConfigured() && payment.mpesaReceipt && payment.mpesaReceipt === checkoutRequestID) {
       try {
@@ -277,7 +307,7 @@ router.get('/transaction/:checkoutRequestID', async (req, res) => {
             Timestamp: timestamp,
             CheckoutRequestID: checkoutRequestID,
           },
-          { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } },
+          { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, timeout: 15_000 },
         )
         const resultCode = queryResponse.data?.ResultCode
         if (String(resultCode) === '0') {
@@ -288,6 +318,7 @@ router.get('/transaction/:checkoutRequestID', async (req, res) => {
               completedAt: new Date(),
               metadata: queryResponse.data,
             },
+            include: { order: { select: { userId: true, guestSessionId: true } } },
           })
           await prisma.order.update({
             where: { id: payment.orderId },
@@ -301,6 +332,7 @@ router.get('/transaction/:checkoutRequestID', async (req, res) => {
               errorMessage: queryResponse.data?.ResultDesc || 'M-Pesa payment failed',
               metadata: queryResponse.data,
             },
+            include: { order: { select: { userId: true, guestSessionId: true } } },
           })
         }
       } catch (queryError: any) {

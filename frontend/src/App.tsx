@@ -34,8 +34,33 @@ import QRCodeManager from './admin/QRCodeManager'
 import SystemMetrics from './admin/SystemMetrics'
 import AdManagement from './admin/AdManagement'
 import AdminReviewsPage from './admin/ReviewsPage'
+import AdminCompaniesPage from './admin/CompaniesPage'
+import ThemePage from './admin/ThemePage'
+import SocialOffersPage from './admin/SocialOffersPage'
+import DealsPage from './admin/DealsPage'
+import AdminSupportPage from './admin/AdminSupportPage'
+import AdminFaqsPage from './admin/AdminFaqsPage'
+import AdminKnowledgeBasePage from './admin/AdminKnowledgeBasePage'
 import CookieConsent from './components/CookieConsent'
 import ReviewPrompt from './components/ReviewPrompt'
+
+import BuyerDashboard from './buyer/BuyerDashboard'
+
+import { QuickViewRoot } from './components/ecommerce/QuickViewModal'
+import NewsletterExitIntentPopup from './components/ecommerce/NewsletterExitIntentPopup'
+import PwaInstallPrompt from './components/ecommerce/PwaInstallPrompt'
+import { useSiteContent } from './contexts/SiteContentContext'
+
+const SiteWideModernFeatures: React.FC = () => {
+  const { profile } = useSiteContent()
+  return (
+    <>
+      <QuickViewRoot />
+      {profile.featureToggles?.newsletterExitIntent !== false && <NewsletterExitIntentPopup />}
+      {profile.featureToggles?.pwaInstallPrompt !== false && <PwaInstallPrompt />}
+    </>
+  )
+}
 
 // Legacy Page Components (keeping for compatibility)
 import HomePage from './pages/HomePage'
@@ -58,12 +83,18 @@ import LegalPage from './pages/LegalPage'
 import DynamicContentPage from './pages/DynamicContentPage'
 import BlogPage from './pages/BlogPage'
 import BlogPostPage from './pages/BlogPostPage'
+import CompaniesPage from './pages/CompaniesPage'
+import QrLoginApprovePage from './pages/QrLoginApprovePage'
+import NewReturnPage from './pages/NewReturnPage'
 
 // Components
 import AuthSlider from './components/AuthSlider'
 import LoadingSpinner from './components/ui/LoadingSpinner'
 import LiveChatWidget from './buyer/LiveChatWidget'
 import VisitTracker from './components/VisitTracker'
+import PermissionCenter from './components/PermissionCenter'
+import AccessibilityWidget from './components/AccessibilityWidget'
+import WhatsAppWidget from './components/WhatsAppWidget'
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { user } = useAuth()
@@ -106,6 +137,7 @@ function App() {
   return (
     <div className="min-h-screen flex flex-col">
       <VisitTracker />
+      <SiteWideModernFeatures />
       {!isAdminRoute && <Navigation />}
       <main className="flex-1">
         <Routes>
@@ -128,6 +160,7 @@ function App() {
           
           {/* Authentication Routes */}
           <Route path="/login" element={!user ? <AuthSlider /> : <Navigate to={authenticatedHome} />} />
+          <Route path="/qr-login" element={<QrLoginApprovePage />} />
           <Route path="/register" element={!user ? <AuthSlider /> : <Navigate to={authenticatedHome} />} />
           <Route path="/forgot-password" element={!user ? <AuthSlider /> : <Navigate to={authenticatedHome} />} />
           <Route path="/reset-password" element={!user ? <AuthSlider /> : <Navigate to={authenticatedHome} />} />
@@ -139,6 +172,7 @@ function App() {
           <Route path="/feedback" element={<FeedbackPage />} />
           <Route path="/help" element={<HelpCenterPage />} />
           <Route path="/app-info" element={<AppInfoPage />} />
+          <Route path="/our-companies" element={<CompaniesPage />} />
           <Route path="/terms" element={<LegalPage type="terms" />} />
           <Route path="/privacy" element={<LegalPage type="privacy" />} />
           <Route path="/farms" element={<DynamicContentPage pageKey="farms" />} />
@@ -153,7 +187,14 @@ function App() {
           <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
           <Route path="/order-confirmation" element={<ProtectedRoute><OrderConfirmationPage /></ProtectedRoute>} />
           <Route path="/profile" element={<BuyerRoute><EnhancedProfilePage /></BuyerRoute>} />
+          <Route path="/dashboard" element={<BuyerRoute><BuyerDashboard /></BuyerRoute>} />
           <Route path="/account" element={<BuyerRoute><Navigate to="/profile?tab=settings" replace /></BuyerRoute>} />
+          <Route path="/support/tickets" element={<BuyerRoute><Navigate to="/profile?tab=tickets" replace /></BuyerRoute>} />
+          <Route path="/returns/new" element={<BuyerRoute><NewReturnPage /></BuyerRoute>} />
+          <Route path="/returns" element={<BuyerRoute><Navigate to="/profile?tab=returns" replace /></BuyerRoute>} />
+          <Route path="/invoices" element={<BuyerRoute><Navigate to="/profile?tab=invoices" replace /></BuyerRoute>} />
+          <Route path="/alerts" element={<BuyerRoute><Navigate to="/profile?tab=alerts" replace /></BuyerRoute>} />
+          <Route path="/loyalty" element={<BuyerRoute><Navigate to="/profile?tab=loyalty" replace /></BuyerRoute>} />
           <Route path="/goodbye" element={<div className="mx-auto max-w-2xl px-4 py-16 text-center"><h1 className="text-2xl font-bold text-gray-900">Account closed</h1><p className="mt-3 text-gray-600">Your Hincton account has been deleted. We are sorry to see you go.</p></div>} />
           <Route path="/messages" element={<BuyerRoute><BuyerMessages /></BuyerRoute>} />
           <Route path="/reviews" element={<BuyerRoute><BuyerReviews /></BuyerRoute>} />
@@ -193,11 +234,18 @@ function App() {
             <Route path="delivery" element={<DeliveryPage />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="theme" element={<ThemePage />} />
+            <Route path="social-offers" element={<SocialOffersPage />} />
             <Route path="communications" element={<CommunicationsPage />} />
             <Route path="qr-codes" element={<QRCodeManager />} />
             <Route path="content" element={<ContentPage />} />
+            <Route path="support" element={<AdminSupportPage />} />
+            <Route path="faqs" element={<AdminFaqsPage />} />
+            <Route path="knowledge-base" element={<AdminKnowledgeBasePage />} />
+            <Route path="companies" element={<AdminCompaniesPage />} />
             <Route path="system-metrics" element={<SystemMetrics />} />
             <Route path="ads" element={<AdManagement />} />
+            <Route path="deals" element={<DealsPage />} />
           </Route>
           
           {/* Legacy Routes (for backward compatibility) */}
@@ -214,7 +262,10 @@ function App() {
       {!isAdminRoute && <Footer />}
       {!isAdminRoute && <LiveChatWidget />}
       {!isAdminRoute && <ReviewPrompt />}
+      {!isAdminRoute && <PermissionCenter />}
       <CookieConsent />
+      <AccessibilityWidget />
+      {!isAdminRoute && <WhatsAppWidget />}
     </div>
   )
 }

@@ -94,7 +94,7 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
   }
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden">
+    <div className="auth-experience min-h-screen bg-black relative overflow-hidden">
       {/* Blurred Background Image */}
       <div className="absolute inset-0">
         <div
@@ -116,10 +116,10 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
           {/* Card Container */}
           <div className="relative">
             {/* Animated Border Gradient */}
-            <div className="absolute -inset-0.5 rounded-3xl bg-gradient-to-r from-red-600 via-white to-red-600 opacity-25 blur sm:animate-spin" style={{animationDuration: '20s'}} />
+            <div className="auth-halo absolute -inset-0.5 rounded-3xl bg-gradient-to-r from-red-600 via-white to-red-600 opacity-25 blur sm:animate-spin" style={{animationDuration: '20s'}} />
 
             {/* Main Card */}
-            <div className="relative bg-zinc-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-red-600/20 overflow-hidden">
+            <div className="auth-card relative bg-zinc-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-red-600/20 overflow-hidden">
               <div className="grid lg:grid-cols-2">
                 {/* Left Side - Decorative */}
                 <div className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden">

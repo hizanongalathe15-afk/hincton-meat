@@ -459,6 +459,7 @@ model Category {
   parent         Category?  @relation("CategoryToCategory", fields: [parentId], references: [id])
   children       Category[] @relation("CategoryToCategory")
   products       Product[]
+  dealBanners    DealBanner[]
 
   @@index([slug])
   @@index([parentId])
@@ -1095,6 +1096,54 @@ model BlogPost {
   @@map("blog_posts")
 }
 
+model FaqItem {
+  id          String   @id @default(cuid())
+  question    String
+  answer      String   @db.Text
+  category    String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  keywords    String?
+  views       Int      @default(0)
+  helpfulYes  Int      @default(0)
+  helpfulNo   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+
+  @@index([category])
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("faq_items")
+}
+
+model KnowledgeBaseArticle {
+  id             String   @id @default(cuid())
+  title          String
+  slug           String   @unique
+  category       String?
+  tags           String?
+  excerpt        String?
+  content        String   @db.Text
+  featuredImage  String?
+  authorId       String?
+  isPublished    Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  views          Int      @default(0)
+  helpfulYes     Int      @default(0)
+  helpfulNo      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  publishedAt    DateTime?
+
+  @@index([slug])
+  @@index([category])
+  @@index([isPublished])
+  @@index([sortOrder])
+  @@index([createdAt(sort: Desc)])
+  @@map("knowledge_base_articles")
+}
+
 model BlogImage {
   id        String   @id @default(cuid())
   postId    String
@@ -1526,6 +1575,10 @@ model SupportTicket {
   assignedTo String?
   resolvedAt DateTime?
   resolvedBy String?
+  csatScore  Int?
+  csatComment String?
+  readAt     DateTime?
+  attachments Json?
   createdAt  DateTime                @default(now())
   updatedAt  DateTime                @updatedAt
   deletedAt  DateTime?
@@ -1539,20 +1592,23 @@ model SupportTicket {
   @@index([priority])
   @@index([assignedTo])
   @@index([deletedAt])
+  @@index([createdAt(sort: Desc)])
   @@map("support_tickets")
 }
 
 model SupportTicketResponse {
-  id        String        @id @default(cuid())
-  ticketId  String
-  userId    String
-  message   String
-  isAdmin   Boolean       @default(false)
-  createdAt DateTime      @default(now())
-  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  id          String        @id @default(cuid())
+  ticketId    String
+  userId      String
+  message     String        @db.Text
+  isAdmin     Boolean       @default(false)
+  attachments Json?
+  createdAt   DateTime      @default(now())
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId])
   @@index([userId])
+  @@index([createdAt(sort: Desc)])
   @@map("support_ticket_responses")
 }
 
@@ -1869,6 +1925,36 @@ model PromotionUsage {
   @@map("promotion_usages")
 }
 
+model DealBanner {
+  id             String   @id @default(cuid())
+  title          String
+  subtitle       String?
+  bannerColor    String   @default("#FF5500")
+  textColor      String   @default("#FFFFFF")
+  bannerImage    String?
+  productIds     String?  // JSON array of product IDs
+  categoryId     String?
+  flashSaleId    String?
+  seeAllUrl      String?
+  seeAllLabel    String   @default("See All")
+  sortOrder      Int      @default(0)
+  isActive       Boolean  @default(true)
+  startDate      DateTime?
+  endDate        DateTime?
+  totalClicks    Int      @default(0)
+  totalImpressions Int    @default(0)
+  createdBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  flashSale      FlashSale? @relation(fields: [flashSaleId], references: [id])
+  category       Category?  @relation(fields: [categoryId], references: [id])
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@index([startDate, endDate])
+  @@map("deal_banners")
+}
+
 model LiveChatMessage {
   id              String    @id @default(cuid())
   userId          String
@@ -2105,6 +2191,7 @@ model FlashSale {
   abandonedCarts AbandonedCart[]
   products       FlashSaleProduct[]
   purchases      FlashSalePurchase[]
+  dealBanners    DealBanner[]
 
   @@index([slug])
   @@index([status])

@@ -8,8 +8,10 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   ShieldCheck,
+  Activity,
+  Gauge,
 } from 'lucide-react'
-import { dashboardApi } from '../services/adminApi'
+import { dashboardApi, systemApi } from '../services/adminApi'
 import { formatPrice } from '../utils/currency'
 import { useAuth } from '../contexts/AuthContext'
 import { useSiteContent } from '../contexts/SiteContentContext'
@@ -54,6 +56,13 @@ interface AbandonedCart {
   recoveryStatus: string
 }
 
+interface SystemHealth {
+  status: 'healthy' | 'warning' | 'critical'
+  score: number
+  issues: string[]
+  metrics: { cpu: number; memory: number; storage: number; latency: number }
+}
+
 const AdminDashboard = () => {
   const navigate = useNavigate()
   const { user, updateProfile } = useAuth()
@@ -73,6 +82,7 @@ const AdminDashboard = () => {
   const [abandonedCarts, setAbandonedCarts] = useState<AbandonedCart[]>([])
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null)
   const [showAdminWelcome, setShowAdminWelcome] = useState(() => {
     if (typeof window === 'undefined') return false
     return window.sessionStorage.getItem('hincton:admin-welcome-pending') === 'true'
@@ -157,7 +167,11 @@ const AdminDashboard = () => {
     }
 
     fetchDashboardData()
+    systemApi.getHealth().then((response) => setSystemHealth(response.health)).catch(() => undefined)
     const intervalId = window.setInterval(fetchDashboardData, 15000)
+    const healthIntervalId = window.setInterval(() => {
+      systemApi.getHealth().then((response) => setSystemHealth(response.health)).catch(() => undefined)
+    }, 60000)
     const handleVisibilityChange = () => {
       if (!document.hidden) fetchDashboardData()
     }
@@ -166,6 +180,7 @@ const AdminDashboard = () => {
 
     return () => {
       window.clearInterval(intervalId)
+      window.clearInterval(healthIntervalId)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
@@ -341,6 +356,34 @@ const AdminDashboard = () => {
           )
         })}
       </div>
+
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.15fr_repeat(4,minmax(0,1fr))]">
+        <button type="button" onClick={() => navigate('/admin/system-metrics')} className="rounded-3xl border border-gray-200 bg-gradient-to-br from-slate-950 to-slate-800 p-5 text-left text-white shadow-lg transition hover:-translate-y-0.5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-300">System health</p>
+              <p className="mt-2 text-3xl font-black">{systemHealth?.score ?? '--'}<span className="text-base font-semibold text-slate-300">/100</span></p>
+              <p className="mt-2 text-sm text-slate-300">{systemHealth?.issues?.[0] || 'All monitored services are operating normally.'}</p>
+            </div>
+            <ShieldCheck className={`h-7 w-7 ${systemHealth?.status === 'critical' ? 'text-red-300' : systemHealth?.status === 'warning' ? 'text-amber-300' : 'text-emerald-300'}`} />
+          </div>
+        </button>
+        {[
+          { label: 'CPU', value: systemHealth?.metrics.cpu, icon: Activity },
+          { label: 'Memory', value: systemHealth?.metrics.memory, icon: Gauge },
+          { label: 'Storage', value: systemHealth?.metrics.storage, icon: Package },
+          { label: 'Network', value: systemHealth?.metrics.latency, icon: Activity, suffix: 'ms' },
+        ].map((item) => {
+          const Icon = item.icon
+          const value = item.value
+          const isAlert = typeof value === 'number' && (item.suffix ? value > 200 : value > 80)
+          return <button key={item.label} type="button" onClick={() => navigate('/admin/system-metrics')} className="rounded-3xl border border-gray-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div className="flex items-center justify-between"><span className="text-sm font-semibold text-gray-600">{item.label}</span><Icon className={`h-4 w-4 ${isAlert ? 'text-red-600' : 'text-gray-400'}`} /></div>
+            <p className={`mt-3 text-2xl font-black ${isAlert ? 'text-red-700' : 'text-gray-950'}`}>{typeof value === 'number' ? `${value.toFixed(item.suffix ? 0 : 1)}${item.suffix || '%'}` : '--'}</p>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100"><div className={`h-full rounded-full ${isAlert ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, item.suffix ? (value || 0) / 3 : value || 0)}%` }} /></div>
+          </button>
+        })}
+      </section>
 
       <div className="glass-panel rounded-3xl">
         <div className="flex items-center justify-between border-b border-gray-200 p-6">

@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, Github, KeyRound, Loader2, Lock, Mail, Smartphone, Truck, Star, Shield } from 'lucide-react'
+import { Eye, EyeOff, Github, KeyRound, Loader2, Lock, Mail, QrCode, Smartphone, Truck, Star, Shield } from 'lucide-react'
+import QRCodeGenerator from 'qrcode'
 import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
 import PhoneNumberInput from '../components/ui/PhoneNumberInput'
@@ -8,11 +9,16 @@ import { HINCTON_BRAND } from '../utils/hinctonBrand'
 import { isValidE164PhoneNumber } from '../utils/phoneCountries'
 import { useLanguage } from '../contexts/LanguageContext'
 import { getApiHost } from '../services/api'
+import { api } from '../services/api'
 
 const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ onNavigate }) => {
   const [formData, setFormData] = useState({ email: '', password: '', remember: false })
   const [phoneData, setPhoneData] = useState({ phone: '', otp: '' })
-  const [authMode, setAuthMode] = useState<'password' | 'phone'>('password')
+  const [authMode, setAuthMode] = useState<'password' | 'phone' | 'qr'>('password')
+  const [qrImage, setQrImage] = useState('')
+  const [qrSession, setQrSession] = useState<{ id: string; secret: string; expiresAt: string } | null>(null)
+  const [qrError, setQrError] = useState('')
+  const [qrCreating, setQrCreating] = useState(false)
   const [otpRequested, setOtpRequested] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -22,6 +28,42 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
   const { login, requestPhoneOtp, verifyPhoneOtp } = useAuth()
   const navigate = useNavigate()
   const { t } = useLanguage()
+
+  useEffect(() => {
+    if (authMode !== 'qr') return
+    let cancelled = false
+    const start = async () => {
+      setQrCreating(true); setQrError(''); setQrSession(null); setQrImage('')
+      try {
+        const { data } = await api.post('/auth/qr-login/request')
+        if (cancelled) return
+        setQrSession(data)
+        const link = `${window.location.origin}/qr-login?id=${encodeURIComponent(data.id)}`
+        setQrImage(await QRCodeGenerator.toDataURL(link, { width: 220, margin: 2, errorCorrectionLevel: 'H' }))
+      } catch (error: any) {
+        if (!cancelled) {
+          const message = error?.response?.data?.error || 'Secure QR sign-in is unavailable. Check the connection and retry.'
+          setQrError(message); toast.error(message)
+        }
+      } finally { if (!cancelled) setQrCreating(false) }
+    }
+    start()
+    return () => { cancelled = true }
+  }, [authMode])
+
+  useEffect(() => {
+    if (!qrSession || authMode !== 'qr') return
+    const timer = window.setInterval(async () => {
+      try {
+        const { data } = await api.get(`/auth/qr-login/${qrSession.id}/status`, { params: { secret: qrSession.secret } })
+        if (data.status === 'APPROVED' && data.token) {
+          localStorage.setItem('token', data.token); localStorage.setItem('user', JSON.stringify(data.user)); toast.success('Signed in securely.'); navigate(data.user?.role === 'admin' ? '/admin/dashboard' : '/profile'); window.location.reload()
+        }
+        if (data.status === 'EXPIRED') { setQrSession(null); setQrImage(''); toast('QR code expired. Select QR sign-in to make a new one.') }
+      } catch { /* the code may be replaced or temporarily offline */ }
+    }, 2200)
+    return () => window.clearInterval(timer)
+  }, [authMode, navigate, qrSession])
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = event.target
@@ -105,7 +147,7 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
   }
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden">
+    <div className="auth-experience min-h-screen bg-black relative overflow-hidden">
       {/* Blurred Background Image */}
       <div className="absolute inset-0">
         <div
@@ -127,10 +169,10 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
           {/* Card Container */}
           <div className="relative">
             {/* Animated Border Gradient */}
-            <div className="absolute -inset-0.5 rounded-3xl bg-gradient-to-r from-red-600 via-white to-red-600 opacity-25 blur sm:animate-spin" style={{animationDuration: '20s'}} />
+            <div className="auth-halo absolute -inset-0.5 rounded-3xl bg-gradient-to-r from-red-600 via-white to-red-600 opacity-25 blur sm:animate-spin" style={{animationDuration: '20s'}} />
 
             {/* Main Card */}
-            <div className="relative bg-zinc-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-red-600/20 overflow-hidden">
+            <div className="auth-card relative bg-zinc-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-red-600/20 overflow-hidden">
               <div className="grid lg:grid-cols-2">
                 {/* Left Side - Decorative */}
                 <div className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden">
@@ -206,6 +248,7 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                         {t('login.password')}
                       </span>
                     </button>
+                    <button onClick={() => setAuthMode('qr')} className={`relative flex-1 py-3 px-4 rounded-xl transition-all duration-300 ${authMode === 'qr' ? 'bg-gradient-to-r from-red-600 to-red-700 text-white' : 'text-gray-400 hover:text-white'}`}><span className="font-semibold flex items-center justify-center gap-2"><QrCode className="w-4 h-4" /> QR</span></button>
                     <button
                       onClick={() => setAuthMode('phone')}
                       className={`relative flex-1 py-3 px-6 rounded-xl transition-all duration-300 ${
@@ -223,9 +266,9 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                   <div className="mb-8">
                     <h1 className="text-3xl font-bold text-white mb-2">{t('login.welcomeBack')}</h1>
                     <p className="text-gray-400">
-                      {authMode === 'password'
+                    {authMode === 'password'
                         ? t('login.signInDescription')
-                        : t('login.phoneOtpDescription')}
+                        : authMode === 'phone' ? t('login.phoneOtpDescription') : 'Scan with a phone already signed in to approve this browser.'}
                     </p>
                   </div>
 
@@ -312,7 +355,7 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                         </span>
                       </button>
                     </form>
-                  ) : (
+                  ) : authMode === 'phone' ? (
                     <div className="space-y-5">
                       {!otpRequested ? (
                         <>
@@ -380,7 +423,7 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                         </>
                       )}
                     </div>
-                  )}
+                  ) : <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-center"><p className="text-sm font-semibold text-white">Scan to sign in securely</p><p className="mt-1 text-xs leading-5 text-gray-400">Your phone asks for approval. This code expires in three minutes and cannot reveal your password.</p><div className="mx-auto mt-5 w-fit rounded-2xl bg-white p-3">{qrImage ? <img src={qrImage} alt="Secure QR sign-in code" className="h-48 w-48" /> : <div className="grid h-48 w-48 place-items-center rounded-xl bg-gray-100 text-center text-sm font-semibold text-gray-500">{qrCreating ? <span><Loader2 className="mx-auto mb-2 h-7 w-7 animate-spin text-red-600" />Verifying connection…</span> : <QrCode className="h-10 w-10" />}</div>}</div>{qrError ? <div className="mt-4 rounded-xl border border-red-400/40 bg-red-950/40 p-3 text-sm text-red-100"><p>{qrError}</p><button type="button" onClick={() => setAuthMode('password')} className="mt-2 font-bold underline">Try again</button></div> : <p className="mt-4 text-xs font-medium text-gray-400">{qrSession ? `Protected code ready · expires at ${new Date(qrSession.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Creating and verifying protected code…'}</p>}</div>}
 
                   {/* Divider */}
                   <div className="relative my-6">

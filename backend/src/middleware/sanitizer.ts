@@ -32,6 +32,24 @@ const sanitizeObject = (obj: any): any => {
   return sanitized
 }
 
+// Reject prototype-pollution and operator-injection keys before application code
+// or an ORM sees them. Values remain untouched so product descriptions and search
+// terms are not corrupted by over-aggressive filtering.
+const hasUnsafeKeys = (value: unknown): boolean => {
+  if (Array.isArray(value)) return value.some(hasUnsafeKeys)
+  if (!value || typeof value !== 'object') return false
+  return Object.entries(value as Record<string, unknown>).some(([key, nested]) =>
+    key === '__proto__' || key === 'prototype' || key === 'constructor' || key.startsWith('$') || hasUnsafeKeys(nested)
+  )
+}
+
+export const rejectUnsafeKeys = (req: Request, res: Response, next: NextFunction) => {
+  if (hasUnsafeKeys(req.body) || hasUnsafeKeys(req.query) || hasUnsafeKeys(req.params)) {
+    return res.status(400).json({ success: false, error: 'INVALID_INPUT', message: 'Unsafe request data was blocked' })
+  }
+  next()
+}
+
 // XSS protection (lightweight)
 export const sanitizeInput = (req: Request, res: Response, next: NextFunction) => {
   if (req.body) req.body = sanitizeObject(req.body)
@@ -148,5 +166,4 @@ export const preventNoSqlInjection = (req: Request, res: Response, next: NextFun
 }
 
 // Combined security middleware
-export const securityMiddleware = [sanitizeInput, preventSqlInjection, preventNoSqlInjection]
-
+export const securityMiddleware = [rejectUnsafeKeys, sanitizeInput, preventSqlInjection, preventNoSqlInjection]

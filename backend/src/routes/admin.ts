@@ -348,6 +348,7 @@ const productPayloadSchema = z.object({
   unit: z.string().optional(),
   isPublished: z.preprocess(parseBoolean, z.boolean().default(true)),
   isFeatured: z.preprocess(parseBoolean, z.boolean().default(false)),
+  isOnSale: z.preprocess(parseBoolean, z.boolean().default(false)),
   existingImages: z.string().optional(),
   existingVideos: z.string().optional(),
 })
@@ -373,6 +374,7 @@ const serializeProduct = (product: any) => {
     videos: product.productVideos?.map((video: any) => video.url) || [],
     averageRating,
     reviewCount: reviewCount || Number(product.totalReviews || 0),
+    isOnSale: Boolean(product.isOnSale),
   }
 }
 
@@ -1006,6 +1008,7 @@ router.post('/products/bulk-upload', productImageUpload.array('files', 100), asy
             weightUnit: productData.unit,
             isPublished: productData.isPublished,
             isFeatured: productData.isFeatured,
+            isOnSale: productData.isOnSale,
             categoryId: productData.categoryId,
             createdAt: new Date()
           }
@@ -1059,6 +1062,7 @@ router.get('/products/bulk-export', async (req, res) => {
       unit: p.weightUnit,
       isPublished: p.isPublished,
       isFeatured: p.isFeatured,
+      isOnSale: p.isOnSale,
       image: p.productImages[0]?.url,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt
@@ -1129,6 +1133,7 @@ router.post('/products', productImageUpload.fields([{ name: 'images', maxCount: 
         weightUnit: data.unit,
         isPublished: data.isPublished,
         isFeatured: data.isFeatured,
+        isOnSale: data.isOnSale,
         publishedAt: data.isPublished ? new Date() : null,
         productImages: {
           create: imageUrls.map((url, index) => ({ url, sortOrder: index, isPrimary: index === 0 })),
@@ -1182,6 +1187,7 @@ router.put('/products/:id', productImageUpload.fields([{ name: 'images', maxCoun
         weightUnit: data.unit,
         isPublished: data.isPublished,
         isFeatured: data.isFeatured,
+        isOnSale: data.isOnSale,
         publishedAt: data.isPublished ? (existing.publishedAt || new Date()) : null,
         productImages: {
           deleteMany: {},

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, Smartphone, Truck, User, MapPin } from 'lucide-react';
+import { CreditCard, Smartphone, Truck, User, MapPin, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatPrice } from '../utils/currency';
 import { cartApi, ordersApi, paymentsApi } from '../services/buyerApi';
@@ -362,11 +362,11 @@ const CheckoutPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="ambient-page min-h-screen bg-gray-50 py-8 sm:py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {showMpesaConfirmationModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8">
-            <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white p-6 shadow-2xl shadow-black/20">
+            <div className="gravity-panel w-full max-w-md rounded-3xl border border-white/70 bg-white/90 p-6 shadow-2xl shadow-black/20">
               <div className="flex flex-col items-center gap-4 text-center">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-50 text-green-600">
                   <Smartphone className="h-8 w-8" />
@@ -382,11 +382,17 @@ const CheckoutPage: React.FC = () => {
             </div>
           </div>
         )}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">{t('checkout.title')}</h1>
-          <p className="mt-2 text-gray-600">{t('checkout.completeOrder')}</p>
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900">
-            {deliveryPromise} ({commerceSettings?.shipping?.insulatedBoxText || t('checkout.deliveredColdInsulatedBox')})
+        <div className="gravity-panel relative mb-8 overflow-hidden rounded-3xl bg-white/75 p-6 sm:p-8">
+          <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-red-300/30 blur-3xl" aria-hidden="true" />
+          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-bold uppercase tracking-[.14em] text-red-700"><ShieldCheck className="h-4 w-4" /> Secure checkout</div>
+              <h1 className="text-3xl font-extrabold tracking-tight text-gray-950 sm:text-4xl">{t('checkout.title')}</h1>
+              <p className="mt-2 text-gray-600">{t('checkout.completeOrder')}</p>
+            </div>
+            <div className="rounded-2xl border border-red-100 bg-white/80 px-4 py-3 text-sm font-semibold text-red-900 shadow-sm sm:max-w-sm">
+              {deliveryPromise} ({commerceSettings?.shipping?.insulatedBoxText || t('checkout.deliveredColdInsulatedBox')})
+            </div>
           </div>
         </div>
 
@@ -394,7 +400,7 @@ const CheckoutPage: React.FC = () => {
           {/* Checkout Form */}
           <div className="lg:col-span-2 space-y-6">
             {/* Contact Information */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="gravity-panel rounded-3xl bg-white/80 p-6 sm:p-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
                 <User className="h-5 w-5 mr-2" />
                 {t('checkout.contactInfo')}
@@ -454,7 +460,7 @@ const CheckoutPage: React.FC = () => {
             </div>
 
             {/* Delivery Address */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="gravity-panel rounded-3xl bg-white/80 p-6 sm:p-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
                 <MapPin className="h-5 w-5 mr-2" />
                 {t('checkout.deliveryAddress')}
@@ -476,7 +482,7 @@ const CheckoutPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={useCurrentLocation}
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700"
+                    className="mt-3 inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-red-600/20 transition hover:-translate-y-0.5 hover:bg-red-700"
                   >
                     <MapPin className="h-4 w-4" />
                     {t('checkout.pinCurrentLocation')}
@@ -524,7 +530,7 @@ const CheckoutPage: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   />
                 </div>
-                <div className="md:col-span-2 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                <div className="md:col-span-2 overflow-hidden rounded-2xl border border-white/80 bg-gray-50 shadow-inner">
                   {deliveryMapSrc ? (
                     <div>
                       <iframe
@@ -552,11 +558,11 @@ const CheckoutPage: React.FC = () => {
             </div>
 
             {/* Payment Method */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="gravity-panel rounded-3xl bg-white/80 p-6 sm:p-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('checkout.paymentMethod')}</h2>
               
               <div className="space-y-3">
-                <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                <label className="gravity-card flex items-center border-2 border-green-200 bg-green-50/60 p-4 rounded-2xl cursor-pointer">
                   <input
                     type="radio"
                     name="paymentMethod"
@@ -569,20 +575,12 @@ const CheckoutPage: React.FC = () => {
                   <span className="font-medium">{t('checkout.mpesa')}</span>
                 </label>
                 
-                <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="card"
-                    checked={formData.paymentMethod === 'card'}
-                    onChange={handleInputChange}
-                    className="mr-3"
-                  />
+                <div className="flex items-center border border-gray-200 bg-gray-50 p-4 rounded-2xl opacity-75">
                   <CreditCard className="h-5 w-5 mr-2 text-blue-600" />
-                  <span className="font-medium">{t('checkout.creditDebitCard')}</span>
-                </label>
+                  <div><span className="font-medium text-gray-700">{t('checkout.creditDebitCard')}</span><p className="mt-0.5 text-xs text-gray-500">Coming soon — card details are not collected until a certified payment gateway is connected.</p></div>
+                </div>
                 
-                <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                <label className="gravity-card flex items-center border border-gray-300 bg-white/60 p-4 rounded-2xl cursor-pointer">
                   <input
                     type="radio"
                     name="paymentMethod"
@@ -597,7 +595,7 @@ const CheckoutPage: React.FC = () => {
               </div>
 
               {formData.paymentMethod === 'mpesa' && (
-                <div className="mt-5">
+                <div className="mt-5 rounded-2xl border border-green-100 bg-green-50/50 p-4">
                   <PhoneNumberInput
                     id="mpesaPhone"
                     label={`${t('checkout.mpesa')} ${t('checkout.phone')} *`}
@@ -605,6 +603,7 @@ const CheckoutPage: React.FC = () => {
                     onChange={(value) => setFormData((current) => ({ ...current, mpesaPhone: value }))}
                     required
                   />
+                  <p className="mt-3 text-xs leading-5 text-green-800">A secure M-Pesa prompt is sent to this number. Hincton never asks for your M-Pesa PIN.</p>
                 </div>
               )}
 
@@ -613,7 +612,7 @@ const CheckoutPage: React.FC = () => {
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-4">
+            <div className="gravity-panel sticky top-4 rounded-3xl bg-white/85 p-6 shadow-xl shadow-stone-900/5">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('checkout.orderSummary')}</h2>
               {paymentNotification && (
                 <div className={`mb-4 rounded-lg border p-4 text-sm ${
@@ -664,7 +663,7 @@ const CheckoutPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={processing}
-                className="w-full bg-red-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full rounded-2xl bg-red-600 px-6 py-3.5 font-semibold text-white shadow-lg shadow-red-600/25 transition hover:-translate-y-0.5 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {processing ? t('checkout.processing') : t('checkout.placeOrder')}
               </button>

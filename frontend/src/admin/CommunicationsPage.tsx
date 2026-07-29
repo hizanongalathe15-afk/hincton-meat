@@ -163,7 +163,7 @@ const CommunicationsPage = () => {
   }, [])
 
   useEffect(() => {
-    const socket = io(getApiHost(), { withCredentials: true })
+    const socket = io(getApiHost(), { withCredentials: true, auth: { token: localStorage.getItem('token') } })
     socketRef.current = socket
 
     socket.on('connect', () => {

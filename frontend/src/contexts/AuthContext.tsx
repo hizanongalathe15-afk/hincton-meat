@@ -78,8 +78,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!user?.id) return undefined
 
-    const socket: Socket = io(getApiHost(), { withCredentials: true })
-    socket.emit('presence:join', { userId: user.id })
+    const socket: Socket = io(getApiHost(), { withCredentials: true, auth: { token: localStorage.getItem('token') } })
+    socket.emit('presence:join')
     socket.on('account:password-changed', (payload: { currentSessionId?: string; message?: string }) => {
       if (payload.currentSessionId && payload.currentSessionId === getTokenSessionId()) return
       setPasswordChangedWarning(true)

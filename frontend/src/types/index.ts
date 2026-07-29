@@ -1,8 +1,11 @@
 export interface Product {
   id: string
   name: string
+  slug?: string
   price: number
   originalPrice?: number
+  comparePrice?: number | null
+  discountPercentage?: number
   image: string
   images: string[]
   videos?: string[]
@@ -10,16 +13,24 @@ export interface Product {
   rating: number
   reviews: number
   category: string
+  categoryId?: string
   categorySlug?: string
   inStock: boolean
   stockQuantity?: number
+  flashSaleStockRemaining?: number
+  flashSaleStockAllocated?: number
+  flashSaleStockSold?: number
   lowStockThreshold?: number
   description?: string
   weight?: string
   weightValue?: number
   weightUnit?: string
+  unit?: string
   origin?: string
   sku?: string
+  isOnSale?: boolean
+  isFeatured?: boolean
+  isPublished?: boolean
   nutritionInfo?: {
     calories: number
     protein: number

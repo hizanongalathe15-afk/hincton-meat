@@ -9,8 +9,8 @@ const AboutPage = () => {
   const brand = profile.brand
 
   return (
-    <div className="min-h-screen bg-white">
-      <section className="relative overflow-hidden px-4 py-20 sm:px-6 lg:px-8">
+    <div className="ambient-page min-h-screen bg-white">
+      <section className="gravity-hero relative overflow-hidden px-4 py-20 sm:px-6 lg:px-8">
         <div className="absolute right-0 top-0 hidden h-80 w-48 rounded-bl-[6rem] bg-gray-200 lg:block" />
         <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
           <div>
@@ -22,7 +22,7 @@ const AboutPage = () => {
             <p className="mt-8 max-w-3xl text-xl leading-9 text-gray-700">{profile.companyProfile}</p>
           </div>
           <div className="relative">
-            <div className="overflow-hidden rounded-[4rem] bg-[#9f2f20] p-5">
+            <div className="gravity-float overflow-hidden rounded-[4rem] bg-[#9f2f20] p-5 shadow-2xl">
               <img src={profile.images.about} alt="Fresh beef cuts" className="h-[32rem] w-full rounded-[3rem] object-cover" />
             </div>
           </div>
@@ -36,14 +36,14 @@ const AboutPage = () => {
             <span className="block text-[#9f2f20]">& {t('about.vision')}</span>
           </h2>
           <div className="mt-12 grid gap-8 md:grid-cols-2">
-            <div className="rounded bg-gray-50 p-8">
+            <div className="gravity-card rounded-3xl bg-gray-50 p-8">
               <Award className="h-10 w-10 text-[#9f2f20]" />
               <h3 className="mt-6 text-3xl font-extrabold text-[#9f2f20]">{t('about.mission')}</h3>
               <p className="mt-4 text-lg leading-8 text-gray-700">
                 {profile.mission}
               </p>
             </div>
-            <div className="rounded bg-gray-50 p-8">
+            <div className="gravity-card rounded-3xl bg-gray-50 p-8">
               <Globe2 className="h-10 w-10 text-[#9f2f20]" />
               <h3 className="mt-6 text-3xl font-extrabold text-[#9f2f20]">{t('about.vision')}</h3>
               <p className="mt-4 text-lg leading-8 text-gray-700">

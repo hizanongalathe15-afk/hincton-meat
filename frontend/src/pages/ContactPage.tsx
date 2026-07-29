@@ -63,8 +63,8 @@ const ContactPage = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-white">
-      <section className="relative overflow-hidden bg-[#333437] px-4 py-20 text-white sm:px-6 lg:px-8">
+    <div className="ambient-page min-h-screen bg-white">
+      <section className="gravity-hero relative overflow-hidden bg-[#333437] px-4 py-20 text-white sm:px-6 lg:px-8">
         {page?.video ? (
           <video src={resolveMediaUrl(page.video)} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover opacity-40" />
         ) : page?.image ? (
@@ -92,7 +92,7 @@ const ContactPage = () => {
                 const content = <span className="text-gray-700">{item.value}</span>
 
                 return (
-                  <div key={item.label} className="flex items-start gap-4 rounded bg-gray-50 p-5">
+                  <div key={item.label} className="gravity-card flex items-start gap-4 rounded-2xl bg-gray-50 p-5">
                     <div className="rounded bg-red-100 p-3">
                       <Icon className="h-6 w-6 text-[#9f2f20]" />
                     </div>
@@ -110,7 +110,7 @@ const ContactPage = () => {
                 )
               })}
               {(brand.socialLinks || []).map((link) => (
-                <div key={`${link.label}-${link.url}`} className="flex items-start gap-4 rounded bg-gray-50 p-5">
+                <div key={`${link.label}-${link.url}`} className="gravity-card flex items-start gap-4 rounded-2xl bg-gray-50 p-5">
                   <div className="rounded bg-red-100 p-3">
                     <Instagram className="h-6 w-6 text-[#9f2f20]" />
                   </div>
@@ -123,7 +123,7 @@ const ContactPage = () => {
             </div>
           </div>
 
-          <div className="rounded bg-gray-50 p-6 sm:p-8">
+          <div className="gravity-panel rounded-3xl bg-gray-50/75 p-6 sm:p-8">
             <h2 className="text-3xl font-extrabold text-gray-950">{t('contact.send')}</h2>
 
             {submitStatus === 'success' && (

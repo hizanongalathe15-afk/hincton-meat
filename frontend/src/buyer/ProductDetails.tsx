@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import toast from 'react-hot-toast'
 
 import { 
   ShoppingCart, 
@@ -18,6 +19,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ZoomIn,
+  Share2,
+  Download,
   X,
   Loader2
 } from 'lucide-react'
@@ -90,6 +93,71 @@ const ProductDetails = ({
   ]
   const selectedItem = mediaItems[selectedMedia]
 
+  const productUrl = typeof window === 'undefined' ? '' : window.location.href
+
+  const downloadSelectedImage = () => {
+    if (selectedItem?.type !== 'image') return
+    const link = document.createElement('a')
+    link.href = selectedItem.url
+    link.download = `${product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'product-image'}.jpg`
+    link.target = '_blank'
+    link.rel = 'noopener'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    toast.success('Image download started')
+  }
+
+  const shareSelectedImage = async () => {
+    if (selectedItem?.type !== 'image') return
+    const shareData = { title: product.name, text: `Check out ${product.name} from Hincton Meat Products.`, url: productUrl }
+    const copyProductLink = async () => {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(productUrl)
+      } else {
+        const field = document.createElement('textarea')
+        field.value = productUrl
+        field.style.position = 'fixed'
+        field.style.opacity = '0'
+        document.body.appendChild(field)
+        field.select()
+        document.execCommand('copy')
+        document.body.removeChild(field)
+      }
+      toast.success('Product link copied — paste it in any app or website')
+    }
+
+    if (navigator.share) {
+      try {
+        try {
+          const response = await fetch(selectedItem.url)
+          if (!response.ok) throw new Error('Image unavailable')
+          const image = await response.blob()
+          const extension = image.type.split('/')[1] || 'jpg'
+          const file = new File([image], `${product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'product'}.${extension}`, { type: image.type })
+          if (navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ ...shareData, files: [file] })
+            return
+          }
+        } catch (error) {
+          if ((error as Error).name === 'AbortError') return
+          // Continue with the ordinary system share sheet if file sharing is unavailable.
+        }
+        await navigator.share(shareData)
+        return
+      } catch (error) {
+        if ((error as Error).name === 'AbortError') return
+        // Continue with a reliable copy-and-paste fallback.
+      }
+    }
+
+    try {
+      await copyProductLink()
+    } catch {
+      toast.error('Unable to share or copy this product link')
+    }
+  }
+
 
   const [isAdding, setIsAdding] = useState(false)
   const [activeTab, setActiveTab] = useState<'description' | 'nutrition' | 'storage'>('description')
@@ -120,12 +188,12 @@ const ProductDetails = ({
     : 0
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:py-12">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12">
         {/* Enhanced Media Gallery */}
         <div className="space-y-4">
           {/* Main Media Display */}
-          <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-50 group">
+          <div className="gravity-panel group relative aspect-square overflow-hidden rounded-[2rem] bg-gray-50 shadow-2xl shadow-stone-900/10">
             {mediaItems.length === 0 ? (
               <div className="w-full h-full flex items-center justify-center text-gray-400">No media</div>
             ) : selectedItem?.type === 'image' ? (
@@ -148,7 +216,29 @@ const ProductDetails = ({
 
             
             {/* Media Controls Overlay */}
-            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute right-4 top-4 flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+              {selectedItem?.type === 'image' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={shareSelectedImage}
+                    className="rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70"
+                    aria-label="Share product image"
+                    title="Share image"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={downloadSelectedImage}
+                    className="rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70"
+                    aria-label="Download product image"
+                    title="Download image"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                </>
+              )}
               {selectedItem?.type === 'video' && (
 
                 <button
@@ -180,7 +270,7 @@ const ProductDetails = ({
               onClick={() => setSelectedMedia((selectedMedia - 1 + mediaItems.length) % mediaItems.length)}
               disabled={mediaItems.length === 0}
 
-              className="absolute left-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
+              className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white opacity-100 shadow-lg transition hover:bg-black/70 sm:opacity-0 sm:group-hover:opacity-100"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -188,7 +278,7 @@ const ProductDetails = ({
               onClick={() => setSelectedMedia((selectedMedia + 1) % mediaItems.length)}
               disabled={mediaItems.length === 0}
 
-              className="absolute right-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
+              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white opacity-100 shadow-lg transition hover:bg-black/70 sm:opacity-0 sm:group-hover:opacity-100"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
@@ -213,7 +303,7 @@ const ProductDetails = ({
               <button
                 key={index}
                 onClick={() => setSelectedMedia(index)}
-                className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                className={`h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl border-2 transition-all ${
                   selectedMedia === index ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
@@ -244,7 +334,7 @@ const ProductDetails = ({
           </div>
 
           {/* Media Info */}
-          <div className="text-sm text-gray-600 text-center">
+          <div className="rounded-full bg-white/70 px-4 py-2 text-center text-sm text-gray-600 shadow-sm">
             {selectedItem?.type === 'video' 
               ? 'Click play to watch product video' 
               : 'Click image to zoom in'
@@ -253,18 +343,18 @@ const ProductDetails = ({
         </div>
 
         {/* Product Info */}
-        <div className="space-y-6">
+        <div className="gravity-panel space-y-6 rounded-[2rem] bg-white/70 p-6 sm:p-8">
           {/* Header */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm text-gray-500 uppercase tracking-wide">{product.category}</span>
+              <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold uppercase tracking-[.12em] text-red-700">{product.category}</span>
               {discountPercentage > 0 && (
                 <span className="bg-red-600 text-white px-2 py-1 rounded-md text-xs font-bold">
                   -{discountPercentage}% OFF
                 </span>
               )}
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
+            <h1 className="mb-3 text-3xl font-extrabold tracking-tight text-gray-950 sm:text-4xl">{product.name}</h1>
             
             {/* Rating */}
             <div className="flex items-center gap-4">
@@ -284,8 +374,8 @@ const ProductDetails = ({
           </div>
 
           {/* Price */}
-          <div className="flex items-center gap-4">
-            <span className="text-3xl font-bold text-gray-900">
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-gradient-to-r from-red-50 to-amber-50/70 px-4 py-4">
+            <span className="text-3xl font-extrabold tracking-tight text-gray-950">
               {formatPrice(product.price)}
             </span>
             {product.originalPrice && (
@@ -299,7 +389,7 @@ const ProductDetails = ({
           </div>
 
           {/* Stock Status */}
-          <div className="flex items-center gap-2">
+          <div className={`flex items-center gap-2 rounded-xl px-3 py-2 ${product.inStock ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
             {product.inStock ? (
               <>
                 <Check className="w-5 h-5 text-green-500" />
@@ -317,7 +407,7 @@ const ProductDetails = ({
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               <span className="font-medium">Quantity:</span>
-              <div className="flex items-center border border-gray-300 rounded-lg">
+              <div className="flex items-center overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
                 <button
                   onClick={() => handleQuantityChange(quantity - 1)}
                   disabled={quantity <= 1}
@@ -330,7 +420,7 @@ const ProductDetails = ({
                   type="number"
                   value={quantity}
                   onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
-                  className="w-16 text-center border-x border-gray-300 py-2"
+                  className="w-16 border-x border-gray-200 bg-transparent py-2 text-center font-bold"
                   min="1"
                   max={maxQuantity}
                 />
@@ -352,14 +442,14 @@ const ProductDetails = ({
               <button
                 onClick={handleAddToCart}
                 disabled={!product.inStock || isAdding}
-                className="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 font-medium"
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-red-600 px-6 py-3.5 font-bold text-white shadow-lg shadow-red-600/25 transition hover:-translate-y-0.5 hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-400"
               >
                 {isAdding ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShoppingCart className="w-5 h-5" />}
                 {isAdding ? 'Adding to Cart...' : 'Add to Cart'}
               </button>
               <button
                 onClick={() => onToggleWishlist?.(product.id)}
-                className="p-3 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:bg-red-50"
               >
                 <Heart 
                   className={`w-5 h-5 ${isInWishlist ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} 
@@ -369,22 +459,22 @@ const ProductDetails = ({
           </div>
 
           {/* Features */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-4 border-y border-gray-200">
-            <div className="flex items-center gap-2">
+          <div className="grid grid-cols-1 gap-3 border-y border-gray-200/80 py-5 sm:grid-cols-3">
+            <div className="rounded-2xl bg-white/70 p-3 shadow-sm flex items-center gap-2">
               <Truck className="w-5 h-5 text-gray-600" />
               <div>
                 <div className="font-medium text-sm">Free Delivery</div>
                 <div className="text-xs text-gray-500">On orders over {formatPrice(6500)}</div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="rounded-2xl bg-white/70 p-3 shadow-sm flex items-center gap-2">
               <Shield className="w-5 h-5 text-gray-600" />
               <div>
                 <div className="font-medium text-sm">Quality Guaranteed</div>
                 <div className="text-xs text-gray-500">Premium cuts</div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="rounded-2xl bg-white/70 p-3 shadow-sm flex items-center gap-2">
               <RefreshCw className="w-5 h-5 text-gray-600" />
               <div>
                 <div className="font-medium text-sm">Easy Returns</div>
@@ -394,7 +484,7 @@ const ProductDetails = ({
           </div>
 
           {/* Product Details Tabs */}
-          <div className="space-y-4">
+          <div className="space-y-4 rounded-2xl border border-white/80 bg-white/60 p-4 sm:p-5">
             <div className="flex border-b border-gray-200">
               <button
                 onClick={() => setActiveTab('description')}
@@ -457,19 +547,19 @@ const ProductDetails = ({
 
               {activeTab === 'nutrition' && product.nutritionInfo && (
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="gravity-card rounded-2xl bg-gray-50 p-4">
                     <span className="font-medium">Calories</span>
                     <p className="text-xl font-bold text-gray-900">{product.nutritionInfo.calories}</p>
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="gravity-card rounded-2xl bg-gray-50 p-4">
                     <span className="font-medium">Protein</span>
                     <p className="text-xl font-bold text-gray-900">{product.nutritionInfo.protein}g</p>
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="gravity-card rounded-2xl bg-gray-50 p-4">
                     <span className="font-medium">Fat</span>
                     <p className="text-xl font-bold text-gray-900">{product.nutritionInfo.fat}g</p>
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="gravity-card rounded-2xl bg-gray-50 p-4">
                     <span className="font-medium">Carbs</span>
                     <p className="text-xl font-bold text-gray-900">{product.nutritionInfo.carbs}g</p>
                   </div>
@@ -479,7 +569,7 @@ const ProductDetails = ({
               {activeTab === 'storage' && (
                 <div className="space-y-4">
                   <p className="text-gray-700">{product.storage}</p>
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4">
                     <h4 className="font-medium text-yellow-800 mb-2">Storage Guidelines:</h4>
                     <ul className="list-disc list-inside space-y-1 text-yellow-700">
                       <li>Refrigerate immediately upon receipt</li>

@@ -9,6 +9,8 @@ import { Server } from 'socket.io';
 import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
+import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { prisma } from './config/prisma'
 import { cacheService } from './services/cacheService'
 
@@ -37,12 +39,22 @@ import walletRoutes from './routes/wallet';
 import reviewRoutes from './routes/reviews';
 import userSessionRoutes from './routes/userSessions';
 import analyticsRoutes from './routes/analyticsRoutes';
+import companyRoutes from './routes/companies';
+import featureRoutes from './routes/features';
+import flashSalesRoutes from './routes/flashSales';
 
 import { authenticate, authorize, optionalAuthenticate } from './middleware/auth';
+import { rejectUnsafeKeys } from './middleware/sanitizer';
 
 dotenv.config();
 
+if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32 || process.env.JWT_SECRET === 'your-secret-key')) {
+  throw new Error('A strong JWT_SECRET (at least 32 characters) is required in production.');
+}
+
 const app = express();
+app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false);
+app.set('query parser', 'simple');
 
 let io: Server | null = null;
 let server: any = null;
@@ -104,21 +116,37 @@ prisma.$connect()
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 1000,
+  max: Number(process.env.API_RATE_LIMIT_MAX || 300),
   skip: (req) => {
     return req.method === 'OPTIONS';
   }
 });
 
+const contactLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: Number(process.env.CONTACT_RATE_LIMIT_MAX || 8),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many contact requests. Please try again later.' },
+});
+
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  hsts: process.env.NODE_ENV === 'production' ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
 }));
 app.use(compression({ threshold: 1024 }));
 app.use(limiter);
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use((req, res, next) => {
+  const requestId = req.header('X-Request-Id') || crypto.randomUUID();
+  res.setHeader('X-Request-Id', requestId);
+  next();
+});
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+app.use(rejectUnsafeKeys);
 
 const staticMediaHeaders = (res: express.Response) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
@@ -134,7 +162,7 @@ const contactUpload = multer({
     destination: (_req, _file, cb) => cb(null, contactUploadPath),
     filename: (_req, file, cb) => cb(null, `contact-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`),
   }),
-  limits: { fileSize: 80 * 1024 * 1024, files: 5 },
+  limits: { fileSize: 10 * 1024 * 1024, files: 5 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) return cb(null, true);
     cb(new Error('Only image and video attachments are allowed'));
@@ -176,6 +204,9 @@ app.use('/api/admin/system', authenticate, authorize('ADMIN'), systemMetricsRout
 app.use('/api/ads', adRoutes);
 app.use('/api/marketing', adRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/companies', companyRoutes);
+app.use('/api/features', featureRoutes);
+app.use('/api', optionalAuthenticate, flashSalesRoutes);
 
 const safeJsonParse = <T = any>(value: string | undefined, fallback: T): T => {
   try {
@@ -275,6 +306,19 @@ app.get('/api/content/commerce-settings', async (_req, res) => {
   }
 });
 
+app.get('/api/content/site-theme', async (_req, res) => {
+  const defaults = {
+    primary: '#dc2626', accent: '#f59e0b', page: '#fffaf7', surface: '#ffffff', text: '#1c1917', muted: '#78716c', border: '#e7e5e4', buttonText: '#ffffff', header: '#ffffff', ad: '#fff1f2', success: '#16a34a', info: '#2563eb',
+  }
+  try {
+    const setting = await prisma.systemSetting.findUnique({ where: { key: 'site_theme' } })
+    res.json({ theme: setting ? { ...defaults, ...safeJsonParse(setting.value, {}) } : defaults })
+  } catch (error) {
+    console.error('Public site theme error:', error)
+    res.json({ theme: defaults })
+  }
+})
+
 const getOrCreateContactUser = async (contact: { name: string; email: string; phone?: string | null }) => {
   const email = contact.email.trim().toLowerCase()
   const name = contact.name.trim()
@@ -320,7 +364,7 @@ const getOrCreateContactUser = async (contact: { name: string; email: string; ph
   })
 }
 
-app.post('/api/content/contact/submit', optionalAuthenticate, contactUpload.array('attachments', 5), async (req: any, res) => {
+app.post('/api/content/contact/submit', contactLimiter, optionalAuthenticate, contactUpload.array('attachments', 5), async (req: any, res) => {
   try {
     const body = req.body || {}
     const contactData = {
@@ -411,6 +455,18 @@ app.get('/health', (req, res) => {
 if (io) {
   const onlineUsers = new Map<string, Set<string>>();
 
+  io.use((socket, next) => {
+    const token = typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : '';
+    if (!token) return next();
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'development-only-secret') as { userId?: string };
+      if (decoded.userId) socket.data.userId = decoded.userId;
+    } catch {
+      // Anonymous connections remain allowed for public support; privileged events require a verified token.
+    }
+    next();
+  });
+
   const presenceFor = (lastSeen?: Date | null, connected = false) => {
     if (connected) return 'online';
     if (lastSeen && Date.now() - lastSeen.getTime() <= 15 * 60 * 1000) return 'away';
@@ -420,21 +476,23 @@ if (io) {
   io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
 
-    socket.on('presence:join', async (data: { userId?: string }) => {
-      if (!data?.userId) return;
-      const sockets = onlineUsers.get(data.userId) || new Set<string>();
+    socket.on('presence:join', async () => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId) return;
+      const sockets = onlineUsers.get(userId) || new Set<string>();
       sockets.add(socket.id);
-      onlineUsers.set(data.userId, sockets);
-      socket.join(`user-${data.userId}`);
-      socket.join(`user:${data.userId}`);
+      onlineUsers.set(userId, sockets);
+      socket.join(`user-${userId}`);
+      socket.join(`user:${userId}`);
       await prisma.userSession.updateMany({
-        where: { userId: data.userId, isRevoked: false, expiresAt: { gt: new Date() } },
+        where: { userId, isRevoked: false, expiresAt: { gt: new Date() } },
         data: { lastActivity: new Date() },
       }).catch(() => undefined);
-      io?.emit('presence:update', { userId: data.userId, status: 'online' });
+      io?.emit('presence:update', { userId, status: 'online' });
     });
 
     socket.on('presence:check', async (data: { userIds?: string[] }) => {
+      if (!socket.data.userId) return;
       const ids = Array.isArray(data?.userIds) ? data.userIds.slice(0, 100) : [];
       const sessions = ids.length
         ? await prisma.userSession.findMany({

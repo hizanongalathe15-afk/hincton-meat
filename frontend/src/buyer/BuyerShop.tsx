@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Search } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import ProductCard from './ProductCard'
 import CategoryFilter from './CategoryFilter'
 import { Product } from '../types/index'
@@ -103,7 +103,7 @@ const BuyerShop = ({
   const [products, setProducts] = useState<Product[]>(() => filterProducts(
     readCachedProducts(),
     searchParams.get('category') || '',
-    searchParams.get('q') || '',
+    searchParams.get('q') || searchParams.get('navSearch') || '',
   ))
   const [categories, setCategories] = useState<any[]>([
     { id: '', name: t('shop.allProducts'), count: 0 },
@@ -151,12 +151,14 @@ const BuyerShop = ({
         const currentSort = searchParams.get('sort') || 'featured'
         const currentCategory = searchParams.get('category') || ''
         const currentQuery = searchParams.get('q') || ''
+        const navigationQuery = searchParams.get('navSearch') || ''
+        const filterQuery = currentQuery || navigationQuery
         const apiSort = getApiSortParams(currentSort)
         setSortBy(currentSort)
         setSelectedCategory(currentCategory)
         setSearchQuery(currentQuery)
           const params = {
-            search: currentQuery || undefined,
+            search: filterQuery || undefined,
             category: currentCategory || undefined,
             minPrice: undefined,
             maxPrice: undefined,
@@ -175,7 +177,7 @@ const BuyerShop = ({
         
         const activeProducts = transformedProducts.length
           ? transformedProducts
-          : filterProducts(readCachedProducts(), currentCategory, currentQuery)
+          : filterProducts(readCachedProducts(), currentCategory, filterQuery)
         setProducts(activeProducts)
 
         const backendCategories = (categoriesData.categories || []).map((category: any) => ({
@@ -209,7 +211,8 @@ const BuyerShop = ({
         console.error('Failed to fetch shop data:', error)
         const currentCategory = searchParams.get('category') || ''
         const currentQuery = searchParams.get('q') || ''
-        const visibleProducts = filterProducts(readCachedProducts(), currentCategory, currentQuery)
+        const navigationQuery = searchParams.get('navSearch') || ''
+        const visibleProducts = filterProducts(readCachedProducts(), currentCategory, currentQuery || navigationQuery)
         setProducts(visibleProducts)
         setCategories([
           { id: '', name: t('shop.allProducts'), count: visibleProducts.length },
@@ -231,11 +234,12 @@ const BuyerShop = ({
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || '')
   const [sortBy, setSortBy] = useState('featured')
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
+  const navigationQuery = searchParams.get('navSearch') || ''
 
   // Update filtered products when products change
   useEffect(() => {
-    setFilteredProducts(filterProducts(products, selectedCategory, searchQuery))
-  }, [products, selectedCategory, searchQuery])
+    setFilteredProducts(filterProducts(products, selectedCategory, searchQuery || navigationQuery))
+  }, [products, selectedCategory, searchQuery, navigationQuery])
 
     const handleCategoryChange = (categoryId: string) => {
       setSelectedCategory(categoryId)
@@ -333,9 +337,9 @@ const BuyerShop = ({
   }
 
   return (
-    <div className="bg-gray-50">
+    <div className="ambient-page bg-gray-50">
       {/* Header */}
-      <section className="bg-neutral-950 text-white">
+      <section className="gravity-hero relative overflow-hidden bg-neutral-950 text-white">
         <div className="mx-auto max-w-[1800px] px-4 py-12 sm:px-6 lg:px-8">
           <div className="grid gap-8 lg:grid-cols-[1fr_420px] lg:items-end">
             <div className="max-w-2xl">
@@ -353,6 +357,7 @@ const BuyerShop = ({
                   placeholder={t('shop.searchPlaceholder')}
                   className="min-w-0 flex-1 px-4 py-3 text-gray-950 outline-none"
                 />
+                {searchQuery && <button type="button" onClick={() => { handleSearchChange(''); updateUrl(selectedCategory, '', sortBy) }} className="flex w-11 items-center justify-center text-gray-400 transition hover:text-red-600" aria-label="Clear shop search"><X className="h-5 w-5" /></button>}
                 <span className="flex w-12 items-center justify-center text-gray-500">
                   <Search className="h-5 w-5" />
                 </span>

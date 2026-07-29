@@ -1,9 +1,10 @@
 import { type DragEvent, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Save, Trash2, Upload, X } from 'lucide-react'
+import { Save, Trash2, Upload, X, Copyright, SlidersHorizontal, Wallet, Shield, Gamepad2, SearchCheck, Megaphone } from 'lucide-react'
 import { contentApi, settingsApi } from '../services/adminApi'
 import { defaultSiteProfile, SiteProfile, useSiteContent } from '../contexts/SiteContentContext'
 import { getEmbedVideoUrl, isDirectVideoUrl, resolveMediaUrl } from '../services/api'
+import { buildCopyrightText } from '../utils/copyright'
 
 const toLines = (values: string[]) => values.join('\n')
 const fromLines = (value: string) => value.split('\n').map((line) => line.trim()).filter(Boolean)
@@ -40,6 +41,7 @@ const ContentPage = () => {
   const [categoryDraft, setCategoryDraft] = useState({ name: '', description: '', image: '' })
   const [blogPosts, setBlogPosts] = useState<any[]>([])
   const [blogDraft, setBlogDraft] = useState({ title: '', excerpt: '', content: '', featuredImage: '', category: 'Updates', tags: '', isPublished: true, isFeatured: false })
+  const [seoKeywordDraft, setSeoKeywordDraft] = useState('')
   const pageKeys = ['about', 'farms', 'sustainability', 'contact', 'careers', 'wellness', 'returns', 'blog'] as const
 
   useEffect(() => {
@@ -55,6 +57,27 @@ const ContentPage = () => {
           ...defaultSiteProfile,
           ...saved,
           brand: { ...defaultSiteProfile.brand, ...(saved.brand || {}) },
+          footer: { ...defaultSiteProfile.footer, ...(saved.footer || {}) },
+          featureToggles: { ...defaultSiteProfile.featureToggles, ...(saved.featureToggles || {}) },
+          payments: {
+            bnpl: saved.payments?.bnpl ?? defaultSiteProfile.payments.bnpl,
+            digitalWallets: saved.payments?.digitalWallets ?? defaultSiteProfile.payments.digitalWallets,
+            crypto: saved.payments?.crypto ?? defaultSiteProfile.payments.crypto,
+          },
+          trust: {
+            ...defaultSiteProfile.trust,
+            ...(saved.trust || {}),
+            badges: saved.trust?.badges ?? defaultSiteProfile.trust.badges,
+            sustainability: saved.trust?.sustainability ?? defaultSiteProfile.trust.sustainability,
+          },
+          gamification: {
+            ...defaultSiteProfile.gamification,
+            ...(saved.gamification || {}),
+            loyaltyBadgeThresholds: saved.gamification?.loyaltyBadgeThresholds ?? defaultSiteProfile.gamification.loyaltyBadgeThresholds,
+          },
+          seo: { ...defaultSiteProfile.seo, ...(saved.seo || {}) },
+          newsletter: { ...defaultSiteProfile.newsletter, ...(saved.newsletter || {}) },
+          currencies: saved.currencies ?? defaultSiteProfile.currencies,
           images: { ...defaultSiteProfile.images, ...(saved.images || {}) },
           pages: { ...defaultSiteProfile.pages, ...(saved.pages || {}) },
           markets: saved.markets || defaultSiteProfile.markets,
@@ -113,6 +136,19 @@ const ContentPage = () => {
   const updateImage = (key: keyof SiteProfile['images'], value: string) => {
     setProfile((current) => ({ ...current, images: { ...current.images, [key]: value } }))
   }
+
+  const addHeroSlides = async (files?: FileList | File[] | null) => {
+    const selected = Array.from(files || [])
+    if (!selected.length) return
+    try {
+      const uploads = await Promise.all(selected.map((file) => contentApi.uploadContentImage(file)))
+      const slides = uploads.map((item) => item.url).filter(Boolean).map((image) => ({ image, alt: '' }))
+      setProfile((current) => ({ ...current, heroSlides: [...current.heroSlides, ...slides] }))
+      toast.success(`${slides.length} hero image${slides.length === 1 ? '' : 's'} added`)
+    } catch { toast.error('Could not upload hero images') }
+  }
+
+  const removeHeroSlide = (index: number) => setProfile((current) => ({ ...current, heroSlides: current.heroSlides.filter((_, i) => i !== index) }))
 
   const updatePage = (key: string, field: 'title' | 'subtitle' | 'body' | 'image' | 'video', value: string) => {
     setProfile((current) => ({
@@ -205,6 +241,249 @@ const ContentPage = () => {
 
   const updateAppInfo = (key: keyof SiteProfile['appInfo'], value: string | string[]) => {
     setProfile((current) => ({ ...current, appInfo: { ...current.appInfo, [key]: value } }))
+  }
+
+  const updateFooter = (key: keyof SiteProfile['footer'], value: any) => {
+    setProfile((current) => ({
+      ...current,
+      footer: { ...current.footer, [key]: value },
+    }))
+  }
+
+  const previewCopyright = buildCopyrightText(profile.footer, profile.brand.name)
+
+  const updateFeatureToggle = (key: string, value: boolean | number | string) => {
+    setProfile((current) => ({ ...current, featureToggles: { ...current.featureToggles, [key]: value } }))
+  }
+
+  const updateBnpl = (index: number, key: 'code' | 'label' | 'enabled' | 'description' | 'learnMoreUrl', value: string | boolean) => {
+    setProfile((current) => ({
+      ...current,
+      payments: {
+        ...current.payments,
+        bnpl: current.payments.bnpl.map((item, i) => i === index ? { ...item, [key]: value } : item),
+      },
+    }))
+  }
+
+  const addBnpl = () => {
+    setProfile((current) => ({
+      ...current,
+      payments: {
+        ...current.payments,
+        bnpl: [...current.payments.bnpl, { code: '', label: '', enabled: false, description: '', learnMoreUrl: '' }],
+      },
+    }))
+  }
+
+  const removeBnpl = (index: number) => {
+    setProfile((current) => ({
+      ...current,
+      payments: {
+        ...current.payments,
+        bnpl: current.payments.bnpl.filter((_, i) => i !== index),
+      },
+    }))
+  }
+
+  const updateDigitalWallet = (index: number, key: 'code' | 'label' | 'enabled', value: string | boolean) => {
+    setProfile((current) => ({
+      ...current,
+      payments: {
+        ...current.payments,
+        digitalWallets: current.payments.digitalWallets.map((item, i) => i === index ? { ...item, [key]: value } : item),
+      },
+    }))
+  }
+
+  const addDigitalWallet = () => {
+    setProfile((current) => ({
+      ...current,
+      payments: {
+        ...current.payments,
+        digitalWallets: [...current.payments.digitalWallets, { code: '', label: '', enabled: false }],
+      },
+    }))
+  }
+
+  const removeDigitalWallet = (index: number) => {
+    setProfile((current) => ({
+      ...current,
+      payments: {
+        ...current.payments,
+        digitalWallets: current.payments.digitalWallets.filter((_, i) => i !== index),
+      },
+    }))
+  }
+
+  const updateCrypto = (index: number, key: 'code' | 'label' | 'enabled' | 'walletAddress', value: string | boolean) => {
+    setProfile((current) => ({
+      ...current,
+      payments: {
+        ...current.payments,
+        crypto: current.payments.crypto.map((item, i) => i === index ? { ...item, [key]: value } : item),
+      },
+    }))
+  }
+
+  const addCrypto = () => {
+    setProfile((current) => ({
+      ...current,
+      payments: {
+        ...current.payments,
+        crypto: [...current.payments.crypto, { code: '', label: '', enabled: false, walletAddress: '' }],
+      },
+    }))
+  }
+
+  const removeCrypto = (index: number) => {
+    setProfile((current) => ({
+      ...current,
+      payments: {
+        ...current.payments,
+        crypto: current.payments.crypto.filter((_, i) => i !== index),
+      },
+    }))
+  }
+
+  const updateTrustBadge = (index: number, key: 'code' | 'label' | 'description', value: string) => {
+    setProfile((current) => ({
+      ...current,
+      trust: {
+        ...current.trust,
+        badges: current.trust.badges.map((item, i) => i === index ? { ...item, [key]: value } : item),
+      },
+    }))
+  }
+
+  const addTrustBadge = () => {
+    setProfile((current) => ({
+      ...current,
+      trust: {
+        ...current.trust,
+        badges: [...current.trust.badges, { code: '', label: '', description: '' }],
+      },
+    }))
+  }
+
+  const removeTrustBadge = (index: number) => {
+    setProfile((current) => ({
+      ...current,
+      trust: {
+        ...current.trust,
+        badges: current.trust.badges.filter((_, i) => i !== index),
+      },
+    }))
+  }
+
+  const updateSustainability = (index: number, key: 'code' | 'label' | 'icon', value: string) => {
+    setProfile((current) => ({
+      ...current,
+      trust: {
+        ...current.trust,
+        sustainability: current.trust.sustainability.map((item, i) => i === index ? { ...item, [key]: value } : item),
+      },
+    }))
+  }
+
+  const addSustainability = () => {
+    setProfile((current) => ({
+      ...current,
+      trust: {
+        ...current.trust,
+        sustainability: [...current.trust.sustainability, { code: '', label: '', icon: '' }],
+      },
+    }))
+  }
+
+  const removeSustainability = (index: number) => {
+    setProfile((current) => ({
+      ...current,
+      trust: {
+        ...current.trust,
+        sustainability: current.trust.sustainability.filter((_, i) => i !== index),
+      },
+    }))
+  }
+
+  const updateTrust = (key: 'viewCounterWindowMinutes' | 'recentPurchaseWindowHours' | 'socialProofMode', value: number | string) => {
+    setProfile((current) => ({ ...current, trust: { ...current.trust, [key]: value } }))
+  }
+
+  const updateGamification = (key: 'welcomePoints' | 'pointsPerOrder' | 'pointsPerReview' | 'pointsPerReferral' | 'spinWinDailyLimit', value: number) => {
+    setProfile((current) => ({ ...current, gamification: { ...current.gamification, [key]: value } }))
+  }
+
+  const updateGamificationThreshold = (badgeCode: string, field: string, value: number) => {
+    setProfile((current) => ({
+      ...current,
+      gamification: {
+        ...current.gamification,
+        loyaltyBadgeThresholds: {
+          ...current.gamification.loyaltyBadgeThresholds,
+          [badgeCode]: { ...current.gamification.loyaltyBadgeThresholds[badgeCode], [field]: value },
+        },
+      },
+    }))
+  }
+
+  const updateSeo = (key: 'enableJsonLd' | 'enableBreadcrumbsLd' | 'enableFaqsLd' | 'enableVoiceSearchMeta', value: boolean) => {
+    setProfile((current) => ({ ...current, seo: { ...current.seo, [key]: value } }))
+  }
+
+  const updateSeoKeywordAdd = () => {
+    const keyword = seoKeywordDraft.trim()
+    if (!keyword) return
+    setProfile((current) => ({
+      ...current,
+      seo: {
+        ...current.seo,
+        defaultKeywords: [...current.seo.defaultKeywords, keyword],
+      },
+    }))
+    setSeoKeywordDraft('')
+  }
+
+  const updateSeoKeywordRemove = (index: number) => {
+    setProfile((current) => ({
+      ...current,
+      seo: {
+        ...current.seo,
+        defaultKeywords: current.seo.defaultKeywords.filter((_, i) => i !== index),
+      },
+    }))
+  }
+
+  const updateNewsletter = (key: 'exitIntentEnabled' | 'exitIntentDelayMs' | 'popupTitle' | 'popupSubtitle' | 'footerCta', value: boolean | number | string) => {
+    setProfile((current) => ({ ...current, newsletter: { ...current.newsletter, [key]: value } }))
+  }
+
+  const updateCurrency = (index: number, key: 'code' | 'symbol' | 'label' | 'rate' | 'isDefault', value: string | number | boolean) => {
+    setProfile((current) => ({
+      ...current,
+      currencies: current.currencies.map((item, i) => i === index ? { ...item, [key]: value } : item),
+    }))
+  }
+
+  const addCurrency = () => {
+    setProfile((current) => ({
+      ...current,
+      currencies: [...current.currencies, { code: '', symbol: '', label: '', rate: 1.0, isDefault: false }],
+    }))
+  }
+
+  const removeCurrency = (index: number) => {
+    setProfile((current) => ({
+      ...current,
+      currencies: current.currencies.filter((_, i) => i !== index),
+    }))
+  }
+
+  const setDefaultCurrency = (index: number) => {
+    setProfile((current) => ({
+      ...current,
+      currencies: current.currencies.map((item, i) => ({ ...item, isDefault: i === index })),
+    }))
   }
 
   const addTermsSection = () => {
@@ -493,6 +772,549 @@ const ContentPage = () => {
       </section>
 
       <section className="rounded bg-white p-6 shadow-sm">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-600">
+              <Copyright className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-950">Footer Copyright</h2>
+              <p className="mt-1 text-sm text-gray-600">Configure the company year range and rights notice shown in the website footer.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Live Preview</p>
+          <p className="mt-2 text-sm text-gray-800">{previewCopyright}</p>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">Company Start Year</span>
+            <input
+              type="number"
+              min={1900}
+              max={2999}
+              value={profile.footer.startYear}
+              onChange={(event) => updateFooter('startYear', parseInt(event.target.value, 10) || profile.footer.startYear)}
+              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+            />
+            <span className="mt-1 block text-xs text-gray-500">The year the company was founded. Example: 2018.</span>
+          </label>
+          <label className="flex flex-col justify-between">
+            <span className="text-sm font-medium text-gray-700">Auto-Update End Year</span>
+            <label className="mt-2 inline-flex cursor-pointer items-center gap-3 rounded border border-gray-300 px-4 py-3 hover:bg-gray-50">
+              <input
+                type="checkbox"
+                checked={profile.footer.autoUpdateCurrentYear}
+                onChange={(event) => updateFooter('autoUpdateCurrentYear', event.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+              />
+              <span className="text-sm text-gray-700">
+                Automatically use the current year as the end year (recommended).
+              </span>
+            </label>
+          </label>
+          {!profile.footer.autoUpdateCurrentYear && (
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Custom End Year</span>
+              <input
+                type="number"
+                min={1900}
+                max={2999}
+                value={profile.footer.endYear || ''}
+                onChange={(event) => updateFooter('endYear', event.target.value ? parseInt(event.target.value, 10) : null)}
+                placeholder="Optional end year"
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+              />
+              <span className="mt-1 block text-xs text-gray-500">Only used when Auto-Update is disabled.</span>
+            </label>
+          )}
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">Company Name (Optional Override)</span>
+            <input
+              type="text"
+              value={profile.footer.companyName || ''}
+              onChange={(event) => updateFooter('companyName', event.target.value.trim() ? event.target.value : null)}
+              placeholder={profile.brand.name}
+              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+            />
+            <span className="mt-1 block text-xs text-gray-500">Leave empty to use the brand name: {profile.brand.name}.</span>
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-gray-700">Rights Reserved Text</span>
+            <input
+              type="text"
+              value={profile.footer.allRightsReservedText || ''}
+              onChange={(event) => updateFooter('allRightsReservedText', event.target.value.trim().length ? event.target.value : null)}
+              placeholder="All rights reserved."
+              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+            />
+            <span className="mt-1 block text-xs text-gray-500">Appended after the company name. Leave blank to hide this portion.</span>
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-gray-700">Custom Copyright Line (Optional Override)</span>
+            <textarea
+              value={profile.footer.customCopyrightLine || ''}
+              onChange={(event) => updateFooter('customCopyrightLine', event.target.value.trim().length ? event.target.value : null)}
+              rows={2}
+              placeholder="Example: © 2018-2026 Hincton Meat Products. All rights reserved. Registered in Kenya."
+              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+            />
+            <span className="mt-1 block text-xs text-gray-500">If filled, this line is used verbatim and all other copyright fields are ignored. Use this for unusual legal wording.</span>
+          </label>
+        </div>
+      </section>
+
+      <section className="rounded bg-white p-6 shadow-sm">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-600">
+              <SlidersHorizontal className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-950">Feature Toggles</h2>
+              <p className="mt-1 text-sm text-gray-600">Enable or disable site-wide features in one place.</p>
+            </div>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          {(['quickViewModal', 'wishlistSharing', 'couponAutoApply', 'printableReturnLabel', 'oneClickReorder', 'reviewHelpfulVotes', 'backInStockAlerts', 'lowStockBadge', 'currencySwitcher', 'socialLoginButtons', 'bnplOptions', 'newsletterExitIntent', 'productShareButtons', 'instagramFeed', 'sustainabilityBadges', 'trustBadges', 'livePurchaseNotifications', 'pwaInstallPrompt', 'loyaltyProgram', 'spinToWin', 'arProductTryOn', 'voiceSearchMetadata', 'cryptoPayments', 'abTestingEnabled', 'analyticsTelemetry', 'socialProofViewers', 'subscriptionPlans', 'carbonNeutralClaims'] as const).map((key) => (
+            <label key={key} className="flex items-start gap-3 rounded border border-gray-200 p-3">
+              <input
+                type="checkbox"
+                checked={Boolean(profile.featureToggles[key])}
+                onChange={(event) => updateFeatureToggle(key, event.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+              />
+              <div className="flex-1">
+                <span className="text-sm font-medium capitalize text-gray-700">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+              </div>
+            </label>
+          ))}
+          <label className="flex items-start gap-3 rounded border border-gray-200 p-3 md:col-span-1">
+            <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+              <span className="h-2 w-2 rounded-full bg-gray-300" />
+            </div>
+            <div className="flex-1">
+              <span className="text-sm font-medium capitalize text-gray-700">Low Stock Threshold</span>
+              <input
+                type="number"
+                value={Number(profile.featureToggles.lowStockThreshold)}
+                onChange={(event) => updateFeatureToggle('lowStockThreshold', parseInt(event.target.value, 10) || 0)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+          </label>
+          <label className="flex items-start gap-3 rounded border border-gray-200 p-3 md:col-span-2">
+            <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+              <span className="h-2 w-2 rounded-full bg-gray-300" />
+            </div>
+            <div className="flex-1">
+              <span className="text-sm font-medium text-gray-700">Instagram Feed Handle</span>
+              <input
+                type="text"
+                value={String(profile.featureToggles.instagramFeedHandle || '')}
+                onChange={(event) => updateFeatureToggle('instagramFeedHandle', event.target.value)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+          </label>
+        </div>
+      </section>
+
+      <section className="rounded bg-white p-6 shadow-sm">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-600">
+              <Wallet className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-950">Payment Options & Wallets</h2>
+              <p className="mt-1 text-sm text-gray-600">Configure BNPL providers, digital wallets, and crypto currencies.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-6">
+          <div className="rounded-xl border border-gray-200 p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900">BNPL Providers</h3>
+              <button type="button" onClick={addBnpl} className="rounded bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Add BNPL</button>
+            </div>
+            <div className="space-y-3">
+              {profile.payments.bnpl.map((item, index) => (
+                <div key={index} className="grid gap-3 md:grid-cols-[10rem_14rem_auto_1fr_1fr_auto] items-center">
+                  <input value={item.code} onChange={(event) => updateBnpl(index, 'code', event.target.value)} placeholder="CODE" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <input value={item.label} onChange={(event) => updateBnpl(index, 'label', event.target.value)} placeholder="Label" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <label className="inline-flex items-center gap-2 px-2">
+                    <input type="checkbox" checked={item.enabled} onChange={(event) => updateBnpl(index, 'enabled', event.target.checked)} className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500" />
+                    <span className="text-sm font-medium text-gray-700">Enabled</span>
+                  </label>
+                  <input value={item.description || ''} onChange={(event) => updateBnpl(index, 'description', event.target.value)} placeholder="Description" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <input value={item.learnMoreUrl || ''} onChange={(event) => updateBnpl(index, 'learnMoreUrl', event.target.value)} placeholder="Learn more URL" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <button type="button" onClick={() => removeBnpl(index)} className="rounded border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Remove</button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900">Digital Wallets</h3>
+              <button type="button" onClick={addDigitalWallet} className="rounded bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Add Wallet</button>
+            </div>
+            <div className="space-y-3">
+              {profile.payments.digitalWallets.map((item, index) => (
+                <div key={index} className="grid gap-3 md:grid-cols-[10rem_1fr_auto_auto] items-center">
+                  <input value={item.code} onChange={(event) => updateDigitalWallet(index, 'code', event.target.value)} placeholder="CODE" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <input value={item.label} onChange={(event) => updateDigitalWallet(index, 'label', event.target.value)} placeholder="Label" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <label className="inline-flex items-center gap-2 px-2">
+                    <input type="checkbox" checked={item.enabled} onChange={(event) => updateDigitalWallet(index, 'enabled', event.target.checked)} className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500" />
+                    <span className="text-sm font-medium text-gray-700">Enabled</span>
+                  </label>
+                  <button type="button" onClick={() => removeDigitalWallet(index)} className="rounded border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Remove</button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900">Crypto Currencies</h3>
+              <button type="button" onClick={addCrypto} className="rounded bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Add Crypto</button>
+            </div>
+            <div className="space-y-3">
+              {profile.payments.crypto.map((item, index) => (
+                <div key={index} className="grid gap-3 md:grid-cols-[10rem_14rem_auto_1fr_auto] items-center">
+                  <input value={item.code} onChange={(event) => updateCrypto(index, 'code', event.target.value)} placeholder="CODE" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <input value={item.label} onChange={(event) => updateCrypto(index, 'label', event.target.value)} placeholder="Label" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <label className="inline-flex items-center gap-2 px-2">
+                    <input type="checkbox" checked={item.enabled} onChange={(event) => updateCrypto(index, 'enabled', event.target.checked)} className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500" />
+                    <span className="text-sm font-medium text-gray-700">Enabled</span>
+                  </label>
+                  <input value={item.walletAddress || ''} onChange={(event) => updateCrypto(index, 'walletAddress', event.target.value)} placeholder="Wallet address" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <button type="button" onClick={() => removeCrypto(index)} className="rounded border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Remove</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded bg-white p-6 shadow-sm">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-600">
+              <Shield className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-950">Trust & Sustainability</h2>
+              <p className="mt-1 text-sm text-gray-600">Trust badges, sustainability claims, and social proof tuning.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-6">
+          <div className="rounded-xl border border-gray-200 p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900">Trust Badges</h3>
+              <button type="button" onClick={addTrustBadge} className="rounded bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Add Badge</button>
+            </div>
+            <div className="space-y-3">
+              {profile.trust.badges.map((item, index) => (
+                <div key={index} className="grid gap-3 md:grid-cols-[10rem_14rem_1fr_auto] items-center">
+                  <input value={item.code} onChange={(event) => updateTrustBadge(index, 'code', event.target.value)} placeholder="CODE" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <input value={item.label} onChange={(event) => updateTrustBadge(index, 'label', event.target.value)} placeholder="Label" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <input value={item.description || ''} onChange={(event) => updateTrustBadge(index, 'description', event.target.value)} placeholder="Description" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <button type="button" onClick={() => removeTrustBadge(index)} className="rounded border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Remove</button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900">Sustainability Badges</h3>
+              <button type="button" onClick={addSustainability} className="rounded bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Add Badge</button>
+            </div>
+            <div className="space-y-3">
+              {profile.trust.sustainability.map((item, index) => (
+                <div key={index} className="grid gap-3 md:grid-cols-[10rem_1fr_10rem_auto] items-center">
+                  <input value={item.code} onChange={(event) => updateSustainability(index, 'code', event.target.value)} placeholder="CODE" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <input value={item.label} onChange={(event) => updateSustainability(index, 'label', event.target.value)} placeholder="Label" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <input value={item.icon || ''} onChange={(event) => updateSustainability(index, 'icon', event.target.value)} placeholder="Icon" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <button type="button" onClick={() => removeSustainability(index)} className="rounded border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Remove</button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 p-4">
+            <h3 className="mb-4 text-sm font-bold text-gray-900">Social Proof Tuning</h3>
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">View Counter Window (minutes)</span>
+                <input
+                  type="number"
+                  value={profile.trust.viewCounterWindowMinutes}
+                  onChange={(event) => updateTrust('viewCounterWindowMinutes', parseInt(event.target.value, 10) || 0)}
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">Recent Purchase Window (hours)</span>
+                <input
+                  type="number"
+                  value={profile.trust.recentPurchaseWindowHours}
+                  onChange={(event) => updateTrust('recentPurchaseWindowHours', parseInt(event.target.value, 10) || 0)}
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">Social Proof Mode</span>
+                <select
+                  value={profile.trust.socialProofMode}
+                  onChange={(event) => updateTrust('socialProofMode', event.target.value)}
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                >
+                  <option value="REAL_ONLY">REAL_ONLY</option>
+                  <option value="REAL_FALLBACK_SIMULATED">REAL_FALLBACK_SIMULATED</option>
+                  <option value="SIMULATED_ONLY">SIMULATED_ONLY</option>
+                  <option value="OFF">OFF</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded bg-white p-6 shadow-sm">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-600">
+              <Gamepad2 className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-950">Loyalty & Gamification</h2>
+              <p className="mt-1 text-sm text-gray-600">Reward points and loyalty badge thresholds.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-5">
+          {(['welcomePoints', 'pointsPerOrder', 'pointsPerReview', 'pointsPerReferral', 'spinWinDailyLimit'] as const).map((key) => (
+            <label key={key} className="block">
+              <span className="text-sm font-medium capitalize text-gray-700">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+              <input
+                type="number"
+                value={profile.gamification[key]}
+                onChange={(event) => updateGamification(key, parseInt(event.target.value, 10) || 0)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+              />
+            </label>
+          ))}
+        </div>
+
+        <div className="mt-6 rounded-xl border border-gray-200 p-4">
+          <h3 className="mb-4 text-sm font-bold text-gray-900">Loyalty Badge Thresholds</h3>
+          <div className="grid gap-4 md:grid-cols-5">
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">FIRST_ORDER (Required Orders)</span>
+              <input
+                type="number"
+                value={profile.gamification.loyaltyBadgeThresholds.FIRST_ORDER?.requiredOrders ?? 1}
+                onChange={(event) => updateGamificationThreshold('FIRST_ORDER', 'requiredOrders', parseInt(event.target.value, 10) || 0)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">FREQUENT_BUYER (Required Orders)</span>
+              <input
+                type="number"
+                value={profile.gamification.loyaltyBadgeThresholds.FREQUENT_BUYER?.requiredOrders ?? 5}
+                onChange={(event) => updateGamificationThreshold('FREQUENT_BUYER', 'requiredOrders', parseInt(event.target.value, 10) || 0)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">REVIEWER (Required Reviews)</span>
+              <input
+                type="number"
+                value={profile.gamification.loyaltyBadgeThresholds.REVIEWER?.requiredReviews ?? 3}
+                onChange={(event) => updateGamificationThreshold('REVIEWER', 'requiredReviews', parseInt(event.target.value, 10) || 0)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">AMBASSADOR (Required Orders)</span>
+              <input
+                type="number"
+                value={profile.gamification.loyaltyBadgeThresholds.AMBASSADOR?.requiredOrders ?? 20}
+                onChange={(event) => updateGamificationThreshold('AMBASSADOR', 'requiredOrders', parseInt(event.target.value, 10) || 0)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">TOP_CUSTOMER (Required Spent)</span>
+              <input
+                type="number"
+                value={profile.gamification.loyaltyBadgeThresholds.TOP_CUSTOMER?.requiredSpent ?? 100000}
+                onChange={(event) => updateGamificationThreshold('TOP_CUSTOMER', 'requiredSpent', parseInt(event.target.value, 10) || 0)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+              />
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded bg-white p-6 shadow-sm">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-600">
+              <SearchCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-950">SEO & Voice Search</h2>
+              <p className="mt-1 text-sm text-gray-600">Structured data, breadcrumbs, FAQ schema, and default SEO keywords.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-4">
+          {(['enableJsonLd', 'enableBreadcrumbsLd', 'enableFaqsLd', 'enableVoiceSearchMeta'] as const).map((key) => (
+            <label key={key} className="flex items-center gap-3 rounded border border-gray-200 p-3">
+              <input
+                type="checkbox"
+                checked={profile.seo[key]}
+                onChange={(event) => updateSeo(key, event.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+              />
+              <span className="text-sm font-medium capitalize text-gray-700">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+            </label>
+          ))}
+        </div>
+
+        <div className="mt-6 rounded-xl border border-gray-200 p-4">
+          <h3 className="mb-4 text-sm font-bold text-gray-900">Default Keywords</h3>
+          <div className="mb-3 flex gap-3">
+            <input
+              value={seoKeywordDraft}
+              onChange={(event) => setSeoKeywordDraft(event.target.value)}
+              placeholder="Add keyword"
+              onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); updateSeoKeywordAdd(); } }}
+              className="flex-1 rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+            />
+            <button type="button" onClick={updateSeoKeywordAdd} className="rounded bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Add Keyword</button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {profile.seo.defaultKeywords.map((keyword, index) => (
+              <div key={index} className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-sm">
+                <span className="text-gray-700">{keyword}</span>
+                <button type="button" onClick={() => updateSeoKeywordRemove(index)} className="text-gray-500 hover:text-red-600">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+            {!profile.seo.defaultKeywords.length && <span className="text-sm text-gray-500">No keywords yet.</span>}
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded bg-white p-6 shadow-sm">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-600">
+              <Megaphone className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-950">Newsletter & Currencies</h2>
+              <p className="mt-1 text-sm text-gray-600">Popup configuration and multi-currency setup.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-6">
+          <div className="rounded-xl border border-gray-200 p-4">
+            <h3 className="mb-4 text-sm font-bold text-gray-900">Newsletter Popup</h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="flex items-center gap-3 rounded border border-gray-200 p-3 md:col-span-1">
+                <input
+                  type="checkbox"
+                  checked={profile.newsletter.exitIntentEnabled}
+                  onChange={(event) => updateNewsletter('exitIntentEnabled', event.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Exit Intent Enabled</span>
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">Exit Intent Delay (ms)</span>
+                <input
+                  type="number"
+                  value={profile.newsletter.exitIntentDelayMs}
+                  onChange={(event) => updateNewsletter('exitIntentDelayMs', parseInt(event.target.value, 10) || 0)}
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">Popup Title</span>
+                <input
+                  type="text"
+                  value={profile.newsletter.popupTitle}
+                  onChange={(event) => updateNewsletter('popupTitle', event.target.value)}
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">Popup Subtitle</span>
+                <input
+                  type="text"
+                  value={profile.newsletter.popupSubtitle}
+                  onChange={(event) => updateNewsletter('popupSubtitle', event.target.value)}
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                />
+              </label>
+              <label className="block md:col-span-2">
+                <span className="text-sm font-medium text-gray-700">Footer CTA</span>
+                <textarea
+                  value={profile.newsletter.footerCta}
+                  onChange={(event) => updateNewsletter('footerCta', event.target.value)}
+                  rows={3}
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900">Currencies</h3>
+              <button type="button" onClick={addCurrency} className="rounded bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Add Currency</button>
+            </div>
+            <div className="space-y-3">
+              {profile.currencies.map((item, index) => (
+                <div key={index} className="grid gap-3 md:grid-cols-[8rem_6rem_1fr_auto_auto_auto] items-center">
+                  <input value={item.code} onChange={(event) => updateCurrency(index, 'code', event.target.value)} placeholder="CODE" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <input value={item.symbol} onChange={(event) => updateCurrency(index, 'symbol', event.target.value)} placeholder="KSh" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <input value={item.label} onChange={(event) => updateCurrency(index, 'label', event.target.value)} placeholder="Label" className="rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <input type="number" step="any" value={item.rate} onChange={(event) => updateCurrency(index, 'rate', parseFloat(event.target.value) || 0)} placeholder="Rate" className="w-32 rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
+                  <label className="inline-flex items-center gap-2 px-2">
+                    <input type="radio" name="defaultCurrency" checked={item.isDefault} onChange={() => setDefaultCurrency(index)} className="h-4 w-4 border-gray-300 text-red-600 focus:ring-red-500" />
+                    <span className="text-sm font-medium text-gray-700">Default</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setDefaultCurrency(index)} className="rounded bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Set Default</button>
+                    <button type="button" onClick={() => removeCurrency(index)} className="rounded border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Remove</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded bg-white p-6 shadow-sm">
         <h2 className="text-lg font-bold text-gray-950">Product Categories</h2>
         <p className="mt-1 text-sm text-gray-600">Categories are not fixed to meat. Add anything the business sells: utensils, cars, services, bundles, or future product lines.</p>
         <div className="mt-5 grid gap-3 md:grid-cols-[14rem_1fr_1fr_auto_auto]">
@@ -759,6 +1581,19 @@ const ContentPage = () => {
             <span className="text-sm font-medium text-gray-700">Quality points, one per line</span>
             <textarea value={qualityText} onChange={(event) => setQualityText(event.target.value)} rows={4} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500" />
           </label>
+        </div>
+      </section>
+
+      <section className="rounded bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-gray-950">Home Hero Carousel</h2>
+        <p className="mt-1 text-sm text-gray-600">Add as many images as you need. They will automatically move across the home hero; visitors can also select a slide.</p>
+        <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); addHeroSlides(event.dataTransfer.files) }} className="mt-4 rounded-xl border-2 border-dashed border-red-100 bg-red-50/40 p-5 text-center">
+          <Upload className="mx-auto h-5 w-5 text-red-600" />
+          <p className="mt-2 text-sm font-semibold text-gray-800">Drop hero images here or choose files</p>
+          <input type="file" accept="image/*" multiple onChange={(event) => addHeroSlides(event.target.files)} className="mt-2 text-sm" />
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {profile.heroSlides.map((slide, index) => <div key={`${slide.image}-${index}`} className="relative overflow-hidden rounded-xl border border-gray-200"><img src={resolveMediaUrl(slide.image)} alt="Hero slide" className="h-24 w-full object-cover" /><button type="button" onClick={() => removeHeroSlide(index)} className="absolute right-2 top-2 rounded-full bg-white p-1 text-red-600 shadow"><X className="h-4 w-4" /></button><input value={slide.alt || ''} onChange={(event) => setProfile((current) => ({ ...current, heroSlides: current.heroSlides.map((item, i) => i === index ? { ...item, alt: event.target.value } : item) }))} placeholder="Image description" className="w-full px-2 py-2 text-xs" /></div>)}
         </div>
       </section>
 

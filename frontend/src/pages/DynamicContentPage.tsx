@@ -30,8 +30,8 @@ const DynamicContentPage = ({ pageKey }: DynamicContentPageProps) => {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <section className="relative overflow-hidden bg-gray-950 px-4 py-20 text-white sm:px-6 lg:px-8">
+    <div className="ambient-page min-h-screen bg-white">
+      <section className="gravity-hero relative overflow-hidden bg-gray-950 px-4 py-20 text-white sm:px-6 lg:px-8">
         {page.video ? (
           renderVideo(page.video, page.title, 'absolute inset-0 h-full w-full object-cover opacity-45')
         ) : page.image ? (
@@ -51,7 +51,7 @@ const DynamicContentPage = ({ pageKey }: DynamicContentPageProps) => {
 
           <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {(page.sections || []).map((section, index) => (
-              <article key={`${section.title}-${index}`} className="overflow-hidden rounded bg-white shadow-sm ring-1 ring-gray-200">
+              <article key={`${section.title}-${index}`} className="gravity-card overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-gray-200">
                 {section.video ? (
                   renderVideo(section.video, section.title || page.title, 'h-64 w-full object-cover')
                 ) : section.image ? (

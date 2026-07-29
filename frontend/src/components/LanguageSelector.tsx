@@ -30,7 +30,7 @@ const LanguageSelector = () => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+        className="flex items-center gap-2 rounded-full px-3 py-2 text-sm transition hover:bg-stone-100"
         aria-label={t('ui.selectLanguage')}
       >
         <Globe className="w-4 h-4 text-gray-600" />
@@ -41,7 +41,7 @@ const LanguageSelector = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+        <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-stone-100 bg-white/95 shadow-xl shadow-stone-900/10 backdrop-blur-xl">
           <div className="py-1">
             {LANGUAGES.map((language) => (
               <button

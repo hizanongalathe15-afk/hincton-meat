@@ -95,9 +95,9 @@ const Notifications: React.FC = () => {
   useEffect(() => {
     if (!user?.id) return
 
-    const socket = io(getApiHost(), { withCredentials: true })
+    const socket = io(getApiHost(), { withCredentials: true, auth: { token: localStorage.getItem('token') } })
     socketRef.current = socket
-    socket.emit('presence:join', { userId: user.id })
+    socket.emit('presence:join')
     socket.on('notification:new', (notification: Notification) => {
       setNotifications((prev) => prev.some((item) => item.id === notification.id) ? prev : [notification, ...prev])
       setUnreadCount((prev) => prev + (notification.isRead ? 0 : 1))

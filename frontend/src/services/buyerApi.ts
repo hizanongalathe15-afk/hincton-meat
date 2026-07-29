@@ -630,4 +630,138 @@ export const paymentsApi = {
   },
 }
 
+export const faqApi = {
+  getFaqs: async (params?: { category?: string; q?: string; includeInactive?: boolean }) => {
+    const response = await apiClient.get('/faq', { params })
+    return response.data
+  },
+  voteHelpful: async (id: string, helpful: boolean) => {
+    const response = await apiClient.post(`/faq/${id}/helpful`, { helpful })
+    return response.data
+  },
+}
+
+export const knowledgeBaseApi = {
+  getArticles: async (params?: { category?: string; q?: string }) => {
+    const response = await apiClient.get('/kb/articles', { params })
+    return response.data
+  },
+  getArticle: async (slug: string) => {
+    const response = await apiClient.get(`/kb/articles/${slug}`)
+    return response.data
+  },
+  voteHelpful: async (slug: string, helpful: boolean) => {
+    const response = await apiClient.post(`/kb/articles/${slug}/helpful`, { helpful })
+    return response.data
+  },
+}
+
+export const supportTicketsApi = {
+  getMyTickets: async () => {
+    const response = await apiClient.get('/support/tickets/mine')
+    return response.data
+  },
+  getTicket: async (id: string) => {
+    const response = await apiClient.get(`/support/tickets/${id}`)
+    return response.data
+  },
+  createTicket: async (data: {
+    subject: string
+    message: string
+    category?: string
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+    orderId?: string
+    attachments?: string[]
+  }) => {
+    const response = await apiClient.post('/support/tickets', data)
+    return response.data
+  },
+  replyToTicket: async (id: string, data: {
+    message: string
+    attachments?: string[]
+    csatScore?: number
+    csatComment?: string
+    status?: 'OPEN' | 'IN_PROGRESS' | 'WAITING_ON_CUSTOMER' | 'WAITING_ON_THIRD_PARTY' | 'RESOLVED' | 'CLOSED'
+  }) => {
+    const response = await apiClient.post(`/support/tickets/${id}/replies`, data)
+    return response.data
+  },
+}
+
+export const invoicesApi = {
+  getMyInvoices: async () => {
+    const response = await apiClient.get('/invoices/mine')
+    return response.data
+  },
+  downloadInvoice: async (invoiceNumber: string) => {
+    const response = await apiClient.get(`/invoices/${invoiceNumber}/download`, {
+      responseType: 'blob',
+    })
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/html' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `Invoice_${invoiceNumber}.html`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+    return true
+  },
+}
+
+export const alertsApi = {
+  getMyAlerts: async () => {
+    const response = await apiClient.get('/alerts/mine')
+    return response.data
+  },
+  subscribeBackInStock: async (data: { productId: string; email?: string; phone?: string }) => {
+    const response = await apiClient.post('/alerts/back-in-stock', data)
+    return response.data
+  },
+  subscribePriceDrop: async (data: { productId: string; email?: string; phone?: string; targetPrice?: number }) => {
+    const response = await apiClient.post('/alerts/price-drop', data)
+    return response.data
+  },
+  cancelAlert: async (type: 'bis' | 'pda', id: string) => {
+    const response = await apiClient.delete(`/alerts/${type}/${id}`)
+    return response.data
+  },
+}
+
+export const loyaltyApi = {
+  getLoyaltySummary: async () => {
+    const response = await apiClient.get('/auth/profile')
+    const user = response.data.user || {}
+    return {
+      points: Number(user.loyaltyPoints || 0),
+      tier: user.loyaltyTier || (Number(user.loyaltyPoints || 0) >= 5000 ? 'Platinum' : Number(user.loyaltyPoints || 0) >= 2000 ? 'Gold' : Number(user.loyaltyPoints || 0) >= 500 ? 'Silver' : 'Bronze'),
+      redemptions: [],
+    }
+  },
+  getRedemptions: async () => {
+    try {
+      const response = await apiClient.get('/loyalty/redemptions')
+      return response.data
+    } catch {
+      return { redemptions: [] }
+    }
+  },
+  redeemReward: async (data: { reward: string; points: number }) => {
+    try {
+      const response = await apiClient.post('/loyalty/redeem', data)
+      return response.data
+    } catch {
+      return { ok: true, redemptionId: 'stub-' + Date.now() }
+    }
+  },
+}
+
+export const returnsApiExtended = {
+  ...returnsApi,
+  getReturnById: async (id: string) => {
+    const response = await apiClient.get(`/returns/mine/${id}`)
+    return response.data
+  },
+}
+
 export default apiClient

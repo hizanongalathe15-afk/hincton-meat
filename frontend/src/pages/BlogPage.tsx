@@ -32,8 +32,8 @@ const BlogPage = () => {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <section className="relative overflow-hidden bg-gray-950 px-4 py-20 text-white sm:px-6 lg:px-8">
+    <div className="ambient-page min-h-screen bg-gray-50">
+      <section className="gravity-hero relative overflow-hidden bg-gray-950 px-4 py-20 text-white sm:px-6 lg:px-8">
         {page.image && <img src={resolveMediaUrl(page.image)} alt={page.title} className="absolute inset-0 h-full w-full object-cover opacity-45" />}
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/55 to-black/30" />
         <div className="relative mx-auto max-w-7xl">
@@ -52,7 +52,7 @@ const BlogPage = () => {
               {posts.map((post) => {
                 const image = post.featuredImage || post.images?.[0] || page.image
                 return (
-                  <article key={post.id} className="overflow-hidden rounded bg-white shadow-sm ring-1 ring-gray-200 transition hover:-translate-y-1 hover:shadow-lg">
+                  <article key={post.id} className="gravity-card overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-gray-200">
                     {image && <img src={resolveMediaUrl(image)} alt={post.title} className="h-56 w-full object-cover" />}
                     <div className="p-6">
                       <div className="flex items-center gap-2 text-sm text-gray-500">

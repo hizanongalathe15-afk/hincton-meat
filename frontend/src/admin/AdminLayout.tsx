@@ -24,7 +24,13 @@ import {
   LogOut,
   User,
   Star,
-  Archive
+  Archive,
+  Building2,
+  Palette,
+  Sparkles,
+  LifeBuoy,
+  HelpCircle,
+  BookOpen
 } from 'lucide-react'
 import { useAdminSearch } from '../hooks/useAdminSearch'
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog'
@@ -92,10 +98,17 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { path: '/admin/analytics', icon: BarChart3, label: t('admin.analytics') },
     { path: '/admin/communications', icon: Megaphone, label: t('admin.communications') },
     { path: '/admin/ads', icon: Target, label: 'Ad Management' },
+    { path: '/admin/deals', icon: Sparkles, label: 'Deals & Offers' },
+    { path: '/admin/support', icon: LifeBuoy, label: 'Support Tickets' },
+    { path: '/admin/faqs', icon: HelpCircle, label: 'FAQ Editor' },
+    { path: '/admin/knowledge-base', icon: BookOpen, label: 'Knowledge Base' },
     { path: '/admin/qr-codes', icon: QrCode, label: t('admin.qrCodes') },
     { path: '/admin/content', icon: FileText, label: t('admin.content') },
+    { path: '/admin/companies', icon: Building2, label: 'Branches & Companies' },
     { path: '/admin/system-metrics', icon: Activity, label: 'System Metrics' },
     { path: '/admin/settings', icon: Settings, label: t('admin.settings') },
+    { path: '/admin/theme', icon: Palette, label: 'Theme & colours' },
+    { path: '/admin/social-offers', icon: Megaphone, label: 'Social offers' },
   ]
 
   const isActive = (path: string) => location.pathname === path
@@ -145,9 +158,9 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   useEffect(() => {
     if (!user?.id) return
 
-    const socket = io(getApiHost(), { withCredentials: true })
+    const socket = io(getApiHost(), { withCredentials: true, auth: { token: localStorage.getItem('token') } })
     notificationsSocketRef.current = socket
-    socket.emit('presence:join', { userId: user.id })
+    socket.emit('presence:join')
     socket.on('notification:new', (notification: { id: string; title?: string; message?: string; actionUrl?: string; isRead: boolean; createdAt: string }) => {
       setNotifications((current) => current.some((item) => item.id === notification.id) ? current : [notification, ...current].slice(0, 30))
       setUnreadCount((count) => count + (notification.isRead ? 0 : 1))

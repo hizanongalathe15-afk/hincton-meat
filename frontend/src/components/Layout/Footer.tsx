@@ -3,10 +3,14 @@ import { Link } from 'react-router-dom'
 import { Facebook, Twitter, Instagram, Mail, Phone, MapPin } from 'lucide-react'
 import { HINCTON_BRAND } from '../../utils/hinctonBrand'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { useSiteContent } from '../../contexts/SiteContentContext'
+import { buildCopyrightText } from '../../utils/copyright'
 
 const Footer: React.FC = () => {
   const { t } = useLanguage()
-  const currentYear = new Date().getFullYear()
+  const { profile } = useSiteContent()
+  const brand = profile?.brand ?? HINCTON_BRAND
+  const copyrightText = buildCopyrightText(profile?.footer, brand.name)
 
   return (
     <footer className="bg-gray-900 text-white">
@@ -15,11 +19,11 @@ const Footer: React.FC = () => {
           {/* Company Info */}
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center space-x-2 mb-4">
-              <img src={HINCTON_BRAND.logo} alt={HINCTON_BRAND.name} className="h-12 w-auto rounded bg-white p-1" />
-              <span className="text-xl font-bold">{HINCTON_BRAND.name}</span>
+              <img src={brand.logo} alt={brand.name} className="h-12 w-auto rounded bg-white p-1" />
+              <span className="text-xl font-bold">{brand.name}</span>
             </div>
             <p className="text-gray-300 mb-4 max-w-md">
-              {HINCTON_BRAND.tagline}. Fresh, safe, and nutritious meat products from Nairobi, Kenya.
+              {brand.tagline}. Fresh, safe, and nutritious meat products from Nairobi, Kenya.
             </p>
             <div className="flex space-x-4">
               <a
@@ -105,7 +109,7 @@ const Footer: React.FC = () => {
         <div className="border-t border-gray-800 mt-8 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="text-gray-400 text-sm mb-4 md:mb-0">
-              © {currentYear} {HINCTON_BRAND.name}. {t('footer.allRightsReserved')}
+              {copyrightText}
             </div>
             <div className="flex space-x-6 text-sm">
               <Link to="/privacy" className="text-gray-400 hover:text-white transition-colors">

@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Camera, User, Mail, Phone, ShoppingBag, Heart, Package, Settings, MapPin, Eye, EyeOff, Save, Trash2, Plus, Bell, CreditCard, ShieldCheck, Monitor, LogOut, Clock, Link2 } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  Camera, User, Mail, Phone, ShoppingBag, Heart, Package, Settings, MapPin, Eye, EyeOff, Save, Trash2, Plus, Bell, CreditCard, ShieldCheck, Monitor, LogOut, Clock, Link2,
+  LifeBuoy, RotateCcw, FileText, AlertTriangle, Award, ArrowLeft, Send, X, ChevronRight, MessageCircle, CheckCircle2, Sparkles, Gift, TrendingUp, BellRing, Minus, Percent, Download, HelpCircle
+} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
-import { ordersApi, productsApi, userApi, wishlistApi } from '../services/buyerApi';
+import {
+  ordersApi, productsApi, userApi, wishlistApi,
+  supportTicketsApi, returnsApiExtended, invoicesApi, alertsApi, loyaltyApi
+} from '../services/buyerApi';
 import { locationService, ProfileUpdateData } from '../services/locationService';
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog';
 import ConfirmationDialog from '../components/ui/ConfirmationDialog';
@@ -106,6 +112,40 @@ interface UserProfile {
     connected: boolean;
     connectUrl: string | null;
   }>;
+  tickets?: Array<any>;
+  returns?: Array<any>;
+  invoices?: Array<any>;
+  alerts?: Array<any>;
+  loyaltySummary?: {
+    points: number;
+    tier: string;
+    redemptions: Array<any>;
+  };
+}
+
+interface SupportTicketResponse {
+  id: string;
+  senderName: string;
+  senderRole: string;
+  message: string;
+  attachments?: string[] | null;
+  createdAt: string;
+}
+
+interface SupportTicketFull {
+  id: string;
+  ticketNumber: string;
+  subject: string;
+  category: string;
+  priority: string;
+  status: string;
+  message: string;
+  attachments?: string[] | null;
+  responses?: SupportTicketResponse[];
+  csatScore?: number | null;
+  csatComment?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const EnhancedProfilePage: React.FC = () => {
@@ -115,7 +155,20 @@ const EnhancedProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'recentlyViewed' | 'settings' | 'addresses' | 'payments' | 'notifications' | 'security'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'recentlyViewed' | 'settings' | 'addresses' | 'payments' | 'notifications' | 'security' | 'tickets' | 'returns' | 'invoices' | 'alerts' | 'loyalty'>('orders');
+  const [selectedTicket, setSelectedTicket] = useState<SupportTicketFull | null>(null);
+  const [ticketReply, setTicketReply] = useState('');
+  const [ticketReplying, setTicketReplying] = useState(false);
+  const [showNewTicket, setShowNewTicket] = useState(false);
+  const [newTicket, setNewTicket] = useState({ subject: '', message: '', category: 'GENERAL_INQUIRY', priority: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' });
+  const [csatRating, setCsatRating] = useState<{ score: number; comment: string; submitted: boolean }>({ score: 0, comment: '', submitted: false });
+  const [loyaltyRewards] = useState<{ reward: string; label: string; cost: number; description: string }[]>([
+    { reward: 'FREE_SHIP', label: 'Free Delivery', cost: 500, description: 'Complimentary shipping on your next order up to KES 500.' },
+    { reward: 'DISCOUNT_5', label: '5% Discount', cost: 1000, description: 'Take 5% off your next entire order.' },
+    { reward: 'DISCOUNT_10', label: '10% Discount', cost: 2000, description: 'Take 10% off any single order.' },
+    { reward: 'GIFT_CARD_500', label: 'KES 500 Credit', cost: 5000, description: 'Store credit of KES 500 to spend on your next purchase.' },
+  ]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -159,7 +212,7 @@ const EnhancedProfilePage: React.FC = () => {
 
     const fetchProfile = async () => {
       try {
-        const [profileResponse, ordersResponse, wishlistResponse, recentlyViewedResponse, addressesResponse, paymentsResponse, sessionsResponse, linkedAccountsResponse] = await Promise.all([
+        const [profileResponse, ordersResponse, wishlistResponse, recentlyViewedResponse, addressesResponse, paymentsResponse, sessionsResponse, linkedAccountsResponse, ticketsResponse, returnsResponse, invoicesResponse, alertsResponse, loyaltyResponse] = await Promise.all([
           userApi.getProfile(),
           ordersApi.getMyOrders().catch(() => ({ orders: [] })),
           wishlistApi.getWishlist().catch(() => ({ wishlist: { items: [] } })),
@@ -167,7 +220,12 @@ const EnhancedProfilePage: React.FC = () => {
           userApi.getAddresses().catch(() => ({ addresses: [] })),
           userApi.getPaymentMethods().catch(() => ({ paymentMethods: [] })),
           userApi.getSessions().catch(() => ({ sessions: [] })),
-          userApi.getLinkedAccounts().catch(() => ({ accounts: [], providers: [] }))
+          userApi.getLinkedAccounts().catch(() => ({ accounts: [], providers: [] })),
+          supportTicketsApi.getMyTickets().catch(() => ({ tickets: [] })),
+          returnsApiExtended.getMyReturns().catch(() => ({ returns: [] })),
+          invoicesApi.getMyInvoices().catch(() => ({ invoices: [] })),
+          alertsApi.getMyAlerts().catch(() => ({ alerts: [] })),
+          loyaltyApi.getLoyaltySummary().catch(() => ({ points: 0, tier: 'Bronze', redemptions: [] }))
         ])
         
         const apiUser = profileResponse.user
@@ -215,7 +273,19 @@ const EnhancedProfilePage: React.FC = () => {
             orderUpdates: true,
             promotions: false,
             newsletter: false
-          }
+          },
+          tickets: (ticketsResponse.tickets || []).map((t: any) => ({
+            ...t,
+            createdAt: t.createdAt || t.updatedAt || new Date().toISOString(),
+          })),
+          returns: (returnsResponse.returns || []),
+          invoices: (invoicesResponse.invoices || []),
+          alerts: (alertsResponse.alerts || []),
+          loyaltySummary: {
+            points: Number(loyaltyResponse.points ?? apiUser.loyaltyPoints ?? 0),
+            tier: loyaltyResponse.tier ?? (Number(loyaltyResponse.points ?? apiUser.loyaltyPoints ?? 0) >= 5000 ? 'Platinum' : Number(loyaltyResponse.points ?? apiUser.loyaltyPoints ?? 0) >= 2000 ? 'Gold' : Number(loyaltyResponse.points ?? apiUser.loyaltyPoints ?? 0) >= 500 ? 'Silver' : 'Bronze'),
+            redemptions: loyaltyResponse.redemptions || [],
+          },
         })
       } catch (error) {
         console.error('Failed to fetch profile:', error);
@@ -230,8 +300,9 @@ const EnhancedProfilePage: React.FC = () => {
 
   useEffect(() => {
     const tab = searchParams.get('tab')
-    if (tab === 'orders' || tab === 'wishlist' || tab === 'recentlyViewed' || tab === 'settings' || tab === 'addresses' || tab === 'payments' || tab === 'notifications' || tab === 'security') {
-      setActiveTab(tab)
+    const valid = ['orders', 'wishlist', 'recentlyViewed', 'settings', 'addresses', 'payments', 'notifications', 'security', 'tickets', 'returns', 'invoices', 'alerts', 'loyalty']
+    if (tab && valid.includes(tab)) {
+      setActiveTab(tab as any)
     }
   }, [searchParams])
 
@@ -642,6 +713,192 @@ const EnhancedProfilePage: React.FC = () => {
     }
   }
 
+  const categoryLabel = (c: string | null | undefined) => {
+    if (!c) return 'General'
+    const map: Record<string, string> = {
+      SHIPPING: 'Shipping', PAYMENTS: 'Payments', RETURNS: 'Returns', ORDERS: 'Orders',
+      PRODUCTS: 'Products', ACCOUNT: 'Account', GENERAL_INQUIRY: 'General',
+      FEEDBACK: 'Feedback', TECHNICAL: 'Technical', WHOLESALE: 'Wholesale',
+    }
+    return map[c] || c.replace(/_/g, ' ')
+  }
+
+  const statusBadge = (status: string) => {
+    const s = status || 'OPEN'
+    const map: Record<string, string> = {
+      OPEN: 'bg-yellow-100 text-yellow-800',
+      IN_PROGRESS: 'bg-blue-100 text-blue-800',
+      WAITING_ON_CUSTOMER: 'bg-purple-100 text-purple-800',
+      WAITING_ON_THIRD_PARTY: 'bg-orange-100 text-orange-800',
+      RESOLVED: 'bg-green-100 text-green-800',
+      CLOSED: 'bg-gray-100 text-gray-700',
+      REQUESTED: 'bg-orange-100 text-orange-800',
+      APPROVED: 'bg-blue-100 text-blue-800',
+      REJECTED: 'bg-red-100 text-red-800',
+      REFUNDED: 'bg-green-100 text-green-800',
+      COMPLETED: 'bg-green-100 text-green-800',
+      PENDING: 'bg-yellow-100 text-yellow-800',
+      PROCESSING: 'bg-purple-100 text-purple-800',
+    }
+    return map[s] || 'bg-gray-100 text-gray-700'
+  }
+
+  const loadTicketDetail = async (id: string) => {
+    try {
+      const data = await supportTicketsApi.getTicket(id)
+      setSelectedTicket(data.ticket)
+      setTicketReply('')
+      setCsatRating({ score: data.ticket?.csatScore || 0, comment: data.ticket?.csatComment || '', submitted: false })
+    } catch {
+      toast.error('Could not load ticket')
+    }
+  }
+
+  const closeTicketDetail = () => {
+    setSelectedTicket(null)
+    setTicketReply('')
+    setCsatRating({ score: 0, comment: '', submitted: false })
+  }
+
+  const refreshTickets = async () => {
+    try {
+      const data = await supportTicketsApi.getMyTickets()
+      setProfile(prev => prev ? { ...prev, tickets: data.tickets || [] } : null)
+    } catch {}
+  }
+
+  const submitNewTicket = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newTicket.subject.trim() || !newTicket.message.trim()) {
+      toast.error('Please fill in subject and message')
+      return
+    }
+    try {
+      await supportTicketsApi.createTicket(newTicket)
+      toast.success('Support ticket created')
+      setShowNewTicket(false)
+      setNewTicket({ subject: '', message: '', category: 'GENERAL_INQUIRY', priority: 'MEDIUM' })
+      await refreshTickets()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Could not create ticket')
+    }
+  }
+
+  const submitTicketReply = async () => {
+    if (!selectedTicket || !ticketReply.trim()) return
+    setTicketReplying(true)
+    try {
+      const payload: any = { message: ticketReply.trim() }
+      if (csatRating.score && !selectedTicket.csatScore) {
+        payload.csatScore = csatRating.score
+        if (csatRating.comment.trim()) payload.csatComment = csatRating.comment.trim()
+      }
+      await supportTicketsApi.replyToTicket(selectedTicket.id, payload)
+      toast.success('Reply sent')
+      await loadTicketDetail(selectedTicket.id)
+      await refreshTickets()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Could not send reply')
+    } finally {
+      setTicketReplying(false)
+    }
+  }
+
+  const submitCsatOnly = async () => {
+    if (!selectedTicket || csatRating.submitted || !csatRating.score) return
+    setTicketReplying(true)
+    try {
+      await supportTicketsApi.replyToTicket(selectedTicket.id, {
+        message: '',
+        csatScore: csatRating.score,
+        csatComment: csatRating.comment.trim() || undefined,
+      })
+      setCsatRating(s => ({ ...s, submitted: true }))
+      toast.success('Thank you for your feedback')
+    } catch {
+      toast.error('Could not submit feedback')
+    } finally {
+      setTicketReplying(false)
+    }
+  }
+
+  const refreshReturns = async () => {
+    try {
+      const data = await returnsApiExtended.getMyReturns()
+      setProfile(prev => prev ? { ...prev, returns: data.returns || [] } : null)
+    } catch {}
+  }
+
+  const refreshInvoices = async () => {
+    try {
+      const data = await invoicesApi.getMyInvoices()
+      setProfile(prev => prev ? { ...prev, invoices: data.invoices || [] } : null)
+    } catch {}
+  }
+
+  const downloadInvoice = async (invoiceNumber: string) => {
+    try {
+      await invoicesApi.downloadInvoice(invoiceNumber)
+      toast.success('Invoice downloaded')
+    } catch {
+      toast.error('Could not download invoice')
+    }
+  }
+
+  const refreshAlerts = async () => {
+    setAlertsLoading(true)
+    try {
+      const data = await alertsApi.getMyAlerts()
+      setProfile(prev => prev ? { ...prev, alerts: data.alerts || [] } : null)
+    } finally {
+      setAlertsLoading(false)
+    }
+  }
+
+  const cancelAlert = async (type: 'bis' | 'pda', id: string) => {
+    if (!window.confirm('Remove this alert?')) return
+    try {
+      await alertsApi.cancelAlert(type, id)
+      toast.success('Alert removed')
+      await refreshAlerts()
+    } catch {
+      toast.error('Could not remove alert')
+    }
+  }
+
+  const refreshLoyalty = async () => {
+    try {
+      const data = await loyaltyApi.getLoyaltySummary()
+      setProfile(prev => prev ? {
+        ...prev,
+        loyaltySummary: {
+          points: Number(data.points || 0),
+          tier: data.tier || (Number(data.points || 0) >= 5000 ? 'Platinum' : Number(data.points || 0) >= 2000 ? 'Gold' : Number(data.points || 0) >= 500 ? 'Silver' : 'Bronze'),
+          redemptions: data.redemptions || [],
+        }
+      } : null)
+    } catch {}
+  }
+
+  const redeemLoyaltyReward = (reward: string, cost: number, label: string) => {
+    confirm({
+      title: 'Redeem reward?',
+      message: `Redeem "${label}" for ${cost} points?`,
+      type: 'info',
+      confirmText: 'Redeem',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await loyaltyApi.redeemReward({ reward, points: cost })
+          toast.success('Reward redeemed successfully')
+          await refreshLoyalty()
+        } catch {
+          toast.error('Could not redeem reward at this time')
+        }
+      },
+    })
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -786,6 +1043,53 @@ const EnhancedProfilePage: React.FC = () => {
                 >
                   <ShieldCheck className="w-5 h-5" />
                   <span>Security Devices</span>
+                </button>
+                <div className="my-3 border-t border-gray-100" />
+                <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wide text-gray-400">Support & Rewards</p>
+                <button
+                  onClick={() => setActiveTab('tickets')}
+                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left ${
+                    activeTab === 'tickets' ? 'bg-red-50 text-red-700' : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <LifeBuoy className="w-5 h-5" />
+                  <span>Support Tickets</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('returns')}
+                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left ${
+                    activeTab === 'returns' ? 'bg-red-50 text-red-700' : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <RotateCcw className="w-5 h-5" />
+                  <span>Returns & Refunds</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('invoices')}
+                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left ${
+                    activeTab === 'invoices' ? 'bg-red-50 text-red-700' : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <FileText className="w-5 h-5" />
+                  <span>Invoices</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('alerts')}
+                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left ${
+                    activeTab === 'alerts' ? 'bg-red-50 text-red-700' : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <AlertTriangle className="w-5 h-5" />
+                  <span>Price & Stock Alerts</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('loyalty')}
+                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left ${
+                    activeTab === 'loyalty' ? 'bg-red-50 text-red-700' : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <Award className="w-5 h-5" />
+                  <span>Loyalty & Rewards</span>
                 </button>
               </nav>
             </div>
@@ -1623,9 +1927,514 @@ const EnhancedProfilePage: React.FC = () => {
               </div>
               </div>
             )}
+
+            {/* TICKETS TAB */}
+            {activeTab === 'tickets' && !selectedTicket && (
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-900">Support Tickets</h2>
+                      <p className="mt-1 text-sm text-gray-600">Track every support conversation you have opened with our team.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => refreshTickets()} className="text-red-600 hover:text-red-700 text-sm font-medium">Refresh</button>
+                      <button onClick={() => setShowNewTicket(true)} className="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-700">
+                        <Plus className="w-4 h-4" /> New Ticket
+                      </button>
+                    </div>
+                  </div>
+                  {(profile.tickets || []).length === 0 ? (
+                    <div className="mt-10 text-center py-8">
+                      <LifeBuoy className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-600 mb-1">No support tickets yet.</p>
+                      <p className="text-sm text-gray-500 mb-4">Start a conversation with our team any time.</p>
+                      <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                        <button onClick={() => setShowNewTicket(true)} className="inline-flex items-center gap-2 bg-red-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-red-700">
+                          <MessageCircle className="w-4 h-4" /> Open a Ticket
+                        </button>
+                        <Link to="/help" className="inline-flex items-center gap-2 border border-gray-200 px-5 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-50">
+                          <HelpCircle className="w-4 h-4" /> Visit Help Center
+                        </Link>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-6 space-y-3">
+                      {(profile.tickets || []).map((t: any) => (
+                        <button key={t.id} onClick={() => loadTicketDetail(t.id)} className="w-full text-left rounded-lg border border-gray-200 p-4 hover:border-red-200 hover:shadow-sm transition-all">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="font-semibold text-gray-900">{t.subject}</h3>
+                                {t.category && (
+                                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-gray-700">
+                                    {categoryLabel(t.category)}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-1 text-xs text-gray-500">#{t.ticketNumber || t.id} · {new Date(t.createdAt || t.updatedAt).toLocaleString()}</p>
+                              <p className="mt-2 text-sm text-gray-700 line-clamp-2">{t.message}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {t.priority && t.priority !== 'MEDIUM' && (
+                                <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${t.priority === 'URGENT' ? 'bg-red-100 text-red-800' : t.priority === 'HIGH' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-700'}`}>
+                                  {t.priority}
+                                </span>
+                              )}
+                              <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${statusBadge(t.status)}`}>
+                                {(t.status || 'OPEN').replace(/_/g, ' ')}
+                              </span>
+                              {t.csatScore && (
+                                <span className="rounded-full bg-green-100 text-green-800 px-2 py-0.5 text-[11px] font-bold">Rated {t.csatScore}/5</span>
+                              )}
+                              <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TICKET DETAIL VIEW */}
+            {activeTab === 'tickets' && selectedTicket && (
+              <div className="space-y-4">
+                <button onClick={closeTicketDetail} className="inline-flex items-center gap-2 text-sm text-red-700 hover:text-red-800 font-semibold">
+                  <ArrowLeft className="w-4 h-4" /> Back to all tickets
+                </button>
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-xl font-bold text-gray-900">{selectedTicket.subject}</h2>
+                        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${statusBadge(selectedTicket.status)}`}>
+                          {(selectedTicket.status || 'OPEN').replace(/_/g, ' ')}
+                        </span>
+                        {selectedTicket.category && (
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-gray-700">
+                            {categoryLabel(selectedTicket.category)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-2 text-xs text-gray-500">#{selectedTicket.ticketNumber || selectedTicket.id} · Opened {new Date(selectedTicket.createdAt).toLocaleString()}</p>
+                    </div>
+                  </div>
+                  <div className="mt-6 space-y-4">
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-semibold text-gray-800">{selectedTicket.responses?.length ? 'You' : profile.name} · Original message</p>
+                        <p className="text-xs text-gray-500">{new Date(selectedTicket.createdAt).toLocaleString()}</p>
+                      </div>
+                      <p className="whitespace-pre-wrap text-gray-800 leading-6">{selectedTicket.message}</p>
+                      {selectedTicket.attachments && selectedTicket.attachments.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {selectedTicket.attachments.map((a: string, idx: number) => (
+                            <a key={idx} href={a} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:text-red-700">
+                              <FileText className="w-3.5 h-3.5" /> Attachment {idx + 1}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {(selectedTicket.responses || []).map((r: SupportTicketResponse) => (
+                      <div key={r.id} className={`rounded-lg border p-4 ${r.senderRole === 'USER' ? 'bg-red-50 border-red-100 ml-6' : 'bg-white border-gray-200 mr-6'}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-sm font-semibold text-gray-800">{r.senderName} {r.senderRole !== 'USER' && <span className="text-xs font-bold ml-1 text-red-700">· Support</span>}</p>
+                          <p className="text-xs text-gray-500">{new Date(r.createdAt).toLocaleString()}</p>
+                        </div>
+                        <p className="whitespace-pre-wrap text-gray-800 leading-6">{r.message}</p>
+                        {r.attachments && r.attachments.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {r.attachments.map((a: string, idx: number) => (
+                              <a key={idx} href={a} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700">
+                                <FileText className="w-3.5 h-3.5" /> Attachment {idx + 1}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* CSAT Rating Prompt */}
+                  {(selectedTicket.status === 'RESOLVED' || selectedTicket.status === 'CLOSED') && !selectedTicket.csatScore && (
+                    <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4">
+                      <p className="text-sm font-semibold text-green-800">How did we do?</p>
+                      <p className="mt-1 text-xs text-green-700">This ticket has been resolved. Please rate your experience with our support team.</p>
+                      <div className="mt-3 flex items-center gap-2">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <button key={n} onClick={() => setCsatRating(s => ({ ...s, score: n }))} className={`p-1.5 rounded transition-colors ${csatRating.score >= n ? 'text-yellow-500' : 'text-gray-300 hover:text-gray-400'}`}>
+                            <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                          </button>
+                        ))}
+                      </div>
+                      <textarea value={csatRating.comment} onChange={e => setCsatRating(s => ({ ...s, comment: e.target.value }))} placeholder="Optional comments (400 chars)" rows={2} className="mt-3 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-red-500 focus:ring-2 focus:ring-red-500" maxLength={400} />
+                      <div className="mt-3 flex justify-end">
+                        <button onClick={submitCsatOnly} disabled={!csatRating.score || ticketReplying} className="inline-flex items-center gap-2 rounded-lg bg-green-700 px-4 py-2 text-xs font-bold text-white hover:bg-green-800 disabled:opacity-60">
+                          <CheckCircle2 className="w-4 h-4" /> Submit Rating
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {selectedTicket.csatScore && (
+                    <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4">
+                      <p className="text-sm font-semibold text-green-800">Your rating</p>
+                      <div className="mt-1 flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <span key={n} className={`${selectedTicket.csatScore && selectedTicket.csatScore >= n ? 'text-yellow-500' : 'text-gray-300'}`}>
+                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                          </span>
+                        ))}
+                        <span className="ml-2 text-xs font-bold text-green-800">{selectedTicket.csatScore}/5</span>
+                      </div>
+                      {selectedTicket.csatComment && <p className="mt-2 text-xs text-green-700">"{selectedTicket.csatComment}"</p>}
+                    </div>
+                  )}
+
+                  {/* Reply Area */}
+                  {selectedTicket.status !== 'CLOSED' && (
+                    <div className="mt-6 rounded-lg border border-gray-200 p-4">
+                      <label className="mb-2 block text-sm font-semibold text-gray-700">Your reply</label>
+                      <textarea value={ticketReply} onChange={e => setTicketReply(e.target.value)} rows={4} placeholder="Type your reply…" className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-red-500 focus:bg-white focus:ring-2 focus:ring-red-500" />
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                        <div className="text-xs text-gray-500">Attached files can be uploaded from the ticket form in the Help Center.</div>
+                        <button onClick={submitTicketReply} disabled={!ticketReply.trim() || ticketReplying} className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-60">
+                          <Send className="w-4 h-4" /> {ticketReplying ? 'Sending…' : 'Send Reply'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* RETURNS TAB */}
+            {activeTab === 'returns' && (
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-900">Returns & Refunds</h2>
+                      <p className="mt-1 text-sm text-gray-600">Request a return, track progress, and view completed refunds.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => refreshReturns()} className="text-red-600 hover:text-red-700 text-sm font-medium">Refresh</button>
+                      <button onClick={() => navigate('/returns/new')} className="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-700">
+                        <RotateCcw className="w-4 h-4" /> New Return
+                      </button>
+                    </div>
+                  </div>
+
+                  {(profile.returns || []).length === 0 ? (
+                    <div className="mt-10 text-center py-8">
+                      <RotateCcw className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-600 mb-1">No return requests yet.</p>
+                      <p className="text-sm text-gray-500 mb-4">Request a self-service return if anything doesn't meet expectations.</p>
+                      <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                        <button onClick={() => navigate('/returns/new')} className="inline-flex items-center gap-2 bg-red-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-red-700">
+                          <RotateCcw className="w-4 h-4" /> Start a Return
+                        </button>
+                        <Link to="/help" className="inline-flex items-center gap-2 border border-gray-200 px-5 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-50">
+                          Read Return Policy
+                        </Link>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-6 space-y-3">
+                      {(profile.returns || []).map((r: any) => (
+                        <div key={r.id} className="rounded-lg border border-gray-200 p-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="font-semibold text-gray-900">Return #{r.returnNumber || r.id?.slice(0, 8).toUpperCase()}</h3>
+                                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${statusBadge(r.status)}`}>
+                                  {(r.status || 'PENDING').replace(/_/g, ' ')}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-xs text-gray-500">Requested {new Date(r.createdAt || r.requestedAt || Date.now()).toLocaleString()}</p>
+                              {r.order && <p className="mt-2 text-sm font-medium text-gray-700">Order: {r.order.orderNumber || r.orderId}</p>}
+                              {r.reason && <p className="mt-1 text-sm text-gray-600">Reason: {r.reason.replace(/_/g, ' ')}</p>}
+                              {r.refundAmount && <p className="mt-2 text-lg font-bold text-gray-900">Refund: {formatPrice(Number(r.refundAmount))}</p>}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* INVOICES TAB */}
+            {activeTab === 'invoices' && (
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-900">Invoices & Receipts</h2>
+                      <p className="mt-1 text-sm text-gray-600">Download printable invoices for every order you have placed.</p>
+                    </div>
+                    <button onClick={() => refreshInvoices()} className="text-red-600 hover:text-red-700 text-sm font-medium">Refresh</button>
+                  </div>
+
+                  {(profile.invoices || []).length === 0 ? (
+                    <div className="mt-10 text-center py-8">
+                      <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-600 mb-1">No invoices available yet.</p>
+                      <p className="text-sm text-gray-500 mb-4">Invoices become available once your order is placed.</p>
+                    </div>
+                  ) : (
+                    <div className="mt-6 overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-gray-500">Invoice</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-gray-500">Order</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-gray-500">Date</th>
+                            <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wide text-gray-500">Total</th>
+                            <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wide text-gray-500">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {(profile.invoices || []).map((inv: any) => (
+                            <tr key={inv.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 text-sm">
+                                <p className="font-semibold text-gray-900">{inv.invoiceNumber}</p>
+                                {inv.status && <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${statusBadge(inv.status)}`}>{inv.status}</span>}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-700">{inv.orderNumber || (inv.order && inv.order.orderNumber) || '—'}</td>
+                              <td className="px-4 py-3 text-sm text-gray-700">{new Date(inv.issuedAt || inv.createdAt).toLocaleDateString()}</td>
+                              <td className="px-4 py-3 text-sm text-right font-bold text-gray-900">{formatPrice(Number(inv.grandTotal || inv.totalAmount || 0))}</td>
+                              <td className="px-4 py-3 text-right">
+                                <button onClick={() => downloadInvoice(inv.invoiceNumber)} className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700">
+                                  <Download className="w-3.5 h-3.5" /> Download
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ALERTS TAB */}
+            {activeTab === 'alerts' && (
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-900">Price & Stock Alerts</h2>
+                      <p className="mt-1 text-sm text-gray-600">Get notified when products come back in stock or drop to your target price.</p>
+                    </div>
+                    <button onClick={() => refreshAlerts()} disabled={alertsLoading} className="text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-60">Refresh</button>
+                  </div>
+
+                  {((profile.alerts || []) as any[]).length === 0 ? (
+                    <div className="mt-10 text-center py-8">
+                      <BellRing className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-600 mb-1">No active alerts.</p>
+                      <p className="text-sm text-gray-500 mb-4">Set alerts on any product page — click “Notify me” for out-of-stock items.</p>
+                      <button onClick={() => navigate('/shop')} className="inline-flex items-center gap-2 bg-red-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-red-700">
+                        Browse Shop
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-6 space-y-3">
+                      {((profile.alerts || []) as any[]).map((a: any) => {
+                        return (
+                          <div key={a.id} className="rounded-lg border border-gray-200 p-4">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                                    {a.product ? a.product.name : (a.productId || 'Product alert')}
+                                  </h3>
+                                  {(a.type === 'BIS' || !a.targetPrice) ? (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-orange-800">
+                                      <BellRing className="w-3 h-3" /> Back in Stock
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-purple-800">
+                                      <Percent className="w-3 h-3" /> Price Drop
+                                    </span>
+                                  )}
+                                </div>
+                                {a.product?.price !== undefined && (
+                                  <p className="mt-1 text-sm text-gray-700">Current: <span className="font-bold">{formatPrice(Number(a.product.price))}</span>
+                                    {a.targetPrice && <> · Target: <span className="font-bold text-red-700">{formatPrice(Number(a.targetPrice))}</span></>}
+                                  </p>
+                                )}
+                                <p className="mt-1 text-xs text-gray-500">Set {new Date(a.createdAt).toLocaleString()}</p>
+                                {a.email || a.phone ? (
+                                  <p className="mt-2 text-xs text-gray-500 flex flex-wrap gap-2">
+                                    {a.email && <span>📧 {a.email}</span>}
+                                    {a.phone && <span>📱 {a.phone}</span>}
+                                  </p>
+                                ) : null}
+                              </div>
+                              <button onClick={() => cancelAlert(a.type === 'PDA' || a.targetPrice ? 'pda' : 'bis', a.id)} className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-50 shrink-0">
+                                <Minus className="w-3.5 h-3.5" /> Cancel Alert
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* LOYALTY TAB */}
+            {activeTab === 'loyalty' && (
+              <div className="space-y-6">
+                <div className="overflow-hidden rounded-lg bg-gradient-to-r from-gray-950 via-[#9f2f20] to-gray-900 text-white p-6 shadow-lg">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Award className="w-6 h-6 text-yellow-300" />
+                        <p className="text-xs font-bold uppercase tracking-widest text-red-200">Loyalty Program · Tier</p>
+                      </div>
+                      <h2 className="mt-2 text-3xl font-extrabold">{profile.loyaltySummary?.tier || 'Bronze'}</h2>
+                      <p className="mt-1 text-sm text-red-100">Thank you for being a valued {profile.loyaltySummary?.tier || 'Bronze'} member.</p>
+                    </div>
+                    <div className="flex items-end gap-3">
+                      <div className="text-right">
+                        <p className="text-xs text-red-200 uppercase tracking-wide">Points Balance</p>
+                        <p className="text-5xl font-black leading-none">{(profile.loyaltySummary?.points ?? 0).toLocaleString()}</p>
+                      </div>
+                      <Sparkles className="w-10 h-10 text-yellow-300 mb-1" />
+                    </div>
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-4 gap-3">
+                    {[{ label: 'Bronze', min: 0, icon: '🥉' }, { label: 'Silver', min: 500, icon: '🥈' }, { label: 'Gold', min: 2000, icon: '🥇' }, { label: 'Platinum', min: 5000, icon: '👑' }].map((t, i, arr) => {
+                      const points = profile.loyaltySummary?.points || 0
+                      const nextTierMin = arr[i + 1]?.min
+                      const progress = nextTierMin ? Math.min(100, Math.max(0, ((points - t.min) / (nextTierMin - t.min)) * 100)) : 100
+                      const reached = points >= t.min
+                      return (
+                        <div key={t.label} className="rounded-lg bg-white/10 p-3 backdrop-blur-sm border border-white/10">
+                          <div className="flex items-center gap-1 text-lg">{t.icon} <span className={`text-xs font-bold ${reached ? 'text-yellow-200' : 'text-white/60'}`}>{t.label}</span></div>
+                          <p className="mt-1 text-[10px] text-white/70">{t.min.toLocaleString()}+ pts</p>
+                          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                            <div className="h-full rounded-full bg-yellow-300" style={{ width: `${reached && !nextTierMin ? 100 : (reached && nextTierMin ? progress : !reached ? 0 : progress)}%` }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-900">Rewards Shop</h2>
+                      <p className="mt-1 text-sm text-gray-600">Redeem points for discounts and perks on your next order.</p>
+                    </div>
+                    <button onClick={() => refreshLoyalty()} className="text-red-600 hover:text-red-700 text-sm font-medium">Refresh</button>
+                  </div>
+
+                  <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {loyaltyRewards.map(rw => {
+                      const pts = profile.loyaltySummary?.points || 0
+                      const canAfford = pts >= rw.cost
+                      return (
+                        <div key={rw.reward} className={`rounded-xl border p-5 flex flex-col ${canAfford ? 'border-gray-200 bg-white hover:shadow-md hover:border-red-300' : 'border-gray-100 bg-gray-50 opacity-70'}`}>
+                          <div className="flex items-start justify-between">
+                            <Gift className="h-8 w-8 text-[#9f2f20]" />
+                            <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700">{rw.cost.toLocaleString()} pts</span>
+                          </div>
+                          <h3 className="mt-4 text-lg font-bold text-gray-900">{rw.label}</h3>
+                          <p className="mt-1 text-sm text-gray-600 flex-1 leading-5">{rw.description}</p>
+                          <button onClick={() => redeemLoyaltyReward(rw.reward, rw.cost, rw.label)} disabled={!canAfford} className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition-colors ${canAfford ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}>
+                            <TrendingUp className="w-4 h-4" /> {canAfford ? 'Redeem' : `Need ${rw.cost - pts} more pts`}
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {(profile.loyaltySummary?.redemptions || []).length > 0 && (
+                    <>
+                      <h3 className="mt-10 text-lg font-bold text-gray-900">Redemption history</h3>
+                      <div className="mt-3 space-y-2">
+                        {(profile.loyaltySummary?.redemptions || []).map((r: any) => (
+                          <div key={r.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">{r.rewardName || r.reward || 'Reward redeemed'}</p>
+                              <p className="text-xs text-gray-500">{new Date(r.redeemedAt || r.createdAt).toLocaleString()}</p>
+                            </div>
+                            <p className="text-sm font-bold text-red-700">-{Number(r.pointsCost || r.points || 0).toLocaleString()} pts</p>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       </div>
+
+      {/* NEW TICKET MODAL */}
+      {showNewTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
+          <form onSubmit={submitNewTicket} className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 bg-gray-950 px-6 py-5 text-white">
+              <div>
+                <h3 className="text-xl font-extrabold">Create Support Ticket</h3>
+                <p className="text-sm text-gray-300 mt-0.5">Our team typically responds within one business day.</p>
+              </div>
+              <button type="button" onClick={() => setShowNewTicket(false)} className="rounded-lg p-2 text-gray-300 hover:bg-white/10 hover:text-white">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-5 max-h-[72vh] overflow-y-auto">
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">Category</label>
+                  <select value={newTicket.category} onChange={e => setNewTicket(s => ({ ...s, category: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-red-500 focus:bg-white focus:ring-2 focus:ring-red-500">
+                    {['GENERAL_INQUIRY','SHIPPING','PAYMENTS','RETURNS','ORDERS','PRODUCTS','ACCOUNT','TECHNICAL','WHOLESALE','FEEDBACK'].map(c => (
+                      <option key={c} value={c}>{categoryLabel(c)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">Priority</label>
+                  <select value={newTicket.priority} onChange={e => setNewTicket(s => ({ ...s, priority: e.target.value as any }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-red-500 focus:bg-white focus:ring-2 focus:ring-red-500">
+                    <option value="LOW">Low — General Question</option>
+                    <option value="MEDIUM">Medium — Needs Response</option>
+                    <option value="HIGH">High — Affecting Order</option>
+                    <option value="URGENT">Urgent — Time-Sensitive</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">Subject</label>
+                <input type="text" required value={newTicket.subject} onChange={e => setNewTicket(s => ({ ...s, subject: e.target.value }))} placeholder="Brief summary of the issue" className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-red-500 focus:bg-white focus:ring-2 focus:ring-red-500" />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">Message</label>
+                <textarea rows={6} required value={newTicket.message} onChange={e => setNewTicket(s => ({ ...s, message: e.target.value }))} placeholder="Include order numbers, product links, and any details that can help us respond quickly." className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-red-500 focus:bg-white focus:ring-2 focus:ring-red-500" />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 border-t border-gray-100 px-6 py-4 bg-gray-50">
+              <button type="button" onClick={() => setShowNewTicket(false)} className="rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-100">Cancel</button>
+              <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700">
+                <Send className="w-4 h-4" /> Submit Ticket
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <ConfirmationDialog
         isOpen={isOpen}

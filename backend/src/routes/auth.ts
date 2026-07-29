@@ -11,6 +11,7 @@ import multer from 'multer'
 import { sendEmail, sendPasswordResetEmail } from '../utils/emailService'
 import { uploadImage } from '../config/cloudinary'
 import { meatShopMessages, messageText, resolveMessage } from '../messages/meatShopMessages'
+import { authenticate } from '../middleware/auth'
 
 const router = express.Router()
 const upload = multer({
@@ -92,6 +93,16 @@ const resetPasswordSchema = z.object({
 const googleIdTokenSchema = z.object({
   token: z.string().min(10),
 })
+
+const qrLoginRequestSchema = z.object({ id: z.string().min(24), secret: z.string().min(24) })
+const qrLoginApproveSchema = z.object({ id: z.string().min(24) })
+
+const qrLoginKey = (id: string) => `qr_login:${id}`
+const readQrLogin = async (id: string) => {
+  const setting = await prisma.systemSetting.findUnique({ where: { key: qrLoginKey(id) } })
+  if (!setting) return null
+  try { return JSON.parse(setting.value) as { secretHash: string; expiresAt: string; status: string; userId?: string } } catch { return null }
+}
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
@@ -737,6 +748,54 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ ...apiMessage(meatShopMessages.auth.invalidCredentials), details: error.issues })
     }
     res.status(500).json(apiMessage(meatShopMessages.system.serverBusy))
+  }
+})
+
+// A short-lived, single-use pairing flow: the QR contains only a public request id.
+// The browser keeps a separate secret, so scanning a photographed QR cannot sign anyone in.
+router.post('/qr-login/request', async (_req, res) => {
+  const id = crypto.randomBytes(24).toString('hex')
+  const secret = crypto.randomBytes(32).toString('hex')
+  const record = { secretHash: crypto.createHash('sha256').update(secret).digest('hex'), status: 'PENDING', expiresAt: new Date(Date.now() + 3 * 60 * 1000).toISOString() }
+  await prisma.systemSetting.upsert({
+    where: { key: qrLoginKey(id) },
+    update: { value: JSON.stringify(record) },
+    create: { key: qrLoginKey(id), value: JSON.stringify(record), type: 'json', group: 'security', description: 'Short-lived QR login pairing request', isPublic: false },
+  })
+  res.status(201).json({ id, secret, expiresAt: record.expiresAt })
+})
+
+router.get('/qr-login/:id/status', async (req, res) => {
+  try {
+    const { id, secret } = qrLoginRequestSchema.parse({ id: req.params.id, secret: req.query.secret })
+    const record = await readQrLogin(id)
+    if (!record || record.secretHash !== crypto.createHash('sha256').update(secret).digest('hex')) return res.status(404).json({ error: 'QR sign-in request was not found' })
+    if (new Date(record.expiresAt) <= new Date()) return res.json({ status: 'EXPIRED' })
+    if (record.status !== 'APPROVED' || !record.userId) return res.json({ status: record.status })
+    const user = await prisma.user.findUnique({ where: { id: record.userId }, include: userInclude })
+    if (!user?.security?.is_active) return res.status(401).json({ error: 'This account is no longer active' })
+    const session = await createLoginSession(user, req, 'PASSWORD')
+    await prisma.systemSetting.update({ where: { key: qrLoginKey(id) }, data: { value: JSON.stringify({ ...record, status: 'CONSUMED' }) } })
+    res.json({ status: 'APPROVED', user: serializeUser(user), token: signToken(user, session.id) })
+  } catch (error) {
+    if (error instanceof z.ZodError) return res.status(400).json({ error: 'Invalid QR sign-in request' })
+    console.error('QR login status error:', error)
+    res.status(500).json({ error: 'Could not complete QR sign-in' })
+  }
+})
+
+router.post('/qr-login/approve', authenticate, async (req: any, res) => {
+  try {
+    const { id } = qrLoginApproveSchema.parse(req.body)
+    const record = await readQrLogin(id)
+    if (!record) return res.status(404).json({ error: 'QR sign-in request was not found' })
+    if (new Date(record.expiresAt) <= new Date()) return res.status(410).json({ error: 'This QR sign-in request has expired' })
+    if (record.status !== 'PENDING') return res.status(409).json({ error: 'This QR sign-in request is no longer available' })
+    await prisma.systemSetting.update({ where: { key: qrLoginKey(id) }, data: { value: JSON.stringify({ ...record, status: 'APPROVED', userId: req.user.id, approvedAt: new Date().toISOString() }) } })
+    res.json({ message: 'Sign-in approved. The other device is now being signed in.' })
+  } catch (error) {
+    if (error instanceof z.ZodError) return res.status(400).json({ error: 'Invalid QR sign-in request' })
+    res.status(500).json({ error: 'Could not approve QR sign-in' })
   }
 })
 

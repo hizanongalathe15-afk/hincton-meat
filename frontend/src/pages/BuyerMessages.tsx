@@ -78,10 +78,10 @@ const BuyerMessages: React.FC = () => {
 
   useEffect(() => {
     if (!user) return;
-    const socket = io(getApiHost(), { withCredentials: true });
+    const socket = io(getApiHost(), { withCredentials: true, auth: { token: localStorage.getItem('token') } });
     socketRef.current = socket;
 
-    socket.emit('presence:join', { userId: user.id });
+    socket.emit('presence:join');
     socket.on('presence:update', ({ userId, status }) => {
       if (userId) setPresence((current) => ({ ...current, [userId]: status || 'offline' }));
     });

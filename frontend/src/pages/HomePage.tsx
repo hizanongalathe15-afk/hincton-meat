@@ -6,6 +6,7 @@ import { productService } from '../services/productService'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import ProductCard from '../buyer/ProductCard'
 import AdPlacement from '../components/AdPlacement'
+import DealsSection from '../components/DealsSection'
 import { MEAT_CATEGORIES } from '../utils/constants'
 import { useLanguage } from '../contexts/LanguageContext'
 
@@ -97,6 +98,9 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
+      {/* Admin-controlled centre-screen demo. Delete the "centre-screen-demo" placement from Ad Management when finished testing. */}
+      <AdPlacement placementId="centre-screen-demo" type="POPUP" autoOpen />
+
       {/* Features Section */}
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -139,6 +143,13 @@ const HomePage: React.FC = () => {
               </Link>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Deals Sections - Admin controlled (Top Deals, Clearance Sale, Flash Sales) */}
+      <section className="py-14 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <DealsSection />
         </div>
       </section>
 
