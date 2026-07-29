@@ -3,8 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Github, Loader2, Lock, Mail, User, Truck, Star, Shield } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
-import { HINCTON_BRAND } from '../utils/hinctonBrand'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useSiteContent } from '../contexts/SiteContentContext'
 import { getApiHost } from '../services/api'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/

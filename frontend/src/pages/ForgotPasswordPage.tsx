@@ -2,8 +2,8 @@ import React, { useState } from 'react'
 import { Mail, ArrowLeft, Shield, Truck, Star } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { authService } from '../services/authService'
-import { HINCTON_BRAND } from '../utils/hinctonBrand'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useSiteContent } from '../contexts/SiteContentContext'
 
 const ForgotPasswordPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ onNavigate }) => {
   const [email, setEmail] = useState('')

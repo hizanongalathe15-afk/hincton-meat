@@ -3,8 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Eye, EyeOff, Lock, ArrowLeft, Shield, Key, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { authService } from '../services/authService'
-import { HINCTON_BRAND } from '../utils/hinctonBrand'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useSiteContent } from '../contexts/SiteContentContext'
 
 const ResetPasswordPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ onNavigate }) => {
   const [params] = useSearchParams()
