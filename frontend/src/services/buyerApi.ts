@@ -764,4 +764,68 @@ export const returnsApiExtended = {
   },
 }
 
+// Forum API (public + authenticated)
+export const forumApi = {
+  getCategories: async () => {
+    const r = await apiClient.get('/forum/categories')
+    return r.data
+  },
+  getThreads: async (params?: { categoryId?: string; q?: string; page?: number; limit?: number }) => {
+    const r = await apiClient.get('/forum/threads', { params })
+    return r.data
+  },
+  getThread: async (id: string) => {
+    const r = await apiClient.get(`/forum/threads/${id}`)
+    return r.data
+  },
+  createThread: async (data: { categoryId: string; title: string; body: string }) => {
+    const r = await apiClient.post('/forum/threads', data)
+    return r.data
+  },
+  deleteThread: async (id: string) => {
+    const r = await apiClient.delete(`/forum/threads/${id}`)
+    return r.data
+  },
+  replyToThread: async (id: string, body: string) => {
+    const r = await apiClient.post(`/forum/threads/${id}/replies`, { body })
+    return r.data
+  },
+  acceptReply: async (replyId: string) => {
+    const r = await apiClient.patch(`/forum/replies/${replyId}/accept`)
+    return r.data
+  },
+  deleteReply: async (replyId: string) => {
+    const r = await apiClient.delete(`/forum/replies/${replyId}`)
+    return r.data
+  },
+}
+
+// Decision Tree API
+export const decisionTreeApi = {
+  getRoot: async () => {
+    const r = await apiClient.get('/decision-tree/root')
+    return r.data
+  },
+  getNode: async (id: string) => {
+    const r = await apiClient.get(`/decision-tree/node/${id}`)
+    return r.data
+  },
+}
+
+// VIP Bypass API
+export const vipBypassApi = {
+  submit: async (data: { email: string; name: string; orderRef?: string; issue: string }) => {
+    const r = await apiClient.post('/vip-bypass', data)
+    return r.data
+  },
+}
+
+// Page Snapshots API
+export const snapshotApi = {
+  get: async (pageKey: string) => {
+    const r = await apiClient.get(`/snapshots/${pageKey}`)
+    return r.data
+  },
+}
+
 export default apiClient

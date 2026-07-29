@@ -70,6 +70,9 @@ model User {
   walletTransactions     WalletTransaction[]
   wishlist               Wishlist?
   adCampaigns            AdCampaign[]
+  forumThreads           ForumThread[]
+  forumReplies           ForumReply[]
+  vipBypassRequests      VipBypassRequest[]
 
   @@index([email])
   @@index([phone])
@@ -2780,3 +2783,142 @@ model Banner {
 
   @@map("banners")
 }
+
+// ============================================================================
+// COMMUNITY FORUMS
+// ============================================================================
+
+model ForumCategory {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  slug        String      @unique
+  description String?
+  icon        String?
+  sortOrder   Int         @default(0)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  threads     ForumThread[]
+
+  @@index([slug])
+  @@map("forum_categories")
+}
+
+model ForumThread {
+  id          String        @id @default(cuid())
+  categoryId  String
+  userId      String
+  title       String
+  body        String        @db.Text
+  isPinned    Boolean       @default(false)
+  isLocked    Boolean       @default(false)
+  isSolved    Boolean       @default(false)
+  views       Int           @default(0)
+  deletedAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  category    ForumCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replies     ForumReply[]
+
+  @@index([categoryId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("forum_threads")
+}
+
+model ForumReply {
+  id           String      @id @default(cuid())
+  threadId     String
+  userId       String
+  body         String      @db.Text
+  isAccepted   Boolean     @default(false)
+  deletedAt    DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  thread       ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@index([userId])
+  @@map("forum_replies")
+}
+
+// ============================================================================
+// INTERACTIVE DECISION TREE
+// ============================================================================
+
+model DecisionTreeNode {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  question    String
+  isRoot      Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  options     DecisionTreeOption[]
+
+  @@index([isRoot])
+  @@map("decision_tree_nodes")
+}
+
+model DecisionTreeOption {
+  id           String            @id @default(cuid())
+  nodeId       String
+  label        String
+  nextNodeId   String?
+  resolution   String?           @db.Text
+  linkUrl      String?
+  linkLabel    String?
+  sortOrder    Int               @default(0)
+  node         DecisionTreeNode  @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([nodeId])
+  @@map("decision_tree_options")
+}
+
+// ============================================================================
+// VIP EMERGENCY BYPASS
+// ============================================================================
+
+model VipBypassRequest {
+  id          String    @id @default(cuid())
+  userId      String?
+  email       String
+  name        String
+  orderRef    String?
+  issue       String    @db.Text
+  status      String    @default("PENDING")
+  adminNote   String?   @db.Text
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([email])
+  @@index([createdAt])
+  @@map("vip_bypass_requests")
+}
+
+// ============================================================================
+// PAGE SNAPSHOTS (read-only cached view during maintenance)
+// ============================================================================
+
+model PageSnapshot {
+  id          String    @id @default(cuid())
+  pageKey     String    @unique
+  title       String
+  htmlContent String    @db.Text
+  capturedAt  DateTime  @default(now())
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([pageKey])
+  @@map("page_snapshots")
+}
+

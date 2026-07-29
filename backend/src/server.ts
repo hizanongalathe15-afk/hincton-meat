@@ -42,6 +42,7 @@ import analyticsRoutes from './routes/analyticsRoutes';
 import companyRoutes from './routes/companies';
 import featureRoutes from './routes/features';
 import flashSalesRoutes from './routes/flashSales';
+import communityRoutes from './routes/community';
 
 import { authenticate, authorize, optionalAuthenticate } from './middleware/auth';
 import { rejectUnsafeKeys } from './middleware/sanitizer';
@@ -207,6 +208,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/features', featureRoutes);
 app.use('/api', optionalAuthenticate, flashSalesRoutes);
+app.use('/api', communityRoutes);
 
 const safeJsonParse = <T = any>(value: string | undefined, fallback: T): T => {
   try {

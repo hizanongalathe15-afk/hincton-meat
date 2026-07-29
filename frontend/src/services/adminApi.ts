@@ -665,6 +665,70 @@ export const supportApi = {
   },
 }
 
+// Community / Forum admin API
+export const communityAdminApi = {
+  getSupportAnalytics: async (params?: { from?: string; to?: string }) => {
+    const r = await apiClient.get('/admin/support/analytics', { params })
+    return r.data
+  },
+  getDecisionTree: async () => {
+    const r = await apiClient.get('/admin/decision-tree')
+    return r.data
+  },
+  createDecisionNode: async (data: any) => {
+    const r = await apiClient.post('/admin/decision-tree/node', data)
+    return r.data
+  },
+  updateDecisionNode: async (id: string, data: any) => {
+    const r = await apiClient.put(`/admin/decision-tree/node/${id}`, data)
+    return r.data
+  },
+  deleteDecisionNode: async (id: string) => {
+    const r = await apiClient.delete(`/admin/decision-tree/node/${id}`)
+    return r.data
+  },
+  getVipBypassRequests: async (params?: { status?: string; page?: number }) => {
+    const r = await apiClient.get('/admin/vip-bypass', { params })
+    return r.data
+  },
+  updateVipBypassRequest: async (id: string, data: { status?: string; adminNote?: string }) => {
+    const r = await apiClient.patch(`/admin/vip-bypass/${id}`, data)
+    return r.data
+  },
+  getSnapshots: async () => {
+    const r = await apiClient.get('/admin/snapshots')
+    return r.data
+  },
+  saveSnapshot: async (data: { pageKey: string; title: string; htmlContent: string; expiresAt?: string | null; isActive?: boolean }) => {
+    const r = await apiClient.post('/admin/snapshots', data)
+    return r.data
+  },
+  deleteSnapshot: async (id: string) => {
+    const r = await apiClient.delete(`/admin/snapshots/${id}`)
+    return r.data
+  },
+  generateDowntimeCoupon: async (data: { discountType?: string; discountValue?: number; validDays?: number; prefix?: string }) => {
+    const r = await apiClient.post('/admin/downtime-coupon', data)
+    return r.data
+  },
+  getForumCategories: async () => {
+    const r = await apiClient.get('/forum/categories')
+    return r.data
+  },
+  createForumCategory: async (data: any) => {
+    const r = await apiClient.post('/admin/forum/categories', data)
+    return r.data
+  },
+  updateForumCategory: async (id: string, data: any) => {
+    const r = await apiClient.put(`/admin/forum/categories/${id}`, data)
+    return r.data
+  },
+  deleteForumCategory: async (id: string) => {
+    const r = await apiClient.delete(`/admin/forum/categories/${id}`)
+    return r.data
+  },
+}
+
 // Reviews API
 export const reviewsApi = {
   getProductReviews: async (params?: {

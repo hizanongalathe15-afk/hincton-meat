@@ -211,9 +211,8 @@ Making loyal customers feel special.
 | **Referral Program Dashboard** | Track referrals and rewards |
 | **Feedback Rewards** | Points for submitting feedback/surveys |
 
----
 
-## 🌐 Accessibility Features
+🌐 Accessibility Features
 
 Making support accessible to everyone.
 
@@ -230,9 +229,7 @@ Making support accessible to everyone.
 | **Text-to-Speech** | Read text aloud to users |
 | **Language Switching** | Easy toggle between languages |
 
----
-
-## 📱 Mobile-First Support Features
+Mobile-First Support Features
 
 Because most users are on mobile.
 

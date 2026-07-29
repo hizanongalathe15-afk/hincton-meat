@@ -124,15 +124,31 @@ const SystemMetrics = () => {
         systemApi.getAdminSessions().catch(() => ({ sessions: [] })) // Gracefully handle if endpoint doesn't exist yet
       ])
 
-      const m: SystemMetrics = metricsResponse.metrics ?? metricsResponse
-      const h: SystemHealth = healthResponse.health ?? healthResponse
-      const w: SystemWakeTime = wakeTimeResponse.wakeTime ?? wakeTimeResponse
+      // Normalize responses and validate shape before setting state
+      const maybeMetrics = metricsResponse?.metrics ?? metricsResponse
+      const maybeHealth = healthResponse?.health ?? healthResponse
+      const maybeWake = wakeTimeResponse?.wakeTime ?? wakeTimeResponse
+
+      // Ensure metrics object has expected properties to avoid runtime errors
+      const isValidMetrics =
+        maybeMetrics &&
+        typeof maybeMetrics === 'object' &&
+        'cpu' in maybeMetrics &&
+        'memory' in maybeMetrics &&
+        'storage' in maybeMetrics &&
+        'network' in maybeMetrics &&
+        'loadAverage' in maybeMetrics
+
+      const m: SystemMetrics | null = isValidMetrics ? (maybeMetrics as SystemMetrics) : null
+      const h: SystemHealth | null = maybeHealth && typeof maybeHealth === 'object' ? (maybeHealth as SystemHealth) : null
+      const w: SystemWakeTime | null = maybeWake && typeof maybeWake === 'object' ? (maybeWake as SystemWakeTime) : null
+
       setMetrics(m)
       setHealth(h)
       setWakeTime(w)
       setAdminSessions(sessionsResponse.sessions || [])
       setLastUpdate(new Date().toLocaleTimeString())
-      if (m?.cpu && m?.memory && m?.storage && m?.network) {
+      if (m && m.cpu && m.memory && m.storage && m.network) {
         setMetricHistory((current) => [
           ...current.slice(-29),
           {
