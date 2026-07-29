@@ -180,6 +180,8 @@ function App() {
           <Route path="/careers" element={<DynamicContentPage pageKey="careers" />} />
           <Route path="/wellness" element={<DynamicContentPage pageKey="wellness" />} />
           <Route path="/returns" element={<DynamicContentPage pageKey="returns" />} />
+          <Route path="/maintenance" element={<DynamicContentPage pageKey="maintenance" />} />
+          <Route path="/download-thank-you" element={<DynamicContentPage pageKey="downloadThankYou" />} />
           <Route path="/blog" element={<BlogPage />} />
           <Route path="/blog/:slug" element={<BlogPostPage />} />
           

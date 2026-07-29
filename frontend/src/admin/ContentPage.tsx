@@ -42,7 +42,19 @@ const ContentPage = () => {
   const [blogPosts, setBlogPosts] = useState<any[]>([])
   const [blogDraft, setBlogDraft] = useState({ title: '', excerpt: '', content: '', featuredImage: '', category: 'Updates', tags: '', isPublished: true, isFeatured: false })
   const [seoKeywordDraft, setSeoKeywordDraft] = useState('')
-  const pageKeys = ['about', 'farms', 'sustainability', 'contact', 'careers', 'wellness', 'returns', 'blog'] as const
+  const pageKeys = ['about', 'farms', 'sustainability', 'contact', 'careers', 'wellness', 'returns', 'maintenance', 'downloadThankYou', 'blog'] as const
+  const pageLabels: Record<typeof pageKeys[number], string> = {
+    about: 'About Us',
+    farms: 'Farms',
+    sustainability: 'Sustainability',
+    contact: 'Contact',
+    careers: 'Careers',
+    wellness: 'Wellness',
+    returns: 'Returns',
+    maintenance: 'Maintenance Page',
+    downloadThankYou: 'Download Thank You',
+    blog: 'Blog',
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -1353,14 +1365,14 @@ const ContentPage = () => {
 
       <section className="rounded bg-white p-6 shadow-sm">
         <h2 className="text-lg font-bold text-gray-950">Editable Public Pages</h2>
-        <p className="mt-1 text-sm text-gray-600">Edit copy, images, videos, and sections for About, Farms, Sustainability, Contact, Careers, Blog, Wellness, and Returns.</p>
+        <p className="mt-1 text-sm text-gray-600">Edit copy, images, videos, and sections for About, Farms, Sustainability, Contact, Careers, Blog, Wellness, Returns, Maintenance, and Download Thank You.</p>
         <div className="mt-5 space-y-6">
           {pageKeys.map((key) => {
             const page = profile.pages[key] || defaultSiteProfile.pages[key]
             return (
               <div key={key} className="rounded border border-gray-200 p-4">
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-base font-bold capitalize text-gray-950">{key}</h3>
+                  <h3 className="text-base font-bold text-gray-950">{pageLabels[key] || key}</h3>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => addPageSection(key)} className="rounded bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Add Section</button>
                     <button type="button" onClick={save} disabled={saving} className="inline-flex items-center gap-2 rounded bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60">

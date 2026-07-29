@@ -85,6 +85,8 @@ export interface SiteProfile {
     blog?: string
     wellness?: string
     returns?: string
+    maintenance?: string
+    downloadThankYou?: string
   }
   heroSlides: Array<{ image: string; alt?: string }>
   pages: Record<string, SitePageContent>
@@ -237,6 +239,8 @@ export const defaultSiteProfile: SiteProfile = {
     blog: '/hincton/hero-platter.webp',
     wellness: '/hincton/beef-fresh.webp',
     returns: '/hincton/hero-platter.webp',
+    maintenance: '/hincton/hero-platter.webp',
+    downloadThankYou: '/hincton/logo.png',
   },
   heroSlides: [],
   pages: {
@@ -291,6 +295,26 @@ export const defaultSiteProfile: SiteProfile = {
       body: 'Because fresh products are perishable, returns are reviewed quickly with order details, timing, and supporting photos where relevant.',
       image: '/hincton/hero-platter.webp',
       sections: [],
+    },
+    maintenance: {
+      title: "We're giving the site a little spa day!",
+      subtitle: 'We’ll be back soon with a faster, fresher experience.',
+      body: 'Thanks for your patience while we update the site. If you need help right away, email us at dialformeat@gmail.com or visit our social pages for live updates.',
+      image: '/hincton/hero-platter.webp',
+      sections: [
+        { title: 'Estimated return time', body: 'Back by 3:00 PM EAT — and if anything changes, we’ll update this page immediately.' },
+        { title: 'Need urgent help?', body: 'Email support at dialformeat@gmail.com or message our WhatsApp team while we finish the upgrade.' },
+      ],
+    },
+    downloadThankYou: {
+      title: 'Thanks for downloading Hincton Meat!',
+      subtitle: 'Your app is ready to open and start serving your next order.',
+      body: 'We appreciate you choosing our service. Open the app to shop fresh meat, track orders, and access special checkout offers.',
+      image: '/hincton/logo.png',
+      sections: [
+        { title: 'What to do next', body: 'Open the app and create an account or sign in to start browsing fresh meat and order delivery.' },
+        { title: 'Need help?', body: 'Contact support at dialformeat@gmail.com or tap the live chat link in the app.' },
+      ],
     },
     blog: {
       title: 'Blog',
