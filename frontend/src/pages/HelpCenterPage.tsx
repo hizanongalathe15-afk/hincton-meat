@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import {
   ChevronDown,
   ChevronRight,
@@ -16,6 +16,10 @@ import {
   AlertCircle,
   Clock,
   BookOpen,
+  GitBranch,
+  ShieldAlert,
+  Users,
+  ExternalLink,
 } from 'lucide-react'
 import { useSiteContent } from '../contexts/SiteContentContext'
 import { Link, useNavigate } from 'react-router-dom'
@@ -25,10 +29,27 @@ import {
   faqApi,
   knowledgeBaseApi,
   supportTicketsApi,
+  decisionTreeApi,
+  vipBypassApi,
 } from '../services/buyerApi'
 import { useAuth } from '../contexts/AuthContext'
 
 type TabKey = 'faq' | 'kb' | 'contact'
+
+interface DecisionTreeOption {
+  id: string
+  label: string
+  nextNodeId?: string | null
+  resolution?: string | null
+  linkUrl?: string | null
+  linkLabel?: string | null
+}
+
+interface DecisionTreeNode {
+  id: string
+  question: string
+  options: DecisionTreeOption[]
+}
 
 interface FaqItem {
   id: string
@@ -115,6 +136,16 @@ const HelpCenterPage = () => {
     priority: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT',
   })
   const [submitting, setSubmitting] = useState(false)
+  const [decisionNode, setDecisionNode] = useState<DecisionTreeNode | null>(null)
+  const [decisionLoading, setDecisionLoading] = useState(true)
+  const [decisionTrail, setDecisionTrail] = useState<string[]>([])
+  const [vipForm, setVipForm] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    orderRef: '',
+    issue: '',
+  })
+  const [vipSubmitting, setVipSubmitting] = useState(false)
 
   const loadFaqs = async () => {
     setFaqLoading(true)
@@ -169,6 +200,21 @@ const HelpCenterPage = () => {
     }
   }, [selectedSlug])
 
+  useEffect(() => {
+    decisionTreeApi.getRoot()
+      .then((d) => setDecisionNode(d.node || null))
+      .catch(() => undefined)
+      .finally(() => setDecisionLoading(false))
+  }, [])
+
+  useEffect(() => {
+    setVipForm((prev) => ({
+      ...prev,
+      name: user?.name || prev.name,
+      email: user?.email || prev.email,
+    }))
+  }, [user])
+
   const allCategories = useMemo(() => {
     const set = new Set<string>()
     faqCategories.forEach((c) => c && set.add(c))
@@ -211,7 +257,7 @@ const HelpCenterPage = () => {
     }
   }
 
-  const submitTicket = async (e: React.FormEvent) => {
+  const submitTicket = async (e: FormEvent) => {
     e.preventDefault()
     if (!ticketForm.subject.trim() || !ticketForm.message.trim()) {
       toast.error('Please include a subject and message')
@@ -245,6 +291,49 @@ const HelpCenterPage = () => {
   const formatCategory = (c: string | null | undefined) => {
     if (!c) return 'General'
     return (CATEGORY_LABELS[c as string] || c.replace(/_/g, ' '))
+  }
+
+  const handleDecisionOption = async (option: DecisionTreeOption) => {
+    if (option.nextNodeId) {
+      try {
+        const d = await decisionTreeApi.getNode(option.nextNodeId)
+        setDecisionTrail((prev) => [...prev, decisionNode?.question || ''])
+        setDecisionNode(d.node || null)
+      } catch {
+        toast.error('Could not load the next help step')
+      }
+    }
+  }
+
+  const resetDecisionTree = async () => {
+    setDecisionLoading(true)
+    try {
+      const d = await decisionTreeApi.getRoot()
+      setDecisionNode(d.node || null)
+      setDecisionTrail([])
+    } catch {
+      toast.error('Could not reset the help flow')
+    } finally {
+      setDecisionLoading(false)
+    }
+  }
+
+  const submitVipBypass = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!vipForm.name.trim() || !vipForm.email.trim() || !vipForm.issue.trim()) {
+      toast.error('Please complete the emergency request form')
+      return
+    }
+    setVipSubmitting(true)
+    try {
+      await vipBypassApi.submit(vipForm)
+      toast.success('Emergency request sent. Our team will review it urgently.')
+      setVipForm((prev) => ({ ...prev, orderRef: '', issue: '' }))
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to submit emergency request')
+    } finally {
+      setVipSubmitting(false)
+    }
   }
 
   // ============ RENDER ============
@@ -521,9 +610,119 @@ const HelpCenterPage = () => {
                     <div className="font-semibold text-gray-900">Contact Form Page</div>
                   </div>
                 </Link>
+                <Link to="/forum" className="flex items-start gap-3 rounded-xl bg-gray-50 p-4 hover:bg-red-50">
+                  <div className="rounded-xl bg-red-100 p-2"><Users className="h-5 w-5 text-[#9f2f20]" /></div>
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-wide text-gray-500">Community</div>
+                    <div className="font-semibold text-gray-900">Browse the customer forum</div>
+                  </div>
+                </Link>
               </div>
             </div>
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-2">
+            <div className="space-y-6 lg:col-span-2">
+              <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-xl bg-red-100 p-2"><GitBranch className="h-5 w-5 text-[#9f2f20]" /></div>
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-extrabold text-gray-950">Guided Help Flow</h2>
+                    <p className="mt-2 text-sm text-gray-600">
+                      Answer one question at a time and we will guide you to the fastest next step.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={resetDecisionTree}
+                    className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                  >
+                    Restart
+                  </button>
+                </div>
+                <div className="mt-5 rounded-2xl bg-gray-50 p-5">
+                  {decisionLoading ? (
+                    <p className="text-sm text-gray-500">Loading guided help…</p>
+                  ) : decisionNode ? (
+                    <>
+                      <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">Current step</p>
+                      <h3 className="mt-2 text-xl font-bold text-gray-950">{decisionNode.question}</h3>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        {decisionNode.options.map((option) => (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => handleDecisionOption(option)}
+                            className="rounded-2xl border border-gray-200 bg-white p-4 text-left hover:border-red-300 hover:bg-red-50"
+                          >
+                            <div className="font-semibold text-gray-900">{option.label}</div>
+                            {option.resolution && <div className="mt-2 text-sm text-gray-600">{option.resolution}</div>}
+                            {option.linkUrl && (
+                              <div className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-red-700">
+                                {option.linkLabel || 'Open help link'} <ExternalLink className="h-4 w-4" />
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      {decisionTrail.length > 0 && (
+                        <p className="mt-4 text-xs text-gray-400">Previous steps: {decisionTrail.join(' / ')}</p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-500">No guided help flow has been published yet.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-xl bg-white p-2"><ShieldAlert className="h-5 w-5 text-[#9f2f20]" /></div>
+                  <div>
+                    <h2 className="text-2xl font-extrabold text-gray-950">VIP Emergency Bypass</h2>
+                    <p className="mt-2 text-sm text-gray-700">
+                      Paying customer with a time-sensitive issue? Send an urgent request and the support team can prioritize a manual workaround.
+                    </p>
+                  </div>
+                </div>
+                <form onSubmit={submitVipBypass} className="mt-5 grid gap-4 md:grid-cols-2">
+                  <input
+                    value={vipForm.name}
+                    onChange={(e) => setVipForm({ ...vipForm, name: e.target.value })}
+                    placeholder="Your full name"
+                    className="rounded-xl border border-red-200 bg-white px-4 py-3 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                  <input
+                    type="email"
+                    value={vipForm.email}
+                    onChange={(e) => setVipForm({ ...vipForm, email: e.target.value })}
+                    placeholder="Email address"
+                    className="rounded-xl border border-red-200 bg-white px-4 py-3 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                  <input
+                    value={vipForm.orderRef}
+                    onChange={(e) => setVipForm({ ...vipForm, orderRef: e.target.value })}
+                    placeholder="Order number or reference"
+                    className="rounded-xl border border-red-200 bg-white px-4 py-3 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 md:col-span-2"
+                  />
+                  <textarea
+                    value={vipForm.issue}
+                    onChange={(e) => setVipForm({ ...vipForm, issue: e.target.value })}
+                    rows={4}
+                    placeholder="Describe the urgent issue and why you need a manual workaround"
+                    className="rounded-xl border border-red-200 bg-white px-4 py-3 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 md:col-span-2"
+                  />
+                  <div className="md:col-span-2 flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={vipSubmitting}
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#9f2f20] px-6 py-3 text-sm font-bold text-white hover:bg-[#842719] disabled:opacity-60"
+                    >
+                      <AlertCircle className="h-4 w-4" />
+                      {vipSubmitting ? 'Sending urgent request…' : 'Request emergency help'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-2xl font-extrabold text-gray-950">Create a Support Ticket</h2>
@@ -604,6 +803,7 @@ const HelpCenterPage = () => {
                   </button>
                 </div>
               </form>
+            </div>
             </div>
           </section>
         )}

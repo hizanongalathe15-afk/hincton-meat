@@ -14,6 +14,8 @@ const productLinks = [
 
 const companyLinks = [
   { label: 'About Us', to: '/about' },
+  { label: 'Community Forum', to: '/forum' },
+  { label: 'Help Center', to: '/help' },
   { label: 'Our Farms', to: '/farms' },
   { label: 'Sustainability', to: '/sustainability' },
   { label: 'Wellness', to: '/wellness' },

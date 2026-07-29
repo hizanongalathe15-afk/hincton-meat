@@ -41,6 +41,7 @@ import DealsPage from './admin/DealsPage'
 import AdminSupportPage from './admin/AdminSupportPage'
 import AdminFaqsPage from './admin/AdminFaqsPage'
 import AdminKnowledgeBasePage from './admin/AdminKnowledgeBasePage'
+import SupportAnalyticsPage from './admin/SupportAnalyticsPage'
 import CookieConsent from './components/CookieConsent'
 import ReviewPrompt from './components/ReviewPrompt'
 
@@ -84,6 +85,7 @@ import DynamicContentPage from './pages/DynamicContentPage'
 import BlogPage from './pages/BlogPage'
 import BlogPostPage from './pages/BlogPostPage'
 import CompaniesPage from './pages/CompaniesPage'
+import CommunityForumPage from './pages/CommunityForumPage'
 import QrLoginApprovePage from './pages/QrLoginApprovePage'
 import NewReturnPage from './pages/NewReturnPage'
 
@@ -174,6 +176,9 @@ function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/feedback" element={<FeedbackPage />} />
           <Route path="/help" element={<HelpCenterPage />} />
+          <Route path="/forum" element={<CommunityForumPage />} />
+          <Route path="/forum/:slug" element={<CommunityForumPage />} />
+          <Route path="/forum/thread/:threadId" element={<CommunityForumPage />} />
           <Route path="/app-info" element={<AppInfoPage />} />
           <Route path="/our-companies" element={<CompaniesPage />} />
           <Route path="/terms" element={<LegalPage type="terms" />} />
@@ -245,6 +250,7 @@ function App() {
             <Route path="qr-codes" element={<QRCodeManager />} />
             <Route path="content" element={<ContentPage />} />
             <Route path="support" element={<AdminSupportPage />} />
+            <Route path="support-analytics" element={<SupportAnalyticsPage />} />
             <Route path="faqs" element={<AdminFaqsPage />} />
             <Route path="knowledge-base" element={<AdminKnowledgeBasePage />} />
             <Route path="companies" element={<AdminCompaniesPage />} />

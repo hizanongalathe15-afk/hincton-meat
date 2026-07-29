@@ -124,6 +124,8 @@ const Navigation = () => {
   const navLinks = [
     { to: homePath, label: t('nav.home') },
     { to: '/shop', label: t('nav.products') },
+    { to: '/forum', label: 'Community' },
+    { to: '/help', label: 'Help Center' },
     { to: '/about', label: t('nav.about') },
     { to: '/contact', label: t('nav.contact') },
     { to: '/our-companies', label: 'Our network' },

@@ -100,6 +100,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { path: '/admin/ads', icon: Target, label: 'Ad Management' },
     { path: '/admin/deals', icon: Sparkles, label: 'Deals & Offers' },
     { path: '/admin/support', icon: LifeBuoy, label: 'Support Tickets' },
+    { path: '/admin/support-analytics', icon: BarChart3, label: 'Support Analytics' },
     { path: '/admin/faqs', icon: HelpCircle, label: 'FAQ Editor' },
     { path: '/admin/knowledge-base', icon: BookOpen, label: 'Knowledge Base' },
     { path: '/admin/qr-codes', icon: QrCode, label: t('admin.qrCodes') },
