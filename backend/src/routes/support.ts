@@ -310,7 +310,7 @@ router.get('/support/tickets/mine', authenticate, async (req: any, res) => {
           include: { user: { include: { profile: true } } },
         },
         order: undefined as any,
-      } as any,
+      },
     } as any)
     res.json({ tickets: (tickets as any[]).map(serializeTicket) })
   } catch (err) {
