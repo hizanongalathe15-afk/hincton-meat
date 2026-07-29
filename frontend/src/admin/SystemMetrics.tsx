@@ -124,21 +124,26 @@ const SystemMetrics = () => {
         systemApi.getAdminSessions().catch(() => ({ sessions: [] })) // Gracefully handle if endpoint doesn't exist yet
       ])
 
-      setMetrics(metricsResponse.metrics)
-      setHealth(healthResponse.health)
-      setWakeTime(wakeTimeResponse.wakeTime)
+      const m: SystemMetrics = metricsResponse.metrics ?? metricsResponse
+      const h: SystemHealth = healthResponse.health ?? healthResponse
+      const w: SystemWakeTime = wakeTimeResponse.wakeTime ?? wakeTimeResponse
+      setMetrics(m)
+      setHealth(h)
+      setWakeTime(w)
       setAdminSessions(sessionsResponse.sessions || [])
       setLastUpdate(new Date().toLocaleTimeString())
-      setMetricHistory((current) => [
-        ...current.slice(-29),
-        {
-          time: new Date().toLocaleTimeString(),
-          cpu: metricsResponse.metrics.cpu.usage,
-          memory: metricsResponse.metrics.memory.usage,
-          storage: metricsResponse.metrics.storage.usage,
-          network: metricsResponse.metrics.network.latency,
-        },
-      ])
+      if (m?.cpu && m?.memory && m?.storage && m?.network) {
+        setMetricHistory((current) => [
+          ...current.slice(-29),
+          {
+            time: new Date().toLocaleTimeString(),
+            cpu: m.cpu.usage,
+            memory: m.memory.usage,
+            storage: m.storage.usage,
+            network: m.network.latency,
+          },
+        ])
+      }
     } catch (error: any) {
       console.error('Failed to fetch system metrics:', error)
       toast.error(error?.message || 'Failed to fetch system metrics')
