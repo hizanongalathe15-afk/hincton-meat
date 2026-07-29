@@ -531,7 +531,7 @@ router.get('/invoices/:invoiceNumber/download', authenticate, async (req: any, r
     })
     if (!invoice) return res.status(404).json({ error: 'Invoice not found' })
     const order = invoice.order as any
-    const user = invoice.user || order?.user
+    const user = (invoice.user || order?.user) as any
     const items = (order?.items || []) as any[]
     const subtotal = items.reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 0), 0)
     const totalPaid = Number(invoice.totalAmount || order?.total || subtotal)
@@ -683,10 +683,11 @@ router.post('/alerts/back-in-stock', async (req, res) => {
     const product = await prisma.product.findUnique({ where: { id: data.productId } })
     if (!product) return res.status(404).json({ error: 'Product not found' })
 
+    if (!email) return res.status(400).json({ error: 'Email required for stock alerts' })
     await prisma.backInStockAlert.upsert({
-      where: { userId_productId: { userId, productId: data.productId } },
-      create: { userId, productId: data.productId, phone: data.phone, alertTriggered: false, createdAt: new Date() },
-      update: { phone: data.phone, cancelledAt: null, alertTriggered: false },
+      where: { productId_variantId_email: { productId: data.productId, variantId: '', email } },
+      create: { userId, productId: data.productId, email, phone: data.phone },
+      update: { phone: data.phone, notifiedAt: null },
     })
     res.json({ ok: true, message: "You'll be notified when this product is back in stock." })
   } catch (err: any) {
@@ -716,9 +717,9 @@ router.post('/alerts/price-drop', async (req, res) => {
     if (!product) return res.status(404).json({ error: 'Product not found' })
 
     await prisma.priceDropAlert.upsert({
-      where: { userId_productId: { userId, productId: data.productId } },
-      create: { userId, productId: data.productId, cancelledAt: null },
-      update: { cancelledAt: null },
+      where: { productId_userId: { userId, productId: data.productId } },
+      create: { userId, productId: data.productId, targetPrice: data.targetPrice ?? 0 },
+      update: { targetPrice: data.targetPrice ?? 0, notifiedAt: null },
     })
     res.json({ ok: true, message: "You'll be notified when the price drops." })
   } catch (err: any) {
@@ -732,11 +733,11 @@ router.get('/alerts/mine', authenticate, async (req: any, res) => {
   try {
     const [bis, pda] = await Promise.all([
       prisma.backInStockAlert.findMany({
-        where: { userId, cancelledAt: null },
+        where: { userId },
         include: { product: { include: { productImages: { take: 1 } } } } as any,
       }),
       prisma.priceDropAlert.findMany({
-        where: { userId, cancelledAt: null },
+        where: { userId },
         include: { product: { include: { productImages: { take: 1 } } } } as any,
       }),
     ])
@@ -759,9 +760,9 @@ router.delete('/alerts/:type/:id', authenticate, async (req: any, res) => {
   try {
     const { type, id } = req.params
     if (type === 'bis') {
-      await prisma.backInStockAlert.updateMany({ where: { id, userId }, data: { cancelledAt: new Date() } })
+      await prisma.backInStockAlert.deleteMany({ where: { id, userId } })
     } else if (type === 'pda') {
-      await prisma.priceDropAlert.updateMany({ where: { id, userId }, data: { cancelledAt: new Date() } })
+      await prisma.priceDropAlert.deleteMany({ where: { id, userId } })
     } else return res.status(400).json({ error: 'Invalid alert type' })
     res.json({ ok: true })
   } catch (err) {
