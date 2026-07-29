@@ -523,7 +523,7 @@ router.get('/admin/support/analytics', authenticate, async (req: any, res) => {
       byStatus,
       byPriority,
       byCategory,
-      recentTickets,
+      recentTicketsRaw,
       avgResolutionRaw,
     ] = await Promise.all([
       prisma.supportTicket.count({ where }),
@@ -535,7 +535,7 @@ router.get('/admin/support/analytics', authenticate, async (req: any, res) => {
       prisma.supportTicket.groupBy({ by: ['category'], where, _count: { id: true } }),
       prisma.supportTicket.findMany({
         where, take: 10, orderBy: { createdAt: 'desc' },
-        select: { id: true, ticketNumber: true, subject: true, status: true, priority: true, createdAt: true },
+        select: { id: true, subject: true, status: true, priority: true, createdAt: true },
       }),
       prisma.$queryRaw<{ avg_hours: number }[]>`
         SELECT AVG(EXTRACT(EPOCH FROM ("resolvedAt" - "createdAt")) / 3600) as avg_hours
@@ -554,6 +554,12 @@ router.get('/admin/support/analytics', authenticate, async (req: any, res) => {
       where,
       _count: { id: true },
     })
+
+    // Compute a human-friendly ticket number for each recent ticket
+    const recentTickets = (recentTicketsRaw || []).map((t: any) => ({
+      ...t,
+      ticketNumber: `T-${String(t.id).slice(0, 8).toUpperCase()}`,
+    }))
 
     res.json({
       summary: {
