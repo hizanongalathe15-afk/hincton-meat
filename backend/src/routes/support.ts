@@ -531,14 +531,14 @@ router.get('/invoices/:invoiceNumber/download', authenticate, async (req: any, r
     })
     if (!invoice) return res.status(404).json({ error: 'Invoice not found' })
     const order = invoice.order as any
-    const user = (invoice.user || order?.user) as any
+    const user: any = invoice.user || order?.user
     const items = (order?.items || []) as any[]
     const subtotal = items.reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 0), 0)
     const totalPaid = Number(invoice.totalAmount || order?.total || subtotal)
     const currency = 'GHS'
     const fmt = (n: number) => `${currency} ${Number(n || 0).toFixed(2)}`
 
-    const brandName = user?.companyProfile?.name || 'Hincton Meat'
+    const brandName = user?.profile?.fullName || 'Hincton Meat'
     const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -684,11 +684,19 @@ router.post('/alerts/back-in-stock', async (req, res) => {
     if (!product) return res.status(404).json({ error: 'Product not found' })
 
     if (!email) return res.status(400).json({ error: 'Email required for stock alerts' })
-    await prisma.backInStockAlert.upsert({
-      where: { productId_variantId_email: { productId: data.productId, variantId: '', email } },
-      create: { userId, productId: data.productId, email, phone: data.phone },
-      update: { phone: data.phone, notifiedAt: null },
-    })
+      const existingStockAlert = await prisma.backInStockAlert.findFirst({
+        where: { productId: data.productId, variantId: '', email },
+      })
+      if (existingStockAlert) {
+        await prisma.backInStockAlert.update({
+          where: { id: existingStockAlert.id },
+          data: { phone: data.phone, notifiedAt: null },
+        })
+      } else {
+        await prisma.backInStockAlert.create({
+          data: { userId, productId: data.productId, variantId: '', email, phone: data.phone },
+        })
+      }
     res.json({ ok: true, message: "You'll be notified when this product is back in stock." })
   } catch (err: any) {
     res.status(400).json({ error: err?.message || 'Failed to subscribe' })
@@ -716,11 +724,19 @@ router.post('/alerts/price-drop', async (req, res) => {
     const product = await prisma.product.findUnique({ where: { id: data.productId } })
     if (!product) return res.status(404).json({ error: 'Product not found' })
 
-    await prisma.priceDropAlert.upsert({
-      where: { productId_userId: { userId, productId: data.productId } },
-      create: { userId, productId: data.productId, targetPrice: data.targetPrice ?? 0 },
-      update: { targetPrice: data.targetPrice ?? 0, notifiedAt: null },
-    })
+      const existingPriceAlert = await prisma.priceDropAlert.findFirst({
+        where: { userId, productId: data.productId },
+      })
+      if (existingPriceAlert) {
+        await prisma.priceDropAlert.update({
+          where: { id: existingPriceAlert.id },
+          data: { targetPrice: data.targetPrice ?? 0, notifiedAt: null },
+        })
+      } else {
+        await prisma.priceDropAlert.create({
+          data: { userId, productId: data.productId, targetPrice: data.targetPrice ?? 0 },
+        })
+      }
     res.json({ ok: true, message: "You'll be notified when the price drops." })
   } catch (err: any) {
     res.status(400).json({ error: err?.message || 'Failed to subscribe' })

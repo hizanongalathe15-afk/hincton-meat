@@ -39,7 +39,7 @@ These features empower customers to find answers on their own.
 
 ---
 
-## 💬 Non-AI Communication Channels
+## 
 
 Real human interaction without fancy AI.
 

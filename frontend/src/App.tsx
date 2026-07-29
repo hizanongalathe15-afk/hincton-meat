@@ -97,22 +97,25 @@ import AccessibilityWidget from './components/AccessibilityWidget'
 import WhatsAppWidget from './components/WhatsAppWidget'
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
+  if (loading) return null
   return user ? children : <Navigate to="/login" replace />
 }
 
 const AdminRoute = ({ children }: { children: JSX.Element }) => {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const isAdmin = String(user?.role || '').toLowerCase() === 'admin'
 
+  if (loading) return null
   if (!user) return <Navigate to="/login" replace />
   return isAdmin ? children : <Navigate to="/profile" replace />
 }
 
 const BuyerRoute = ({ children }: { children: JSX.Element }) => {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const isAdmin = String(user?.role || '').toLowerCase() === 'admin'
 
+  if (loading) return null
   if (!user) return <Navigate to="/login" replace />
   return isAdmin ? <Navigate to="/admin/profile" replace /> : children
 }
