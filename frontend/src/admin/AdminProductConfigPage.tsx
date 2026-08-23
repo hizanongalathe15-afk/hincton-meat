@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Plus, Save, Trash2, X, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, Save, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
 import { productConfigAdminApi } from '../services/adminApi'
 import { productConfigApi } from '../services/buyerApi'
 

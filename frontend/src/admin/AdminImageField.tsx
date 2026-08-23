@@ -1,8 +1,8 @@
 import { useRef, useState, DragEvent } from 'react'
-import { Upload, Image as ImageIcon, Video, X } from 'lucide-react'
+import { Upload, Image as ImageIcon, Video } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { mediaUploadApi, contentApi } from '../services/adminApi'
-import { getApiHost, resolveMediaUrl, getEmbedVideoUrl, isDirectVideoUrl } from '../services/api'
+import { resolveMediaUrl, getEmbedVideoUrl, isDirectVideoUrl } from '../services/api'
 
 interface AdminImageFieldProps {
   value: string

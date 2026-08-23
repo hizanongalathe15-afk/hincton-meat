@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, DragEvent } from 'react'
 import toast from 'react-hot-toast'
 import { Plus, Save, Trash2, Camera, X, Star, Eye, EyeOff, Sparkles, Upload, Video } from 'lucide-react'
-import { photoReviewsAdminApi, contentApi } from '../services/adminApi'
+import { photoReviewsAdminApi } from '../services/adminApi'
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog'
 import ConfirmationDialog from '../components/ui/ConfirmationDialog'
-import { getApiHost, resolveMediaUrl, getEmbedVideoUrl, isDirectVideoUrl } from '../services/api'
+import { getApiHost, getEmbedVideoUrl, isDirectVideoUrl } from '../services/api'
 
 const inputCls = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-red-500 focus:ring-2 focus:ring-red-500'
 const labelCls = 'block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5'

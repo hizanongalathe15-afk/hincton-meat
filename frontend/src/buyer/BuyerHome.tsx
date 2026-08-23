@@ -15,7 +15,7 @@ import { productsApi as api, trackingApi } from '../services/buyerApi'
 import { resolveMediaUrl } from '../services/api'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useSiteContent } from '../contexts/SiteContentContext'
-import { HINCTON_BRAND, HINCTON_MARKETS, HINCTON_PRODUCTS, HINCTON_QUALITY_POINTS } from '../utils/hinctonBrand'
+import { HINCTON_BRAND, HINCTON_MARKETS, HINCTON_PRODUCTS } from '../utils/hinctonBrand'
 
 interface BuyerHomeProps {
   onProductClick?: (product: Product) => void
@@ -77,7 +77,7 @@ const DEFAULT_FEATURED_PRODUCTS: Product[] = [
 ]
 
 const BuyerHome = ({
-  onProductClick,
+  onProductClick: _onProductClick,
   onAddToCart,
   onToggleWishlist: _onToggleWishlist,
   wishlistItems: _wishlistItems = new Set(),
@@ -88,9 +88,6 @@ const BuyerHome = ({
   const localizedMarkets = profile.markets.join('|') === HINCTON_MARKETS.join('|')
     ? HINCTON_MARKETS.map((_, index) => t(`buyerHome.markets.${index}`))
     : profile.markets
-  const _localizedQualityPoints = profile.qualityPoints.join('|') === HINCTON_QUALITY_POINTS.join('|')
-    ? HINCTON_QUALITY_POINTS.map((_, index) => t(`buyerHome.qualityPoints.${index}`))
-    : profile.qualityPoints
   const brandMantra = profile.brand.mantra === HINCTON_BRAND.mantra ? t('brand.mantra') : profile.brand.mantra
   const [_products, setProducts] = useState<Product[]>(DEFAULT_FEATURED_PRODUCTS)
   const [categories, setCategories] = useState<any[]>([])
@@ -215,19 +212,6 @@ const BuyerHome = ({
       params.set('q', query.trim())
     }
     navigate(`/shop${params.toString() ? `?${params.toString()}` : ''}`)
-  }
-
-  const _handleProductClick = (product: Product) => {
-    trackingApi.trackClick({
-      linkUrl: `/product/${product.id}`,
-      linkId: product.id,
-      label: product.name,
-      source: 'home',
-      medium: 'featured-product-card',
-      path: window.location.pathname,
-    }).catch(() => {})
-    onProductClick?.(product)
-    navigate(`/product/${product.id}`)
   }
 
   const scrollProductTiles = (row: 'top' | 'bottom', direction: 'left' | 'right') => {
