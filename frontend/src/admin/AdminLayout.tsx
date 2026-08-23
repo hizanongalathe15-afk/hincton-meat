@@ -423,11 +423,11 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       <div
         id="admin-sidebar"
         className={`
-        fixed inset-y-0 left-0 z-50 h-screen w-[18rem] max-w-[86vw] border-r border-white/40 bg-white/72 shadow-2xl shadow-red-950/10 backdrop-blur-2xl transform transition-transform duration-300 ease-in-out
+        fixed inset-y-0 left-0 z-50 flex h-screen w-[18rem] max-w-[86vw] flex-col overflow-hidden border-r border-white/40 bg-white/72 shadow-2xl shadow-red-950/10 backdrop-blur-2xl transform transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}
       >
-        <div className="flex items-center justify-between h-16 px-6 border-b border-white/60">
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/60 px-6">
           <div>
             <h1 className="text-lg font-extrabold text-gray-950">Hincton Admin</h1>
             <p className="text-xs font-medium text-red-700">Operations control</p>
@@ -442,7 +442,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
           </button>
         </div>
 
-        <nav className="mt-6 px-3 pb-24">
+        <nav className="mt-6 min-h-0 flex-1 overflow-y-auto px-3 pb-6">
           <ul className="space-y-1">
             {menuItems.map((item) => {
               const Icon = item.icon
@@ -468,7 +468,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
           </ul>
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/60">
+        <div className="shrink-0 border-t border-white/60 p-4">
           <Link
             to="/"
             className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-white/80 hover:text-gray-950"
