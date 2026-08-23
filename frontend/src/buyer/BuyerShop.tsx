@@ -518,7 +518,7 @@ const BuyerShop = ({
   const navigationQuery = searchParams.get('navSearch') || ''
 
   const [shopPills, setShopPills] = useState<Array<{ id: string; label: string }>>([
-    { id: '', label: '🥩 All Cuts' },
+    { id: '', label: 'All Cuts' },
   ])
 
   useEffect(() => {

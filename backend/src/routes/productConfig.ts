@@ -29,7 +29,7 @@ const DEFAULT_BUTCHER_PREP = {
 }
 
 const DEFAULT_SHOP_PILLS = [
-  { id: '', label: '🥩 All Cuts' },
+  { id: '', label: 'All Cuts' },
   { id: 'beef', label: 'Beef Steaks & Cuts' },
   { id: 'goat', label: 'Goat / Mbuzi' },
   { id: 'lamb', label: 'Lamb / Mutton' },

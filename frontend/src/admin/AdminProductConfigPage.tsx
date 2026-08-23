@@ -204,7 +204,7 @@ const AdminProductConfigPage = () => {
                       copy[idx] = { ...copy[idx], label: e.target.value }
                       setShopPills(copy)
                     }}
-                    placeholder="e.g. 🥩 Beef Steaks & Cuts"
+                    placeholder="e.g. Beef Steaks & Cuts"
                   />
                 </div>
               </div>

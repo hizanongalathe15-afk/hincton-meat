@@ -123,7 +123,7 @@ const SpinToWinModal: React.FC<SpinToWinModalProps> = ({ isOpen, onClose }) => {
       const message = targetSegment.rewardType === 'TRY_AGAIN'
         ? 'Better luck next time!'
         : targetSegment.rewardType === 'POINTS'
-          ? `You won ${targetSegment.rewardValue} loyalty points! 🎉`
+          ? `You won ${targetSegment.rewardValue} loyalty points!`
           : targetSegment.rewardType === 'DISCOUNT'
             ? `You won ${targetSegment.label}! Use code ${targetSegment.rewardCode}`
             : `You won ${targetSegment.label}!`

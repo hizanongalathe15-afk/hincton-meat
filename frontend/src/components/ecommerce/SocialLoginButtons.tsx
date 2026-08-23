@@ -101,7 +101,7 @@ const SocialLoginButtons: React.FC<SocialLoginButtonsProps> = ({
           </div>
         </div>
       ),
-      { duration: 5000, icon: '⚙️' },
+      { duration: 5000 },
     )
 
     try {

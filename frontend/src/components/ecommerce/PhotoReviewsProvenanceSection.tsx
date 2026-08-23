@@ -203,7 +203,8 @@ export const PhotoReviewsProvenanceSection: React.FC = () => {
                 : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
             }`}
           >
-            📸 Customer Creations ({loading ? '…' : reviews.length})
+            <Camera className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
+            Customer Creations ({loading ? '…' : reviews.length})
           </button>
           <button
             onClick={() => setActiveTab('provenance')}
@@ -213,7 +214,8 @@ export const PhotoReviewsProvenanceSection: React.FC = () => {
                 : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
             }`}
           >
-            🌾 Meet Our Kenyan Farmers
+            <ChefHat className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
+            Meet Our Kenyan Farmers
           </button>
         </div>
       </div>

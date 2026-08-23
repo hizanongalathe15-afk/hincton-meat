@@ -22,10 +22,10 @@ export const SmartwatchCompactView: React.FC<SmartwatchCompactViewProps> = ({ on
   const phone = profile?.brand?.whatsapp || profile?.brand?.phone || '254797416181'
 
   const watchQuickItems = [
-    { name: 'Prime Beef Cuts (1kg)', price: 950, tag: '🔥 Sourced 6 AM', time: 'Today' },
-    { name: 'Mbuzi Choma Ribs (1kg)', price: 900, tag: '⚡ Top Seller', time: 'Fresh' },
-    { name: 'Capon Chicken (1.2kg)', price: 450, tag: '🌿 Free Range', time: 'Ready' },
-    { name: 'Gourmet Beef Sausages', price: 650, tag: '✨ Hand-Crafted', time: 'Pack' },
+    { name: 'Prime Beef Cuts (1kg)', price: 950, tag: 'Sourced 6 AM', time: 'Today' },
+    { name: 'Mbuzi Choma Ribs (1kg)', price: 900, tag: 'Top Seller', time: 'Fresh' },
+    { name: 'Capon Chicken (1.2kg)', price: 450, tag: 'Free Range', time: 'Ready' },
+    { name: 'Gourmet Beef Sausages', price: 650, tag: 'Hand-Crafted', time: 'Pack' },
   ]
 
   const handle1TapBuy = (item: { name: string; price: number }) => {

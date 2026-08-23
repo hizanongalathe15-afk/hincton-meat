@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { ShoppingCart, Clock, Truck, Shield, ArrowRight, Beef } from 'lucide-react'
+import { ShoppingCart, Clock, Truck, Shield, ArrowRight, Beef, Star } from 'lucide-react'
 import { useQuery } from 'react-query'
 import { productService } from '../services/productService'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
@@ -225,7 +225,7 @@ const HomePage: React.FC = () => {
               <div className="text-gray-600">Fresh Delivery</div>
             </div>
             <div>
-              <div className="text-4xl font-bold text-primary-600 mb-2">4.8★</div>
+              <div className="flex items-center justify-center gap-1 text-4xl font-bold text-primary-600 mb-2">4.8 <Star className="h-7 w-7 fill-current" aria-label="out of 5" /></div>
               <div className="text-gray-600">Customer Rating</div>
             </div>
           </div>

@@ -21,9 +21,9 @@ export const ORDER_STATUSES = [
 ] as const
 
 export const PAYMENT_METHODS = [
-  { value: 'mpesa', label: 'M-PESA', icon: '📱' },
-  { value: 'cash', label: 'Cash on Delivery', icon: '💵' },
-  { value: 'card', label: 'Credit/Debit Card', icon: '💳' }
+  { value: 'mpesa', label: 'M-PESA', icon: Smartphone },
+  { value: 'cash', label: 'Cash on Delivery', icon: Banknote },
+  { value: 'card', label: 'Credit/Debit Card', icon: CreditCard }
 ] as const
 
 export const DELIVERY_STATUSES = [
@@ -57,3 +57,4 @@ export const WEIGHT_RANGES = [
 export const DELIVERY_FEE = 150
 
 export const FREE_DELIVERY_THRESHOLD = 2000
+import { Banknote, CreditCard, Smartphone } from 'lucide-react'

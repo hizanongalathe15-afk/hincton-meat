@@ -182,28 +182,28 @@ router.delete('/admin/meat-guide/cuts/:id', authenticate, async (req: any, res) 
 const seedCategories = [
   {
     key: 'beef',
-    label: '🥩 Prime Beef',
+    label: 'Prime Beef',
     title: 'Prime Beef Cuts',
     subtitle: 'Grass-fed and grain-finished Kenya highlands beef, dry-aged and chilled.',
     sortOrder: 0,
   },
   {
     key: 'goat',
-    label: '🐐 Goat / Mbuzi',
+    label: 'Goat / Mbuzi',
     title: 'Fresh Goat Cuts (Mbuzi)',
     subtitle: 'Naturally raised rift valley goat meat, tender and freshly butchered.',
     sortOrder: 1,
   },
   {
     key: 'lamb',
-    label: '🐑 Lamb / Mutton',
+    label: 'Lamb / Mutton',
     title: 'Selected Lamb & Mutton',
     subtitle: 'Mild, buttery pasture-fed lamb cuts with delicate marbling.',
     sortOrder: 2,
   },
   {
     key: 'poultry',
-    label: '🍗 Capon & Chicken',
+    label: 'Capon & Chicken',
     title: 'Capon & Farm Fresh Chicken',
     subtitle: 'Healthy, grain-fed dressed capon and portioned poultry cuts.',
     sortOrder: 3,

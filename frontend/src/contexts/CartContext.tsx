@@ -133,7 +133,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return [...current, newItem]
     })
 
-    toast.success(`Added ${quantity} × ${product.name} to cart 🥩`)
+    toast.success(`Added ${quantity} × ${product.name} to cart`)
 
     // Background sync with backend
     cartApi.addToCart({ productId: product.id, quantity }).catch(() => {

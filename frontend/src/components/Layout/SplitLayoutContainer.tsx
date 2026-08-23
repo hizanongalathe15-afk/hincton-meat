@@ -162,7 +162,7 @@ export const SplitLayoutContainer: React.FC<SplitLayoutContainerProps> = ({ chil
                   <div className="space-y-2.5 text-xs text-stone-700 dark:text-stone-300">
                     <div className="p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700/50">
                       <h4 className="font-black text-stone-900 dark:text-white flex items-center gap-1.5">
-                        🥩 Searing the Perfect Ribeye
+                        <ChefHat className="h-4 w-4" aria-hidden="true" /> Searing the Perfect Ribeye
                       </h4>
                       <p className="mt-1 text-[11px] leading-relaxed text-stone-600 dark:text-stone-400">
                         Bring to room temperature 20 mins prior. Heat cast iron to smoking hot. 3 mins each side with garlic herb butter basting.
@@ -170,7 +170,7 @@ export const SplitLayoutContainer: React.FC<SplitLayoutContainerProps> = ({ chil
                     </div>
                     <div className="p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700/50">
                       <h4 className="font-black text-stone-900 dark:text-white flex items-center gap-1.5">
-                        🔥 Traditional Mbuzi Choma Tips
+                        <Flame className="h-4 w-4" aria-hidden="true" /> Traditional Mbuzi Choma Tips
                       </h4>
                       <p className="mt-1 text-[11px] leading-relaxed text-stone-600 dark:text-stone-400">
                         Low and slow over acacia charcoal. Brush frequently with sea salt brine. Rest 8 minutes before slicing.

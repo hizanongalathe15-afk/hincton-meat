@@ -22,7 +22,8 @@ import {
   Share2,
   Download,
   X,
-  Loader2
+  Loader2,
+  Beef
 } from 'lucide-react'
 import { Product } from '../types/index'
 import { formatPrice } from '../utils/currency'
@@ -446,7 +447,8 @@ const ProductDetails = ({
           <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 sm:p-5 space-y-4">
             <div className="flex items-center justify-between pb-1 border-b border-stone-200/80">
               <span className="text-xs font-extrabold uppercase tracking-wider text-stone-900">
-                🥩 Butcher's Preparation
+                <Beef className="h-5 w-5" aria-hidden="true" />
+                Butcher's Preparation
               </span>
               <span className="text-[11px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-md">
                 Freshly Hand-Cut

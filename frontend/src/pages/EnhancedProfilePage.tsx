@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Camera, User, Mail, Phone, ShoppingBag, Heart, Package, Settings, MapPin, Eye, EyeOff, Save, Trash2, Plus, Bell, CreditCard, ShieldCheck, Monitor, LogOut, Clock, Link2,
-  LifeBuoy, RotateCcw, FileText, AlertTriangle, Award, ArrowLeft, Send, X, ChevronRight, MessageCircle, CheckCircle2, Sparkles, Gift, TrendingUp, BellRing, Minus, Percent, Download, HelpCircle
+  LifeBuoy, RotateCcw, FileText, AlertTriangle, Award, ArrowLeft, Send, X, ChevronRight, MessageCircle, CheckCircle2, Sparkles, Gift, TrendingUp, BellRing, Minus, Percent, Download, HelpCircle, Trophy, Crown
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -2276,8 +2276,8 @@ const EnhancedProfilePage: React.FC = () => {
                                 <p className="mt-1 text-xs text-gray-500">Set {new Date(a.createdAt).toLocaleString()}</p>
                                 {a.email || a.phone ? (
                                   <p className="mt-2 text-xs text-gray-500 flex flex-wrap gap-2">
-                                    {a.email && <span>📧 {a.email}</span>}
-                                    {a.phone && <span>📱 {a.phone}</span>}
+                                    {a.email && <span className="inline-flex items-center gap-1"><Mail className="h-3.5 w-3.5" aria-hidden="true" />{a.email}</span>}
+                                    {a.phone && <span className="inline-flex items-center gap-1"><Phone className="h-3.5 w-3.5" aria-hidden="true" />{a.phone}</span>}
                                   </p>
                                 ) : null}
                               </div>
@@ -2317,14 +2317,14 @@ const EnhancedProfilePage: React.FC = () => {
                   </div>
 
                   <div className="mt-6 grid grid-cols-4 gap-3">
-                    {[{ label: 'Bronze', min: 0, icon: '🥉' }, { label: 'Silver', min: 500, icon: '🥈' }, { label: 'Gold', min: 2000, icon: '🥇' }, { label: 'Platinum', min: 5000, icon: '👑' }].map((t, i, arr) => {
+                    {[{ label: 'Bronze', min: 0, icon: Award }, { label: 'Silver', min: 500, icon: Award }, { label: 'Gold', min: 2000, icon: Trophy }, { label: 'Platinum', min: 5000, icon: Crown }].map((t, i, arr) => {
                       const points = profile.loyaltySummary?.points || 0
                       const nextTierMin = arr[i + 1]?.min
                       const progress = nextTierMin ? Math.min(100, Math.max(0, ((points - t.min) / (nextTierMin - t.min)) * 100)) : 100
                       const reached = points >= t.min
                       return (
                         <div key={t.label} className="rounded-lg bg-white/10 p-3 backdrop-blur-sm border border-white/10">
-                          <div className="flex items-center gap-1 text-lg">{t.icon} <span className={`text-xs font-bold ${reached ? 'text-yellow-200' : 'text-white/60'}`}>{t.label}</span></div>
+                          <div className="flex items-center gap-1 text-lg"><t.icon className="h-4 w-4" aria-hidden="true" /> <span className={`text-xs font-bold ${reached ? 'text-yellow-200' : 'text-white/60'}`}>{t.label}</span></div>
                           <p className="mt-1 text-[10px] text-white/70">{t.min.toLocaleString()}+ pts</p>
                           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                             <div className="h-full rounded-full bg-yellow-300" style={{ width: `${reached && !nextTierMin ? 100 : (reached && nextTierMin ? progress : !reached ? 0 : progress)}%` }} />

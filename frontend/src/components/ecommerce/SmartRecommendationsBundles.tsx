@@ -42,7 +42,7 @@ export const SmartRecommendationsBundles: React.FC = () => {
       regularPrice: 4200,
       bundlePrice: 3499,
       savingPercent: 17,
-      badge: '🔥 Kenya #1 Weekend Seller',
+      badge: 'Kenya #1 Weekend Seller',
       image: 'https://images.unsplash.com/photo-1544025162-d76694265947?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
       popularFor: 'BBQs, Gatherings & Celebrations'
     },
@@ -55,7 +55,7 @@ export const SmartRecommendationsBundles: React.FC = () => {
       regularPrice: 4600,
       bundlePrice: 3890,
       savingPercent: 15,
-      badge: '🌿 Family Favorite Pack',
+      badge: 'Family Favorite Pack',
       image: 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
       popularFor: 'Weekly Dinners & Healthy Meal Prep'
     },

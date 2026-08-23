@@ -161,7 +161,7 @@ router.post('/send', authRateLimiter, asyncHandler(async (req: Request, res: Res
     deliveryInfo = {
       method: 'WHATSAPP',
       url: `https://wa.me/${card.recipientPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-        `🎁 You received a Hincton Meat Gift Card!\n\nAmount: KSh ${card.balance}\nFrom: ${card.senderName}\n${card.message ? `Message: ${card.message}\n` : ''}\nRedeem at: ${shareUrl}`
+        `You received a Hincton Meat Gift Card!\n\nAmount: KSh ${card.balance}\nFrom: ${card.senderName}\n${card.message ? `Message: ${card.message}\n` : ''}\nRedeem at: ${shareUrl}`
       )}`,
     }
   } else if (method === 'EMAIL' && card.recipientEmail) {

@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
+  Zap,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { dealsApi, productsApi, contentApi } from '../services/adminApi'
@@ -459,7 +460,7 @@ const DealsPage: React.FC = () => {
                         <span>Sort: #{b.sortOrder}</span>
                         {b.productIds?.length != null && <span>{b.productIds.length} pinned product(s)</span>}
                         {b.categoryId && <span>Category bound</span>}
-                        {b.flashSaleId && <span>⚡ Linked to flash sale</span>}
+                        {b.flashSaleId && <span className="inline-flex items-center gap-1"><Zap className="h-3.5 w-3.5" aria-hidden="true" />Linked to flash sale</span>}
                         <span>Clicks: {b.totalClicks ?? 0}</span>
                         <span>Impressions: {b.totalImpressions ?? 0}</span>
                       </div>

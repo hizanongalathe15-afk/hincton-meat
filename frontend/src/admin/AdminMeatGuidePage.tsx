@@ -296,7 +296,7 @@ const AdminMeatGuidePage = () => {
               </div>
               <div>
                 <label className={labelCls}>Tab label</label>
-                <input value={catDraft.label} onChange={(e) => setCatDraft({ ...catDraft, label: e.target.value })} placeholder="🥩 Prime Beef" className={inputCls} />
+                <input value={catDraft.label} onChange={(e) => setCatDraft({ ...catDraft, label: e.target.value })} placeholder="Prime Beef" className={inputCls} />
               </div>
             </div>
             <div>

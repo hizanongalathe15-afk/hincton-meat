@@ -67,7 +67,7 @@ const CategoryList = () => {
       <div className="space-y-3">
         {categories.map((cat) => (
           <Link key={cat.id} to={`/forum/${cat.slug}`} className="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-200 hover:ring-red-300 transition">
-            <div className="text-2xl w-10 text-center">{cat.icon || '💬'}</div>
+            <div className="flex h-10 w-10 items-center justify-center text-red-600"><MessageSquare className="h-6 w-6" aria-hidden="true" /></div>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-gray-900">{cat.name}</p>
               {cat.description && <p className="text-sm text-gray-500 truncate">{cat.description}</p>}

@@ -104,7 +104,7 @@ const PwaInstallPrompt: React.FC<PwaInstallPromptProps> = ({
 
   const handleInstall = async () => {
     if (isIos && !deferredPrompt.current) {
-      toast('To install: Tap the Share button in Safari, then select "Add to Home Screen" 📲', { duration: 6000 })
+      toast('To install: Tap the Share button in Safari, then select "Add to Home Screen"', { duration: 6000 })
       setShow(false)
       return
     }

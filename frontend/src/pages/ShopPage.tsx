@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useQuery } from 'react-query'
-import { Search, Grid, List } from 'lucide-react'
+import { Search, Grid, List, Beef } from 'lucide-react'
 import { productService } from '../services/productService'
 import { MEAT_CATEGORIES, SORT_OPTIONS, PRICE_RANGES, WEIGHT_RANGES } from '../utils/constants'
 import ProductCard from '../components/ProductCard'
@@ -232,7 +232,7 @@ const ShopPage: React.FC = () => {
           </div>
         ) : (
           <div className="text-center py-12 bg-white rounded-lg">
-            <div className="text-6xl mb-4">🥩</div>
+            <Beef className="mx-auto mb-4 h-16 w-16 text-primary-600" aria-hidden="true" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('shop.noProductsFound')}</h3>
             <p className="text-gray-600">{t('shop.tryAdjustingFilters')}</p>
           </div>

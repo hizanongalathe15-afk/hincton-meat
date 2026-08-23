@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { X, ChevronDown, ChevronUp, Search, SlidersHorizontal } from 'lucide-react'
+import { X, ChevronDown, ChevronUp, Search, SlidersHorizontal, Star } from 'lucide-react'
 import toast from 'react-hot-toast'
 import '../styles/glassmorphism.css'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -108,16 +108,15 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({ onFiltersChange, initia
     return (
       <div className="flex items-center space-x-1">
         {[...Array(5)].map((_, i) => (
-          <div
+          <Star
             key={i}
             className={`w-4 h-4 ${
               i < rating
                 ? 'text-yellow-400 fill-current'
                 : 'text-gray-300'
             }`}
-          >
-            ★
-          </div>
+            aria-hidden="true"
+          />
         ))}
         <span className="text-sm text-gray-600 ml-1">& up</span>
       </div>

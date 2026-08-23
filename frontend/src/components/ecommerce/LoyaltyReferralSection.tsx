@@ -30,7 +30,7 @@ export const LoyaltyReferralSection: React.FC = () => {
   }
 
   const handleShareWhatsApp = () => {
-    const text = `🔥 Get KSh 300 OFF your first order of fresh Naivasha pasture-raised beef, goat choma & chicken at Hincton Meat! Use my invite code: *${referralCode}* at checkout: https://hinctonmeat.com/ref/${referralCode}`
+    const text = `Get KSh 300 OFF your first order of fresh Naivasha pasture-raised beef, goat choma & chicken at Hincton Meat! Use my invite code: *${referralCode}* at checkout: https://hinctonmeat.com/ref/${referralCode}`
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
   }
 

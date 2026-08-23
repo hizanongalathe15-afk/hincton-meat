@@ -4,12 +4,12 @@ import { giftCardsApi } from '../services/buyerApi'
 import toast from 'react-hot-toast'
 
 const OCCASIONS = [
-  { id: 'WEDDING', label: 'Wedding', icon: Heart, color: 'from-pink-500 to-rose-600', emoji: '💒' },
-  { id: 'EID', label: 'Eid', icon: Star, color: 'from-emerald-500 to-teal-600', emoji: '🌙' },
-  { id: 'BIRTHDAY', label: 'Birthday', icon: PartyPopper, color: 'from-violet-500 to-purple-600', emoji: '🎂' },
-  { id: 'CHRISTMAS', label: 'Christmas', icon: TreePine, color: 'from-green-600 to-red-600', emoji: '🎄' },
-  { id: 'THANK_YOU', label: 'Thank You', icon: Gift, color: 'from-amber-500 to-orange-600', emoji: '🙏' },
-  { id: 'FUNERAL', label: 'Condolence', icon: Flower2, color: 'from-gray-500 to-slate-600', emoji: '🕊️' },
+  { id: 'WEDDING', label: 'Wedding', icon: Heart, color: 'from-pink-500 to-rose-600' },
+  { id: 'EID', label: 'Eid', icon: Star, color: 'from-emerald-500 to-teal-600' },
+  { id: 'BIRTHDAY', label: 'Birthday', icon: PartyPopper, color: 'from-violet-500 to-purple-600' },
+  { id: 'CHRISTMAS', label: 'Christmas', icon: TreePine, color: 'from-green-600 to-red-600' },
+  { id: 'THANK_YOU', label: 'Thank You', icon: Gift, color: 'from-amber-500 to-orange-600' },
+  { id: 'FUNERAL', label: 'Condolence', icon: Flower2, color: 'from-gray-500 to-slate-600' },
 ]
 
 const PRESET_AMOUNTS = [1000, 2000, 5000, 10000, 20000, 50000]
@@ -30,6 +30,7 @@ const GiftCardsPage = () => {
   const [createdCard, setCreatedCard] = useState<any>(null)
 
   const finalAmount = customAmount ? Number(customAmount) : amount
+  const SelectedOccasionIcon = selectedOccasion?.icon || Gift
 
   const handlePurchase = async () => {
     if (!senderName || !recipientName) {
@@ -107,7 +108,7 @@ const GiftCardsPage = () => {
             {[1, 2, 3].map((s) => (
               <div key={s} className="flex items-center gap-2">
                 <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${step >= s ? 'bg-red-600 text-white' : 'bg-white/10 text-gray-500'}`}>
-                  {step > s ? '✓' : s}
+                  {step > s ? <CheckCircle className="h-5 w-5" aria-label="Complete" /> : s}
                 </div>
                 <span className={`text-sm ${step >= s ? 'text-white' : 'text-gray-500'}`}>
                   {s === 1 ? 'Occasion' : s === 2 ? 'Details' : 'Review'}
@@ -132,7 +133,7 @@ const GiftCardsPage = () => {
                     onClick={() => setOccasion(occ.id)}
                     className={`group relative overflow-hidden rounded-xl border p-4 text-left transition ${occasion === occ.id ? 'border-red-500 bg-red-500/10' : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/[0.07]'}`}
                   >
-                    <span className="text-2xl">{occ.emoji}</span>
+                    <occ.icon className="h-7 w-7" aria-hidden="true" />
                     <p className="mt-2 font-medium text-white">{occ.label}</p>
                   </button>
                 ))}
@@ -242,7 +243,7 @@ const GiftCardsPage = () => {
           <div className="space-y-6">
             {/* Card Preview */}
             <div className={`relative overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br ${selectedOccasion?.color || 'from-red-600 to-red-800'} p-8`}>
-              <div className="absolute top-4 right-4 text-4xl opacity-30">{selectedOccasion?.emoji || '🎁'}</div>
+              <SelectedOccasionIcon className="absolute right-4 top-4 h-10 w-10 opacity-30" aria-hidden="true" />
               <div className="relative">
                 <p className="text-sm font-medium uppercase tracking-wider text-white/60">Hincton Meat Gift Card</p>
                 <p className="mt-2 text-4xl font-black text-white">KSh {finalAmount.toLocaleString()}</p>

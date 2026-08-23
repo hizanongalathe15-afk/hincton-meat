@@ -48,21 +48,8 @@ const STATUS_COLORS: Record<MarkerType, string> = {
   default: '#6b7280',
 }
 
-const STATUS_ICONS: Record<MarkerType, string> = {
-  pending: '⏳',
-  assigned: '👤',
-  in_transit: '🚚',
-  delivered: '✓',
-  failed: '!',
-  delivery: '📍',
-  driver: '🚐',
-  customer: '🏠',
-  default: '📍',
-}
-
 function createMarkerIcon(type: MarkerType = 'default'): L.DivIcon {
   const color = STATUS_COLORS[type] ?? STATUS_COLORS.default
-  const symbol = STATUS_ICONS[type] ?? STATUS_ICONS.default
   return L.divIcon({
     className: 'live-map-marker',
     html: `
@@ -75,7 +62,7 @@ function createMarkerIcon(type: MarkerType = 'default'): L.DivIcon {
         box-shadow:0 2px 6px rgba(0,0,0,0.35);
         display:flex;align-items:center;justify-content:center;
       ">
-        <span style="transform:rotate(45deg);font-size:14px;line-height:1;color:#fff;font-weight:bold;">${symbol}</span>
+        <span style="transform:rotate(45deg);width:8px;height:8px;border-radius:9999px;background:#fff;"></span>
       </div>
     `,
     iconSize: [32, 32],
@@ -97,7 +84,7 @@ function createDriverIcon(): L.DivIcon {
         display:flex;align-items:center;justify-content:center;
         animation:live-map-pulse 2s infinite;
       ">
-        <span style="font-size:13px;">🚐</span>
+        <span style="width:8px;height:8px;border-radius:9999px;background:#fff;"></span>
       </div>
     `,
     iconSize: [28, 28],
