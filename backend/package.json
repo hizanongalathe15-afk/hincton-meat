@@ -10,7 +10,7 @@
     "start": "node scripts/start.js",
     "dev": "nodemon --legacy-watch --watch src --ext ts,json --ignore dist --ignore node_modules --ignore uploads src/server.ts",
     "build": "tsc",
-    "render-build": "node ../scripts/clean-backend-types.js && prisma generate && tsc",
+    "render-build": "npm ci --include=dev && node ../scripts/clean-backend-types.js && npx prisma generate && npx tsc",
     "seed": "ts-node src/utils/seedData.ts",
     "seed:hincton": "ts-node src/utils/seedHinctonPricelist.ts",
     "seed:admins": "ts-node src/utils/seedAdmins.ts",
