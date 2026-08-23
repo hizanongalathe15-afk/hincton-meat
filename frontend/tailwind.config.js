@@ -7,6 +7,19 @@ export default {
   theme: {
     extend: {
       colors: {
+        red: {
+          50: 'var(--site-red-50, #fef2f2)',
+          100: 'var(--site-red-100, #fee2e2)',
+          200: 'var(--site-red-200, #fecaca)',
+          300: 'var(--site-red-300, #fca5a5)',
+          400: 'var(--site-red-400, #f87171)',
+          500: 'var(--site-red-500, #ef4444)',
+          600: 'var(--site-red-600, #dc2626)',
+          700: 'var(--site-red-700, #b91c1c)',
+          800: 'var(--site-red-800, #991b1b)',
+          900: 'var(--site-red-900, #7f1d1d)',
+          950: 'var(--site-red-950, #450a0a)',
+        },
         primary: {
           50: 'var(--primary-50)',
           100: 'var(--primary-100)',

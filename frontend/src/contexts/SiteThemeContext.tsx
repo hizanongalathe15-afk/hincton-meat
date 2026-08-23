@@ -89,10 +89,64 @@ const SiteThemeContext = createContext<{
   applyTheme: (theme: SiteTheme) => void
 } | undefined>(undefined)
 
+const hexToHsl = (hex: string): { h: number; s: number; l: number } | null => {
+  const match = /^#?([a-f\d]{3}|[a-f\d]{6})$/i.exec(hex.trim())
+  if (!match) return null
+  let value = match[1]
+  if (value.length === 3) value = value.split('').map((c) => c + c).join('')
+  const r = parseInt(value.slice(0, 2), 16) / 255
+  const g = parseInt(value.slice(2, 4), 16) / 255
+  const b = parseInt(value.slice(4, 6), 16) / 255
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const l = (max + min) / 2
+  let h = 0
+  let s = 0
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6
+    else if (max === g) h = ((b - r) / d + 2) / 6
+    else h = ((r - g) / d + 4) / 6
+  }
+  return { h: h * 360, s: s * 100, l: l * 100 }
+}
+
+const hslToHex = (h: number, s: number, l: number): string => {
+  const sat = s / 100
+  const light = l / 100
+  const a = sat * Math.min(light, 1 - light)
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12
+    const color = light - a * Math.max(Math.min(k - 3, 9 - k, 1), -1)
+    return Math.round(255 * color).toString(16).padStart(2, '0')
+  }
+  return `#${f(0)}${f(8)}${f(4)}`
+}
+
+const clampChannel = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+export const buildBrandScale = (base: string): Record<number, string> | null => {
+  const hsl = hexToHsl(base)
+  if (!hsl) return null
+  const deltas: Array<[number, number]> = [
+    [50, 44], [100, 38], [200, 30], [300, 21], [400, 11], [500, 5],
+    [600, 0], [700, -8], [800, -14], [900, -20], [950, -32],
+  ]
+  const scale: Record<number, string> = {}
+  deltas.forEach(([shade, delta]) => {
+    const l = clampChannel(hsl.l + delta, 3, 97)
+    const s = delta > 20 ? clampChannel(hsl.s - 15, 10, 100) : hsl.s
+    scale[shade] = hslToHex(hsl.h, s, l)
+  })
+  return scale
+}
+
 export const applySiteTheme = (theme: SiteTheme) => {
   const root = document.documentElement
   root.dataset.siteTheme = 'custom'
-  Object.entries({ ...defaultSiteTheme, ...theme }).forEach(([key, value]) => {
+  const merged = { ...defaultSiteTheme, ...theme }
+  Object.entries(merged).forEach(([key, value]) => {
     if (value) {
       root.style.setProperty(`--site-${key}`, value)
       if (key === 'laserColor') {
@@ -100,6 +154,13 @@ export const applySiteTheme = (theme: SiteTheme) => {
       }
     }
   })
+  const brandScale = buildBrandScale(merged.primary)
+  if (brandScale) {
+    Object.entries(brandScale).forEach(([shade, value]) => {
+      root.style.setProperty(`--site-red-${shade}`, value)
+      root.style.setProperty(`--primary-${shade}`, value)
+    })
+  }
 }
 
 export const SiteThemeProvider = ({ children }: { children: React.ReactNode }) => {

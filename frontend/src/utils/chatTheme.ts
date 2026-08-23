@@ -78,5 +78,39 @@ const lightPalette: ChatPalette = {
   star: '#f5b92e',
 }
 
-export const getChatPalette = (mode: ThemeMode): ChatPalette =>
-  mode === 'dark' ? darkPalette : lightPalette
+export const getChatPalette = (mode: ThemeMode): ChatPalette => {
+  const base = mode === 'dark' ? darkPalette : lightPalette
+  const primary = readSiteVar('--site-primary')
+  if (!primary) return base
+
+  const accent = readSiteVar('--site-accent')
+  const lightTint = readSiteVar('--site-red-100')
+  const sent = mode === 'dark' ? primary : lightTint || base.sent
+  const sentText = mode === 'dark' ? (isBrightColor(primary) ? '#111b21' : '#e9edef') : base.sentText
+  const badge = accent || primary
+
+  return {
+    ...base,
+    sent,
+    sentText,
+    accent: primary,
+    accentText: isBrightColor(primary) ? '#111b21' : '#ffffff',
+    badge,
+    badgeText: isBrightColor(badge) ? '#111b21' : '#ffffff',
+  }
+}
+
+const readSiteVar = (name: string): string | null => {
+  if (typeof window === 'undefined') return null
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return value || null
+}
+
+const isBrightColor = (color: string): boolean => {
+  const match = /^#?([a-f\d]{6})$/i.exec(color.trim())
+  if (!match) return false
+  const r = parseInt(match[1].slice(0, 2), 16)
+  const g = parseInt(match[1].slice(2, 4), 16)
+  const b = parseInt(match[1].slice(4, 6), 16)
+  return (r * 299 + g * 587 + b * 114) / 1000 > 150
+}

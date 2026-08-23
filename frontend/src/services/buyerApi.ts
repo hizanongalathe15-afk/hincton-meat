@@ -534,6 +534,60 @@ export const chatApi = {
   }
 }
 
+export const dmApi = {
+  getConversations: async () => {
+    const response = await apiClient.get('/chat/dm/conversations')
+    return response.data
+  },
+
+  openConversation: async (userId: string) => {
+    const response = await apiClient.post('/chat/dm/conversations', { userId })
+    return response.data
+  },
+
+  getMessages: async (conversationId: string, before?: string) => {
+    const response = await apiClient.get(`/chat/dm/conversations/${conversationId}/messages`, {
+      params: before ? { before } : undefined,
+    })
+    return response.data
+  },
+
+  sendMessage: async (data: { conversationId: string; text: string; replyToId?: string }) => {
+    const response = await apiClient.post('/chat/dm/messages', data)
+    return response.data
+  },
+
+  editMessage: async (messageId: string, text: string) => {
+    const response = await apiClient.put(`/chat/dm/messages/${messageId}`, { text })
+    return response.data
+  },
+
+  deleteMessage: async (messageId: string) => {
+    const response = await apiClient.delete(`/chat/dm/messages/${messageId}`)
+    return response.data
+  },
+
+  markRead: async (conversationId: string) => {
+    const response = await apiClient.put(`/chat/dm/conversations/${conversationId}/read`)
+    return response.data
+  },
+
+  deleteConversation: async (conversationId: string) => {
+    const response = await apiClient.delete(`/chat/dm/conversations/${conversationId}`)
+    return response.data
+  },
+
+  searchUsers: async (query: string) => {
+    const response = await apiClient.get('/chat/dm/users/search', { params: { q: query } })
+    return response.data
+  },
+
+  getSuggestions: async () => {
+    const response = await apiClient.get('/chat/dm/users/suggestions')
+    return response.data
+  }
+}
+
 export const walletApi = {
   getBalance: async () => {
     const response = await apiClient.get('/wallet/balance')

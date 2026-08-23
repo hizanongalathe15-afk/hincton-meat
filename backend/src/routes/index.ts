@@ -16,6 +16,7 @@ import qrCodeRoutes from './qrCodes'
 import returnRoutes from './returns'
 import blogRoutes from './blog'
 import chatRoutes from './chat'
+import directMessageRoutes from './directMessages'
 import contentRoutes from './contentManagement'
 import publicContentRoutes from './publicContent'
 import adminDashboardRoutes from './adminDashboard'
@@ -62,6 +63,7 @@ router.use('/api/promotions', promotionRoutes)
 router.use('/api/qr-codes', qrCodeRoutes)
 router.use('/api/returns', returnRoutes)
 router.use('/api/blog', blogRoutes)
+router.use('/api/chat/dm', authenticate, directMessageRoutes)
 router.use('/api/chat', chatRoutes)
 router.use('/api/content', publicContentRoutes)
 // Mount flash sales & deal banners BEFORE /api/admin so paths like /admin/deal-banners route correctly

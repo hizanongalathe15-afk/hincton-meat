@@ -23,12 +23,14 @@ import adminRoutes from './routes/admin';
 import adminDashboardRoutes from './routes/adminDashboard';
 import contentManagementRoutes from './routes/contentManagement';
 import systemOpsRoutes from './routes/systemOps';
+import { registerSocketIO } from './utils/socketHolder';
 import subscriptionRoutes from './routes/subscriptions';
 import returnsRoutes from './routes/returns';
 import promotionsRoutes from './routes/promotions';
 import affiliateRoutes from './routes/affiliates';
 import blogRoutes from './routes/blog';
 import chatRoutes from './routes/chat';
+import directMessageRoutes from './routes/directMessages';
 import notificationRoutes from './routes/notifications';
 import wishlistRoutes from './routes/wishlist';
 import qrCodeRoutes from './routes/qrCodes';
@@ -121,6 +123,7 @@ if (!process.env.VERCEL) {
     }
   });
   app.set('io', io);
+  registerSocketIO(io);
 }
 
 prisma.$connect()
@@ -226,6 +229,7 @@ app.use('/api/returns', authenticate, returnsRoutes);
 app.use('/api/promotions', promotionsRoutes);
 app.use('/api/affiliate', authenticate, affiliateRoutes);
 app.use('/api/blog', blogRoutes);
+app.use('/api/chat/dm', authenticate, directMessageRoutes);
 app.use('/api/chat', optionalAuthenticate, chatRoutes);
 app.use('/api/notifications', authenticate, notificationRoutes);
 app.use('/api/wishlist', authenticate, wishlistRoutes);
@@ -555,6 +559,20 @@ if (io) {
 
     socket.on('chat:join', (roomId: string) => {
       if (roomId) socket.join(`chat-${roomId}`);
+    });
+
+    socket.on('dm:join', (conversationId: string) => {
+      if (conversationId) socket.join(`dm-${conversationId}`);
+    });
+
+    socket.on('dm:typing', (data: { conversationId?: string; userId?: string; name?: string; isTyping?: boolean }) => {
+      if (!data?.conversationId) return;
+      socket.to(`dm-${data.conversationId}`).emit('dm:typing', {
+        conversationId: data.conversationId,
+        userId: data.userId,
+        name: data.name,
+        isTyping: Boolean(data.isTyping),
+      });
     });
 
     socket.on('chat:typing', (data: { roomId?: string; userId?: string; name?: string; isTyping?: boolean }) => {

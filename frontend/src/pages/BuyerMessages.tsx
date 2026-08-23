@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, Star, Trash2, Send, MessageSquare, User, Check, CheckCheck,
-  Phone, Paperclip, Mail, MoreVertical, ShoppingBag, Settings, Smile, Home, ArrowLeft
+  Phone, Paperclip, Mail, MoreVertical, ShoppingBag, Settings, Smile, Home, ArrowLeft,
+  BadgeCheck, Edit3, MapPin, Pencil, X, Loader2
 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import toast from 'react-hot-toast';
-import { chatApi } from '../services/buyerApi';
+import { chatApi, dmApi } from '../services/buyerApi';
 import { getApiHost } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useSiteContent } from '../contexts/SiteContentContext';
@@ -30,6 +31,8 @@ interface Message {
   isStarred: boolean;
   canDelete?: boolean;
   canEdit?: boolean;
+  deleted?: boolean;
+  editedAt?: string;
   type: 'text' | 'system' | 'order_update' | 'attachment';
   orderId?: string;
   orderNumber?: string;
@@ -41,12 +44,25 @@ interface Conversation {
   participantName: string;
   participantAvatar?: string;
   participantPhone?: string;
-  participantType: 'admin' | 'farmer' | 'support';
+  participantUsername?: string;
+  participantType: 'admin' | 'farmer' | 'support' | 'dm';
+  kind?: 'support' | 'dm';
+  isOfficial?: boolean;
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;
   isStarred: boolean;
   messages: Message[];
+}
+
+interface DmUser {
+  id: string;
+  username?: string | null;
+  name: string;
+  avatar?: string | null;
+  distanceKm?: number | null;
+  locationLabel?: string | null;
+  phoneMatch?: boolean;
 }
 
 const BuyerMessages: React.FC = () => {
@@ -72,6 +88,13 @@ const BuyerMessages: React.FC = () => {
   const [presence, setPresence] = useState<Record<string, 'online' | 'away' | 'offline'>>({});
   const [typingUser, setTypingUser] = useState('');
   const [showChatOnMobile, setShowChatOnMobile] = useState(false);
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [dmSearchQuery, setDmSearchQuery] = useState('');
+  const [dmSearchResults, setDmSearchResults] = useState<DmUser[]>([]);
+  const [dmSuggestions, setDmSuggestions] = useState<DmUser[]>([]);
+  const [dmSearching, setDmSearching] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<{ id: string; text: string } | null>(null);
+  const dmSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -111,6 +134,22 @@ const BuyerMessages: React.FC = () => {
         setMessages((current) => current.some((item) => item.id === message.id) ? current : [...current, message]);
       }
     });
+    socket.on('dm:message', (message: any) => {
+      if (!message || message.conversationId !== selectedConversation?.id) return;
+      setMessages((current) => current.some((item) => item.id === message.id) ? current : [...current, mapDmMessage(message)]);
+    });
+    socket.on('dm:new', () => {
+      fetchConversations();
+    });
+    socket.on('dm:message-edited', (message: any) => {
+      setMessages((current) => current.map((item) => item.id === message?.id ? { ...item, content: message.text, editedAt: message.editedAt } : item));
+    });
+    socket.on('dm:message-deleted', ({ messageId }: any) => {
+      setMessages((current) => current.map((item) => item.id === messageId ? { ...item, content: 'This message was deleted', deleted: true } : item));
+    });
+    socket.on('dm:typing', ({ conversationId, name, isTyping }: any) => {
+      if (conversationId === selectedConversation?.id) setTypingUser(isTyping ? name || 'They' : '');
+    });
 
     return () => {
       socket.disconnect();
@@ -120,9 +159,15 @@ const BuyerMessages: React.FC = () => {
 
   useEffect(() => {
     if (selectedConversation) {
-      fetchMessages(selectedConversation.id);
-      socketRef.current?.emit('chat:join', selectedConversation.id);
+      fetchMessages(selectedConversation);
+      if (selectedConversation.kind === 'dm') {
+        socketRef.current?.emit('dm:join', selectedConversation.id);
+      } else {
+        socketRef.current?.emit('chat:join', selectedConversation.id);
+      }
       socketRef.current?.emit('presence:check', { userIds: [selectedConversation.participantId] });
+      setTypingUser('');
+      setEditingMessage(null);
     }
   }, [selectedConversation]);
 
@@ -135,11 +180,55 @@ const BuyerMessages: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    if (showNewChat) loadDmSuggestions();
+  }, [showNewChat]);
+
+  const mapDmMessage = (m: any): Message => ({
+    id: m.id,
+    senderId: m.senderId,
+    senderName: m.senderName,
+    senderAvatar: m.senderAvatar,
+    receiverId: '',
+    content: m.deleted ? 'This message was deleted' : m.text,
+    timestamp: m.createdAt,
+    isRead: true,
+    isStarred: false,
+    deleted: Boolean(m.deleted),
+    editedAt: m.editedAt,
+    canDelete: m.senderId === user?.id && !m.deleted,
+    canEdit: m.senderId === user?.id && !m.deleted,
+    type: 'text',
+  });
+
   const fetchConversations = async () => {
     try {
       setLoading(true);
-      const response = await chatApi.getConversations();
-      setConversations(response.conversations || []);
+      const [supportResponse, dmResponse] = await Promise.all([
+        chatApi.getConversations(),
+        dmApi.getConversations().catch(() => ({ conversations: [] })),
+      ]);
+      const support = (supportResponse.conversations || []).map((conversation: Conversation) => ({ ...conversation, kind: 'support' as const }));
+      const dm: Conversation[] = (dmResponse.conversations || []).map((conversation: any) => ({
+        id: conversation.id,
+        participantId: conversation.participantId,
+        participantName: conversation.participantName,
+        participantAvatar: conversation.participantAvatar,
+        participantUsername: conversation.participantUsername,
+        participantType: 'dm' as const,
+        kind: 'dm' as const,
+        isOfficial: Boolean(conversation.isOfficial),
+        lastMessage: conversation.lastMessage ? (conversation.lastMessage.deleted ? 'Message deleted' : conversation.lastMessage.text) : '',
+        lastMessageTime: conversation.lastMessage?.createdAt || conversation.updatedAt,
+        unreadCount: conversation.unreadCount || 0,
+        isStarred: false,
+        messages: [],
+      }));
+      const merged = [...dm, ...support].sort((a, b) => {
+        if (Boolean(a.isOfficial) !== Boolean(b.isOfficial)) return a.isOfficial ? -1 : 1;
+        return new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime();
+      });
+      setConversations(merged);
     } catch (error) {
       console.error('Failed to fetch conversations:', error);
       toast.error('Could not load conversations');
@@ -148,11 +237,18 @@ const BuyerMessages: React.FC = () => {
     }
   };
 
-  const fetchMessages = async (conversationId: string) => {
+  const fetchMessages = async (conversation: Conversation) => {
     try {
-      const response = await chatApi.getConversationMessages(conversationId);
-      setMessages(response.messages || []);
-      await chatApi.markConversationAsRead(conversationId);
+      if (conversation.kind === 'dm') {
+        const response = await dmApi.getMessages(conversation.id);
+        setMessages((response.messages || []).map(mapDmMessage));
+        await dmApi.markRead(conversation.id).catch(() => undefined);
+        setConversations(prev => prev.map(conv => conv.id === conversation.id ? { ...conv, unreadCount: 0 } : conv));
+      } else {
+        const response = await chatApi.getConversationMessages(conversation.id);
+        setMessages(response.messages || []);
+        await chatApi.markConversationAsRead(conversation.id);
+      }
     } catch (error) {
       console.error('Failed to fetch messages:', error);
       toast.error('Could not load messages');
@@ -160,19 +256,32 @@ const BuyerMessages: React.FC = () => {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation) return;
+    if (!selectedConversation) return;
+    if (editingMessage) {
+      await saveEdit();
+      return;
+    }
+    if (!newMessage.trim()) return;
 
     setSending(true);
     try {
-      const response = await chatApi.sendConversationMessage({
-        conversationId: selectedConversation.id,
-        content: newMessage.trim(),
-        type: 'text'
-      });
+      if (selectedConversation.kind === 'dm') {
+        const response = await dmApi.sendMessage({
+          conversationId: selectedConversation.id,
+          text: newMessage.trim(),
+        });
+        const newMsg = mapDmMessage(response.message);
+        setMessages(prev => prev.some((item) => item.id === newMsg.id) ? prev : [...prev, newMsg]);
+      } else {
+        const response = await chatApi.sendConversationMessage({
+          conversationId: selectedConversation.id,
+          content: newMessage.trim(),
+          type: 'text'
+        });
+        const newMsg: Message = response.message;
+        setMessages(prev => [...prev, newMsg]);
+      }
 
-      const newMsg: Message = response.message;
-
-      setMessages(prev => [...prev, newMsg]);
       setNewMessage('');
 
       setConversations(prev => prev.map(conv =>
@@ -189,10 +298,42 @@ const BuyerMessages: React.FC = () => {
     }
   };
 
+  const startEditMessage = (message: Message) => {
+    setEditingMessage({ id: message.id, text: message.content });
+    setNewMessage(message.content);
+  };
+
+  const cancelEdit = () => {
+    setEditingMessage(null);
+    setNewMessage('');
+  };
+
+  const saveEdit = async () => {
+    if (!editingMessage || !newMessage.trim()) return;
+    try {
+      await dmApi.editMessage(editingMessage.id, newMessage.trim());
+      setMessages(prev => prev.map(msg =>
+        msg.id === editingMessage.id ? { ...msg, content: newMessage.trim(), editedAt: new Date().toISOString() } : msg
+      ));
+      setEditingMessage(null);
+      setNewMessage('');
+    } catch (error) {
+      console.error('Failed to edit message:', error);
+      toast.error('Could not edit message');
+    }
+  };
+
   const handleDeleteMessage = async (messageId: string) => {
     try {
-      await chatApi.deleteMessage(messageId);
-      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      if (selectedConversation?.kind === 'dm') {
+        await dmApi.deleteMessage(messageId);
+        setMessages(prev => prev.map(msg =>
+          msg.id === messageId ? { ...msg, content: 'This message was deleted', deleted: true, canEdit: false, canDelete: false } : msg
+        ));
+      } else {
+        await chatApi.deleteMessage(messageId);
+        setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      }
       toast.success('Message deleted');
     } catch (error) {
       console.error('Failed to delete message:', error);
@@ -241,7 +382,12 @@ const BuyerMessages: React.FC = () => {
 
   const handleDeleteConversation = async (conversationId: string) => {
     try {
-      await chatApi.deleteConversation(conversationId);
+      const target = conversations.find(conv => conv.id === conversationId);
+      if (target?.kind === 'dm') {
+        await dmApi.deleteConversation(conversationId);
+      } else {
+        await chatApi.deleteConversation(conversationId);
+      }
       setConversations(prev => prev.filter(conv => conv.id !== conversationId));
       if (selectedConversation?.id === conversationId) {
         setSelectedConversation(null);
@@ -251,6 +397,68 @@ const BuyerMessages: React.FC = () => {
     } catch (error) {
       console.error('Failed to delete conversation:', error);
       toast.error('Could not delete conversation');
+    }
+  };
+
+  const handleDmSearchChange = (value: string) => {
+    setDmSearchQuery(value);
+    if (dmSearchTimer.current) clearTimeout(dmSearchTimer.current);
+    const query = value.trim();
+    if (query.length < 2) {
+      setDmSearchResults([]);
+      setDmSearching(false);
+      return;
+    }
+    setDmSearching(true);
+    dmSearchTimer.current = setTimeout(async () => {
+      try {
+        const response = await dmApi.searchUsers(query);
+        setDmSearchResults(response.users || []);
+      } catch (error) {
+        console.error('Failed to search users:', error);
+        setDmSearchResults([]);
+      } finally {
+        setDmSearching(false);
+      }
+    }, 350);
+  };
+
+  const loadDmSuggestions = async () => {
+    try {
+      const response = await dmApi.getSuggestions();
+      setDmSuggestions(response.users || []);
+    } catch (error) {
+      console.error('Failed to load suggestions:', error);
+    }
+  };
+
+  const openDmWith = async (target: DmUser) => {
+    try {
+      const response = await dmApi.openConversation(target.id);
+      const conversation: Conversation = {
+        id: response.conversation.id,
+        participantId: target.id,
+        participantName: response.conversation.participantName || target.name,
+        participantAvatar: response.conversation.participantAvatar || target.avatar || undefined,
+        participantUsername: response.conversation.participantUsername || target.username || undefined,
+        participantType: 'dm',
+        kind: 'dm',
+        isOfficial: Boolean(response.conversation.isOfficial),
+        lastMessage: '',
+        lastMessageTime: new Date().toISOString(),
+        unreadCount: 0,
+        isStarred: false,
+        messages: [],
+      };
+      setConversations(prev => [conversation, ...prev.filter(conv => conv.id !== conversation.id)]);
+      setSelectedConversation(conversation);
+      setShowChatOnMobile(true);
+      setShowNewChat(false);
+      setDmSearchQuery('');
+      setDmSearchResults([]);
+    } catch (error) {
+      console.error('Failed to open conversation:', error);
+      toast.error('Could not open chat');
     }
   };
 
@@ -340,8 +548,11 @@ const BuyerMessages: React.FC = () => {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="truncate text-sm font-normal" style={{ color: pal.text }}>
-              {conversation.participantName}
+            <h3 className="flex min-w-0 items-center gap-1 text-sm font-normal" style={{ color: pal.text }}>
+              <span className="truncate">{conversation.participantName}</span>
+              {conversation.isOfficial && (
+                <BadgeCheck className="h-4 w-4 shrink-0" style={{ color: pal.accent }} />
+              )}
             </h3>
             <span className="shrink-0 text-xs" style={{ color: conversation.unreadCount > 0 ? pal.accent : pal.textSec }}>
               {formatChatTime(conversation.lastMessageTime)}
@@ -370,8 +581,41 @@ const BuyerMessages: React.FC = () => {
     );
   };
 
+  const renderDmUserItem = (target: DmUser) => (
+    <div
+      key={target.id}
+      onClick={() => openDmWith(target)}
+      className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors"
+      {...hoverBg(pal.hover)}
+    >
+      {target.avatar ? (
+        <img src={target.avatar} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
+      ) : (
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full" style={{ background: pal.raised }}>
+          <User className="h-5 w-5" style={{ color: pal.textSec }} />
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm" style={{ color: pal.text }}>{target.name}</p>
+        <div className="flex items-center gap-1.5 text-xs" style={{ color: pal.textSec }}>
+          {target.username && <span className="truncate">@{target.username}</span>}
+          {target.distanceKm != null ? (
+            <span className="flex shrink-0 items-center gap-0.5">
+              <MapPin className="h-3 w-3" /> {target.distanceKm} km away
+            </span>
+          ) : target.locationLabel ? (
+            <span className="flex shrink-0 items-center gap-0.5">
+              <MapPin className="h-3 w-3" /> {target.locationLabel}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+
   const renderMessageBubble = (message: Message) => {
     const isSent = message.senderId === user?.id;
+    const isDm = selectedConversation?.kind === 'dm';
 
     return (
       <div
@@ -383,14 +627,26 @@ const BuyerMessages: React.FC = () => {
             isSent ? 'right-full mr-1' : 'left-full ml-1'
           }`}
         >
-          <button
-            onClick={() => starMessage(message.id)}
-            className="rounded-full p-1 transition-colors"
-            {...hoverBg(pal.hover)}
-            title={message.isStarred ? 'Unstar' : 'Star'}
-          >
-            <Star className="h-4 w-4" style={{ color: message.isStarred ? pal.star : pal.textSec }} />
-          </button>
+          {!isDm && (
+            <button
+              onClick={() => starMessage(message.id)}
+              className="rounded-full p-1 transition-colors"
+              {...hoverBg(pal.hover)}
+              title={message.isStarred ? 'Unstar' : 'Star'}
+            >
+              <Star className="h-4 w-4" style={{ color: message.isStarred ? pal.star : pal.textSec }} />
+            </button>
+          )}
+          {isDm && message.canEdit && (
+            <button
+              onClick={() => startEditMessage(message)}
+              className="rounded-full p-1 transition-colors"
+              {...hoverBg(pal.hover)}
+              title="Edit"
+            >
+              <Pencil className="h-4 w-4" style={{ color: pal.textSec }} />
+            </button>
+          )}
           {message.canDelete !== false && (
             <button
               onClick={() => setDeleteConfirmDialog({
@@ -416,7 +672,7 @@ const BuyerMessages: React.FC = () => {
             color: isSent ? pal.sentText : pal.receivedText,
           }}
         >
-          <p className="whitespace-pre-wrap break-words text-sm leading-snug">
+          <p className={`whitespace-pre-wrap break-words text-sm leading-snug ${message.deleted ? 'italic opacity-60' : ''}`}>
             <LinkifiedText text={message.content} />
           </p>
           {(message.attachments || []).map((attachment) => (
@@ -432,8 +688,11 @@ const BuyerMessages: React.FC = () => {
             </a>
           ))}
           <div className="flex items-center justify-end gap-1 pt-0.5" style={{ color: pal.textSec }}>
+            {message.editedAt && !message.deleted && (
+              <span className="text-[10px]">edited</span>
+            )}
             <span className="text-[10px]">{formatMsgTime(message.timestamp)}</span>
-            {isSent && (
+            {isSent && message.type !== 'text' ? null : isSent && (
               message.isRead
                 ? <CheckCheck className="h-3.5 w-3.5" style={{ color: pal.check }} />
                 : <Check className="h-3.5 w-3.5" />
@@ -523,6 +782,14 @@ const BuyerMessages: React.FC = () => {
         <div className="flex items-center justify-between px-4 py-3">
           <h1 className="text-lg font-semibold" style={{ color: pal.text }}>Chats</h1>
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowNewChat(true)}
+              className="rounded-lg p-2 transition-all"
+              {...hoverBg(pal.hover)}
+              title="New chat"
+            >
+              <Edit3 className="h-5 w-5" style={{ color: pal.textSec }} />
+            </button>
             {supportEmailHref && (
               <a
                 href={supportEmailHref}
@@ -540,6 +807,63 @@ const BuyerMessages: React.FC = () => {
           </div>
         </div>
 
+        {showNewChat ? (
+          <>
+            <div className="flex items-center gap-3 px-3 pb-2">
+              <button
+                onClick={() => { setShowNewChat(false); setDmSearchQuery(''); setDmSearchResults([]); }}
+                className="rounded-lg p-1.5 transition-all"
+                {...hoverBg(pal.hover)}
+                title="Back to chats"
+              >
+                <ArrowLeft className="h-5 w-5" style={{ color: pal.textSec }} />
+              </button>
+              <h2 className="text-sm font-medium" style={{ color: pal.text }}>New chat</h2>
+            </div>
+
+            <div className="px-3 pb-2">
+              <div className="flex items-center gap-3 rounded-lg px-3 py-1.5" style={{ background: pal.panel }}>
+                <Search className="h-4 w-4 shrink-0" style={{ color: pal.textSec }} />
+                <input
+                  type="text"
+                  placeholder="Search name, username or phone"
+                  value={dmSearchQuery}
+                  onChange={(e) => handleDmSearchChange(e.target.value)}
+                  className="flex-1 bg-transparent text-sm outline-none"
+                  style={{ color: pal.text }}
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {dmSearching ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-5 w-5 animate-spin" style={{ color: pal.textSec }} />
+                </div>
+              ) : dmSearchQuery.trim().length >= 2 ? (
+                dmSearchResults.length === 0 ? (
+                  <p className="px-4 py-10 text-center text-sm" style={{ color: pal.textSec }}>No users found</p>
+                ) : (
+                  dmSearchResults.map(renderDmUserItem)
+                )
+              ) : (
+                <>
+                  <p className="px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide" style={{ color: pal.textSec }}>
+                    People you may know
+                  </p>
+                  {dmSuggestions.length === 0 ? (
+                    <p className="px-4 py-6 text-sm" style={{ color: pal.textSec }}>
+                      No suggestions yet. Search by name, username or phone to find someone.
+                    </p>
+                  ) : (
+                    dmSuggestions.map(renderDmUserItem)
+                  )}
+                </>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
         {/* Search */}
         <div className="px-3 pb-2">
           <div
@@ -630,6 +954,8 @@ const BuyerMessages: React.FC = () => {
             </>
           )}
         </div>
+          </>
+        )}
       </div>
 
       {/* Messages Area */}
@@ -665,8 +991,11 @@ const BuyerMessages: React.FC = () => {
                   <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 ${presenceMeta(selectedConversation.participantId).className}`} style={{ borderColor: pal.panel }} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-medium" style={{ color: pal.text }}>
-                    {selectedConversation.participantName}
+                  <h2 className="flex items-center gap-1 text-sm font-medium" style={{ color: pal.text }}>
+                    <span>{selectedConversation.participantName}</span>
+                    {selectedConversation.isOfficial && (
+                      <BadgeCheck className="h-4 w-4 shrink-0" style={{ color: pal.accent }} />
+                    )}
                   </h2>
                   <p className="text-xs" style={{ color: pal.textSec }}>
                     {typingUser ? `${typingUser} is typing...` : presenceMeta(selectedConversation.participantId).label}
@@ -685,20 +1014,22 @@ const BuyerMessages: React.FC = () => {
                     <Phone className="h-5 w-5" style={{ color: pal.textSec }} />
                   </a>
                 )}
-                <button
-                  onClick={() => starConversation(selectedConversation.id)}
-                  className="rounded-lg p-2 transition-all"
-                  {...hoverBg(pal.hover)}
-                  title="Star conversation"
-                >
-                  <Star
-                    className="h-5 w-5"
-                    style={selectedConversation.isStarred
-                      ? { color: pal.star, fill: pal.star }
-                      : { color: pal.textSec }
-                    }
-                  />
-                </button>
+                {selectedConversation.kind !== 'dm' && (
+                  <button
+                    onClick={() => starConversation(selectedConversation.id)}
+                    className="rounded-lg p-2 transition-all"
+                    {...hoverBg(pal.hover)}
+                    title="Star conversation"
+                  >
+                    <Star
+                      className="h-5 w-5"
+                      style={selectedConversation.isStarred
+                        ? { color: pal.star, fill: pal.star }
+                        : { color: pal.textSec }
+                      }
+                    />
+                  </button>
+                )}
                 <button
                   onClick={() => setDeleteConfirmDialog({
                     isOpen: true,
@@ -760,6 +1091,25 @@ const BuyerMessages: React.FC = () => {
               <div ref={messagesEndRef} />
             </div>
 
+            {editingMessage && (
+              <div
+                className="flex items-center justify-between px-4 py-1.5"
+                style={{ background: pal.panel, borderTop: `1px solid ${pal.border}` }}
+              >
+                <span className="flex items-center gap-2 text-xs font-medium" style={{ color: pal.accent }}>
+                  <Pencil className="h-3.5 w-3.5" /> Edit message
+                </span>
+                <button
+                  onClick={cancelEdit}
+                  className="rounded p-1 transition-all"
+                  {...hoverBg(pal.hover)}
+                  title="Cancel edit"
+                >
+                  <X className="h-4 w-4" style={{ color: pal.textSec }} />
+                </button>
+              </div>
+            )}
+
             {/* Message Input */}
             <div
               className="flex items-end gap-2 px-4 py-3"
@@ -776,12 +1126,21 @@ const BuyerMessages: React.FC = () => {
                 value={newMessage}
                 onChange={(e) => {
                   setNewMessage(e.target.value);
-                  socketRef.current?.emit('chat:typing', {
-                    roomId: selectedConversation.id,
-                    userId: user?.id,
-                    name: user?.name || user?.email,
-                    isTyping: Boolean(e.target.value.trim()),
-                  });
+                  if (selectedConversation.kind === 'dm') {
+                    socketRef.current?.emit('dm:typing', {
+                      conversationId: selectedConversation.id,
+                      userId: user?.id,
+                      name: user?.name || user?.email,
+                      isTyping: Boolean(e.target.value.trim()),
+                    });
+                  } else {
+                    socketRef.current?.emit('chat:typing', {
+                      roomId: selectedConversation.id,
+                      userId: user?.id,
+                      name: user?.name || user?.email,
+                      isTyping: Boolean(e.target.value.trim()),
+                    });
+                  }
                 }}
                 onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
                 placeholder="Type a message"
