@@ -312,7 +312,7 @@ router.get('/support/tickets/mine', authenticate, async (req: any, res) => {
         order: undefined as any,
       },
     } as any)
-    const { attachTicketNumbers } = await import('../utils/ticketUtils')
+    const { attachTicketNumbers } = await import('../utils/ticketUtils.js')
     res.json({ tickets: attachTicketNumbers((tickets as any[]).map(serializeTicket)) })
   } catch (err) {
     console.error('GET /support/tickets/mine', err)
@@ -339,7 +339,7 @@ router.get('/support/tickets/:id', authenticate, async (req: any, res) => {
     if (!isAdmin(req)) {
       await prisma.supportTicket.update({ where: { id }, data: { readAt: new Date() } })
     }
-    const { attachTicketNumber } = await import('../utils/ticketUtils')
+    const { attachTicketNumber } = await import('../utils/ticketUtils.js')
     res.json({ ticket: attachTicketNumber(serializeTicket(ticket)) })
   } catch (err) {
     console.error('GET /support/tickets/:id', err)
@@ -445,7 +445,7 @@ router.get('/admin/support/tickets', authenticate, async (req: any, res) => {
       by: ['status'],
       _count: { status: true },
     })
-    const { attachTicketNumbers } = await import('../utils/ticketUtils')
+    const { attachTicketNumbers } = await import('../utils/ticketUtils.js')
     res.json({
       tickets: attachTicketNumbers((tickets as any[]).map(serializeTicket)),
       stats: counts.map(c => ({ status: c.status, count: c._count.status })),
