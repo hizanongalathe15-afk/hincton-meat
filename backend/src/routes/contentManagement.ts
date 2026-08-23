@@ -127,6 +127,15 @@ const defaultSiteProfile = {
     carbonNeutralClaims: true,
     maintenanceMode: false,
     maintenanceSecretKey: '',
+    maintenanceDisplayMode: 'full',
+    maintenanceHeadline: "We'll Be Right Back!",
+    maintenanceMessage: "We're currently making some exciting upgrades to improve your shopping experience. Our team is working hard to get things back online.",
+    maintenanceEstimatedTime: '~15 minutes',
+    maintenanceContactEmail: '',
+    maintenanceContactPhone: '',
+    maintenanceBannerText: "We're making improvements. Some features may be temporarily unavailable.",
+    maintenancePopupTitle: 'Quick Maintenance',
+    maintenancePopupMessage: "We're making a quick fix. This feature will be back shortly.",
   },
   payments: {
     bnpl: [

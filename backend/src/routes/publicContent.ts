@@ -99,6 +99,15 @@ const defaultSiteProfile = {
     carbonNeutralClaims: true,
     maintenanceMode: false,
     maintenanceSecretKey: '',
+    maintenanceDisplayMode: 'full',
+    maintenanceHeadline: "We'll Be Right Back!",
+    maintenanceMessage: "We're currently making some exciting upgrades to improve your shopping experience. Our team is working hard to get things back online.",
+    maintenanceEstimatedTime: '~15 minutes',
+    maintenanceContactEmail: '',
+    maintenanceContactPhone: '',
+    maintenanceBannerText: "We're making improvements. Some features may be temporarily unavailable.",
+    maintenancePopupTitle: 'Quick Maintenance',
+    maintenancePopupMessage: "We're making a quick fix. This feature will be back shortly.",
   },
   payments: {
     bnpl: [
@@ -247,6 +256,29 @@ router.get('/site-profile', async (_req, res) => {
       return res.json({ profile: defaultSiteProfile })
     }
     res.status(500).json({ error: 'Failed to get site profile' })
+  }
+})
+
+router.get('/maintenance-status', async (_req, res) => {
+  try {
+    const setting = await prisma.systemSetting.findUnique({ where: { key: 'site_profile' } })
+    const profile = setting ? parseJsonValue(setting.value, defaultSiteProfile) : defaultSiteProfile
+    const toggles = (profile.featureToggles || {}) as Record<string, any>
+    const enabled = Boolean(toggles.maintenanceMode)
+    res.json({
+      enabled,
+      displayMode: toggles.maintenanceDisplayMode || 'full',
+      headline: toggles.maintenanceHeadline || "We'll Be Right Back!",
+      message: toggles.maintenanceMessage || '',
+      estimatedTime: toggles.maintenanceEstimatedTime || '',
+      contactEmail: toggles.maintenanceContactEmail || '',
+      contactPhone: toggles.maintenanceContactPhone || '',
+      bannerText: toggles.maintenanceBannerText || '',
+      popupTitle: toggles.maintenancePopupTitle || '',
+      popupMessage: toggles.maintenancePopupMessage || '',
+    })
+  } catch (error) {
+    res.json({ enabled: false, displayMode: 'full' })
   }
 })
 

@@ -58,6 +58,8 @@ import BuyerDashboard from './buyer/BuyerDashboard'
 import { QuickViewRoot } from './components/ecommerce/QuickViewModal'
 import NewsletterExitIntentPopup from './components/ecommerce/NewsletterExitIntentPopup'
 import PwaInstallPrompt from './components/ecommerce/PwaInstallPrompt'
+import MaintenanceBanner from './components/MaintenanceBanner'
+import MaintenancePopup from './components/MaintenancePopup'
 import { useSiteContent } from './contexts/SiteContentContext'
 import AntigravityScrollEffect from './components/effects/AntigravityScrollEffect'
 
@@ -69,6 +71,7 @@ const SiteWideModernFeatures: React.FC = () => {
       <QuickViewRoot />
       {profile.featureToggles?.newsletterExitIntent !== false && <NewsletterExitIntentPopup />}
       {profile.featureToggles?.pwaInstallPrompt !== false && <PwaInstallPrompt />}
+      <MaintenancePopup />
     </>
   )
 }
@@ -164,6 +167,7 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <MaintenanceBanner />
       <VisitTracker />
       <SiteWideModernFeatures />
       {!isAdminRoute && <Navigation />}
