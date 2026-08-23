@@ -123,11 +123,22 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const config = error.config
+    const status = error.response?.status
+    const data = error.response?.data
+
+    // Maintenance mode: redirect to /maintenance (no retry)
+    if (status === 503 && data?.maintenance) {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/maintenance') {
+        window.location.href = '/maintenance'
+      }
+      return Promise.reject(error)
+    }
+
     const isGetOrSafe = config?.method === 'get' || config?.url?.includes('/cart') || config?.url?.includes('/products') || config?.url?.includes('/content')
 
-    // Retry on timeouts, 502, 503, 504, or network error (up to 2 times) for idempotent/read requests
+    // Retry on timeouts, 502, 504, or network error (up to 2 times) for idempotent/read requests
     if (config && isGetOrSafe && (!config.__retryCount || config.__retryCount < 2)) {
-      const isNetworkOrTimeout = !error.response || error.code === 'ECONNABORTED' || [502, 503, 504].includes(error.response?.status)
+      const isNetworkOrTimeout = !error.response || error.code === 'ECONNABORTED' || [502, 504].includes(status)
       if (isNetworkOrTimeout) {
         config.__retryCount = (config.__retryCount || 0) + 1
         const delay = config.__retryCount * 1200
@@ -136,7 +147,7 @@ api.interceptors.response.use(
       }
     }
 
-    if (error.response?.status === 401) {
+    if (status === 401) {
       // Clear token silently without breaking the guest user journey
       localStorage.removeItem('token')
       localStorage.removeItem('user')

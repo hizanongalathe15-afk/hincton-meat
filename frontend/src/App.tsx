@@ -92,6 +92,7 @@ import HelpCenterPage from './pages/HelpCenterPage'
 import AppInfoPage from './pages/AppInfoPage'
 import LegalPage from './pages/LegalPage'
 import DynamicContentPage from './pages/DynamicContentPage'
+import MaintenancePage from './pages/MaintenancePage'
 import BlogPage from './pages/BlogPage'
 import BlogPostPage from './pages/BlogPostPage'
 import CompaniesPage from './pages/CompaniesPage'
@@ -208,7 +209,7 @@ function App() {
           <Route path="/gift-cards" element={<PageTransition><GiftCardsPage /></PageTransition>} />
           <Route path="/wellness" element={<PageTransition><DynamicContentPage pageKey="wellness" /></PageTransition>} />
           <Route path="/returns" element={<PageTransition><DynamicContentPage pageKey="returns" /></PageTransition>} />
-          <Route path="/maintenance" element={<PageTransition><DynamicContentPage pageKey="maintenance" /></PageTransition>} />
+          <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/download-thank-you" element={<PageTransition><DynamicContentPage pageKey="downloadThankYou" /></PageTransition>} />
           <Route path="/blog" element={<PageTransition><BlogPage /></PageTransition>} />
           <Route path="/blog/:slug" element={<PageTransition><BlogPostPage /></PageTransition>} />
