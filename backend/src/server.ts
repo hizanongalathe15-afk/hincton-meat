@@ -53,6 +53,7 @@ import productConfigRoutes, { seedProductConfig } from './routes/productConfig';
 
 import { authenticate, authorize, optionalAuthenticate } from './middleware/auth';
 import { rejectUnsafeKeys } from './middleware/sanitizer';
+import { maintenanceModeMiddleware } from './middleware/maintenanceMode';
 
 dotenv.config();
 
@@ -173,6 +174,7 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use(rejectUnsafeKeys);
+app.use(maintenanceModeMiddleware);
 
 const staticMediaHeaders = (res: express.Response) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');

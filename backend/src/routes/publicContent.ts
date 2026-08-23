@@ -97,6 +97,8 @@ const defaultSiteProfile = {
     socialProofViewers: true,
     subscriptionPlans: true,
     carbonNeutralClaims: true,
+    maintenanceMode: false,
+    maintenanceSecretKey: '',
   },
   payments: {
     bnpl: [

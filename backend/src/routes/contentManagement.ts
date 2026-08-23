@@ -8,6 +8,7 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import { uploadImage } from '../config/cloudinary'
+import { clearMaintenanceCache } from '../middleware/maintenanceMode'
 import { cacheService } from '../services/cacheService'
 import { siteAppearanceService } from '../services/siteAppearanceService'
 import { DEFAULT_SITE_THEME, THEME_COLOR_KEYS, normalizeTheme } from '../constants/siteAppearance'
@@ -124,6 +125,8 @@ const defaultSiteProfile = {
     socialProofViewers: true,
     subscriptionPlans: true,
     carbonNeutralClaims: true,
+    maintenanceMode: false,
+    maintenanceSecretKey: '',
   },
   payments: {
     bnpl: [
@@ -403,7 +406,7 @@ export const siteProfileSchema = z.object({
     allRightsReservedText: 'All rights reserved.',
     customCopyrightLine: null,
   }),
-  featureToggles: z.record(z.string(), z.boolean().or(z.number())).default({}),
+  featureToggles: z.record(z.string(), z.boolean().or(z.number()).or(z.string())).default({}),
   payments: z.object({
     bnpl: z.array(z.object({ code: z.string().min(1), label: z.string().min(1), enabled: z.boolean().default(false), description: z.string().optional(), learnMoreUrl: z.string().optional() })).default([]),
     digitalWallets: z.array(z.object({ code: z.string().min(1), label: z.string().min(1), enabled: z.boolean().default(false) })).default([]),
@@ -510,6 +513,7 @@ router.put('/site-profile', async (req, res) => {
       },
     })
 
+    clearMaintenanceCache()
     res.json({ message: 'Site profile updated', profile: parseJsonValue(setting.value, {}) })
   } catch (error) {
     console.error('Update site profile error:', error)

@@ -929,6 +929,50 @@ const ContentPage = () => {
         </div>
       </section>
 
+      <section className="rounded border-2 border-amber-400 bg-amber-50 p-6 shadow-sm">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+              <Shield className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-amber-900">Maintenance Mode</h2>
+              <p className="mt-1 text-sm text-amber-700">Toggle the entire site offline for visitors. Admins with the secret key can still access via <code className="rounded bg-amber-100 px-1 text-xs">?maintenance_key=YOUR_KEY</code>.</p>
+            </div>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <label className="flex items-start gap-3 rounded border border-amber-300 bg-white p-3">
+            <input
+              type="checkbox"
+              checked={Boolean(profile.featureToggles.maintenanceMode)}
+              onChange={(event) => updateFeatureToggle('maintenanceMode', event.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+            />
+            <div className="flex-1">
+              <span className="text-sm font-bold text-amber-900">Enable Maintenance Mode</span>
+              <p className="mt-0.5 text-xs text-amber-700">When ON, all visitors see a 503 response. The health endpoint and site profile API remain accessible.</p>
+            </div>
+          </label>
+          <label className="flex items-start gap-3 rounded border border-amber-300 bg-white p-3">
+            <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+              <span className="h-2 w-2 rounded-full bg-amber-400" />
+            </div>
+            <div className="flex-1">
+              <span className="text-sm font-medium text-amber-900">Secret Backdoor Key</span>
+              <input
+                type="text"
+                value={String(profile.featureToggles.maintenanceSecretKey || '')}
+                onChange={(event) => updateFeatureToggle('maintenanceSecretKey', event.target.value)}
+                placeholder="e.g. hincton2026secret"
+                className="mt-1 w-full rounded border border-amber-300 px-3 py-2 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
+              />
+              <p className="mt-0.5 text-xs text-amber-600">Append <code className="rounded bg-amber-100 px-1">?maintenance_key=THIS_VALUE</code> to any URL to bypass maintenance mode.</p>
+            </div>
+          </label>
+        </div>
+      </section>
+
       <section className="rounded bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
