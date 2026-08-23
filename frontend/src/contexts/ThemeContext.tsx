@@ -1,51 +1,51 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useEffect, useState } from 'react'
 
-type Theme = 'light' | 'dark'
+export type ThemeMode = 'light' | 'dark'
 
 interface ThemeContextType {
-  theme: Theme
+  theme: ThemeMode
   toggleTheme: () => void
+  setTheme: (mode: ThemeMode) => void
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
+const STORAGE_KEY = 'hincton-chat-theme'
 
-export const useTheme = () => {
-  const context = useContext(ThemeContext)
-  if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider')
+const readStoredTheme = (): ThemeMode | null => {
+  if (typeof window === 'undefined') return null
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY)
+    if (stored === 'light' || stored === 'dark') return stored
+  } catch {
+    return null
   }
-  return context
+  return null
 }
+
+const ThemeContext = createContext<ThemeContextType>({
+  theme: 'dark',
+  toggleTheme: () => undefined,
+  setTheme: () => undefined,
+})
+
+export const useTheme = () => useContext(ThemeContext)
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>('light')
+  const [theme, setThemeState] = useState<ThemeMode>(() => readStoredTheme() || 'dark')
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as Theme
-    if (savedTheme) {
-      setTheme(savedTheme)
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('dark')
-    }
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem('theme', theme)
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
+    try {
+      window.localStorage.setItem(STORAGE_KEY, theme)
+    } catch {
+      return
     }
   }, [theme])
 
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light')
-  }
+  const toggleTheme = () => setThemeState((current) => (current === 'dark' ? 'light' : 'dark'))
+  const setTheme = (mode: ThemeMode) => setThemeState(mode)
 
-  const value = {
-    theme,
-    toggleTheme,
-  }
-
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  )
 }

@@ -26,6 +26,9 @@ export const defaultSiteTheme: SiteTheme = {
   card: '#ffffff',
   overlay: 'rgba(17, 24, 39, 0.55)',
   shadow: 'rgba(28, 25, 23, 0.12)',
+  laserColor: '#22c55e',
+  glassTint: 'rgba(255, 255, 255, 0.65)',
+  glassBorder: 'rgba(255, 255, 255, 0.35)',
 }
 
 export const blankSiteTheme: SiteTheme = {
@@ -76,6 +79,9 @@ export const themeColorFields = [
   ['card', 'Card', 'Card backgrounds'],
   ['overlay', 'Overlay', 'Modals and dimmed backdrops'],
   ['shadow', 'Shadow tint', 'Soft shadow colour'],
+  ['laserColor', 'Laser Scanner Beam', 'QR Scanner Laser Beam & Particle Glow'],
+  ['glassTint', 'Glass Tint', 'Glassmorphism backdrop tint overlay'],
+  ['glassBorder', 'Glass Border', 'Glassmorphism card edge sheen'],
 ] as const
 
 const SiteThemeContext = createContext<{
@@ -87,22 +93,40 @@ export const applySiteTheme = (theme: SiteTheme) => {
   const root = document.documentElement
   root.dataset.siteTheme = 'custom'
   Object.entries({ ...defaultSiteTheme, ...theme }).forEach(([key, value]) => {
-    if (value) root.style.setProperty(`--site-${key}`, value)
+    if (value) {
+      root.style.setProperty(`--site-${key}`, value)
+      if (key === 'laserColor') {
+        root.style.setProperty('--laser-color', value)
+      }
+    }
   })
 }
 
 export const SiteThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [theme, setTheme] = useState<SiteTheme>(defaultSiteTheme)
+  const [theme, setTheme] = useState<SiteTheme>(() => {
+    try {
+      const cached = localStorage.getItem('hincton_site_theme')
+      return cached ? { ...defaultSiteTheme, ...JSON.parse(cached) } : defaultSiteTheme
+    } catch {
+      return defaultSiteTheme
+    }
+  })
+
   const applyTheme = (next: SiteTheme) => {
     const merged = { ...defaultSiteTheme, ...next }
     setTheme(merged)
     applySiteTheme(merged)
+    try {
+      localStorage.setItem('hincton_site_theme', JSON.stringify(merged))
+    } catch {}
   }
 
   useEffect(() => {
-    applySiteTheme(defaultSiteTheme)
+    applySiteTheme(theme)
     api.get('/content/site-theme')
-      .then(({ data }) => applyTheme(data.theme || defaultSiteTheme))
+      .then(({ data }) => {
+        if (data.theme) applyTheme(data.theme)
+      })
       .catch(() => undefined)
   }, [])
 

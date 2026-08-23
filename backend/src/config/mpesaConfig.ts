@@ -3,8 +3,12 @@ export const MPESA_CONFIG = {
   consumerSecret: process.env.MPESA_CONSUMER_SECRET || '',
   passkey: process.env.MPESA_PASSKEY || '',
   shortcode: process.env.MPESA_SHORTCODE || '174379',
-  callbackUrl: process.env.MPESA_CALLBACK_URL || 'https://your-domain.com/api/mpesa/callback',
-  baseUrl: 'https://sandbox.safaricom.co.ke' // Use production URL in production
+  callbackUrl:
+    process.env.MPESA_CALLBACK_URL ||
+    ((process.env.BACKEND_URL || process.env.API_URL)
+      ? `${(process.env.BACKEND_URL || process.env.API_URL).replace(/\/+$/,'')}/api/mpesa/callback`
+      : ''),
+  baseUrl: process.env.MPESA_ENV === 'production' ? 'https://api.safaricom.co.ke' : 'https://sandbox.safaricom.co.ke'
 };
 
 export const getAccessToken = async (): Promise<string> => {

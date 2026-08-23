@@ -179,8 +179,20 @@ export const ordersApi = {
     return response.data
   },
 
+  // Cross-device guest tracking: order number + email/phone used at checkout.
+  trackOrder: async (data: { orderNumber: string; email?: string; phone?: string }) => {
+    const response = await apiClient.post('/orders/track', data)
+    return response.data
+  },
+
   createOrder: async (data: any) => {
-    const response = await apiClient.post('/orders', data)
+    const idempotencyKey =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `order-${Date.now()}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`
+    const response = await apiClient.post('/orders', data, {
+      headers: { 'Idempotency-Key': idempotencyKey },
+    })
     return response.data
   }
 }
@@ -824,6 +836,119 @@ export const vipBypassApi = {
 export const snapshotApi = {
   get: async (pageKey: string) => {
     const r = await apiClient.get(`/snapshots/${pageKey}`)
+    return r.data
+  },
+}
+
+// Careers API
+export const careersApi = {
+  getPageContent: async () => {
+    const r = await apiClient.get('/careers/page-content')
+    return r.data
+  },
+  getJobs: async () => {
+    const r = await apiClient.get('/careers/jobs')
+    return r.data
+  },
+  getJob: async (id: string) => {
+    const r = await apiClient.get(`/careers/jobs/${id}`)
+    return r.data
+  },
+  apply: async (jobId: string, data: FormData) => {
+    const r = await apiClient.post(`/careers/apply/${jobId}`, data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    })
+    return r.data
+  },
+}
+
+// Gift Cards API
+export const giftCardsApi = {
+  checkBalance: async (code: string) => {
+    const r = await apiClient.get(`/gift-cards/${code}`)
+    return r.data
+  },
+  purchase: async (data: {
+    amount: number
+    senderName: string
+    senderEmail?: string
+    recipientName: string
+    recipientEmail?: string
+    recipientPhone?: string
+    message?: string
+    occasion?: string
+    template?: string
+    deliveryMethod?: string
+  }) => {
+    const r = await apiClient.post('/gift-cards', data)
+    return r.data
+  },
+  redeem: async (code: string, data: { amount?: number; orderId?: string }) => {
+    const r = await apiClient.post(`/gift-cards/${code}/redeem`, data)
+    return r.data
+  },
+  send: async (data: { code: string; method: string }) => {
+    const r = await apiClient.post('/gift-cards/send', data)
+    return r.data
+  },
+}
+
+// Customer Kitchen Photo Reviews API
+export const photoReviewsApi = {
+  list: async (limit = 12) => {
+    const r = await apiClient.get('/photo-reviews', { params: { limit } })
+    return r.data
+  },
+  submit: async (data: {
+    photo: File
+    authorName?: string
+    location?: string
+    cutPurchased: string
+    dishPrepared: string
+    cookingTip?: string
+    rating?: number
+  }) => {
+    const form = new FormData()
+    form.append('photo', data.photo)
+    if (data.authorName) form.append('authorName', data.authorName)
+    if (data.location) form.append('location', data.location)
+    form.append('cutPurchased', data.cutPurchased)
+    form.append('dishPrepared', data.dishPrepared)
+    if (data.cookingTip) form.append('cookingTip', data.cookingTip)
+    form.append('rating', String(data.rating ?? 5))
+    const r = await apiClient.post('/photo-reviews', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    })
+    return r.data
+  },
+  toggleLike: async (id: string) => {
+    const r = await apiClient.post(`/photo-reviews/${id}/like`)
+    return r.data
+  },
+}
+
+// Master Butcher Meat Cuts Guide API
+export const meatGuideApi = {
+  getGuide: async () => {
+    const r = await apiClient.get('/meat-guide')
+    return r.data
+  },
+}
+
+// Butcher Recipes API
+export const recipesApi = {
+  list: async () => {
+    const r = await apiClient.get('/recipes')
+    return r.data
+  },
+}
+
+// Product Page Configuration (butcher prep options, shop pills, storage guidelines)
+export const productConfigApi = {
+  get: async () => {
+    const r = await apiClient.get('/product-config')
     return r.data
   },
 }

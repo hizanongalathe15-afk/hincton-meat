@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Check, Package, Truck, Clock, MapPin, Phone, Mail } from 'lucide-react'
+import { Check, Package, Truck, Clock, MapPin, Phone, Mail, UserPlus } from 'lucide-react'
 import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
 import { ordersApi } from '../services/buyerApi'
 import { formatPrice } from '../utils/currency'
 import { useSiteContent } from '../contexts/SiteContentContext'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useAuth } from '../contexts/AuthContext'
 
 const OrderConfirmationPage: React.FC = () => {
   const navigate = useNavigate()
@@ -14,9 +15,12 @@ const OrderConfirmationPage: React.FC = () => {
   const [searchParams] = useSearchParams()
   const { profile } = useSiteContent()
   const { t } = useLanguage()
+  const { user, register } = useAuth()
   const [order, setOrder] = useState<any>((location.state as any)?.order || null)
   const [loading, setLoading] = useState(!order)
   const [trackingQr, setTrackingQr] = useState('')
+  const [upgradePassword, setUpgradePassword] = useState('')
+  const [upgradeProcessing, setUpgradeProcessing] = useState(false)
 
   const orderId = searchParams.get('orderId') || searchParams.get('orderNumber') || order?.orderNumber || order?.id
 
@@ -43,6 +47,30 @@ const OrderConfirmationPage: React.FC = () => {
   const address = order?.shippingAddress || {}
   const items = order?.orderItems || []
   const trackingId = order?.trackingNumber || order?.orderNumber || order?.id
+
+  // Soft account creation after payment: we already have the guest's name and email,
+  // so one password turns this order into a full account (order + cart get linked server-side).
+  const upgradeName = [address.firstName, address.lastName].filter(Boolean).join(' ') || ''
+  const upgradeEmail = address.email || order?.guestEmail || ''
+
+  const handleCreateAccount = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!upgradeEmail || !upgradePassword) return
+    setUpgradeProcessing(true)
+    try {
+      await register({
+        name: upgradeName || 'Hincton Customer',
+        email: upgradeEmail,
+        password: upgradePassword,
+        agreed: true,
+      })
+      toast.success('Account created — this order is now linked to it.')
+    } catch {
+      // AuthContext already shows the specific error toast
+    } finally {
+      setUpgradeProcessing(false)
+    }
+  }
 
   useEffect(() => {
     if (!trackingId) return
@@ -141,7 +169,53 @@ const OrderConfirmationPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-6">
+            {!user && upgradeEmail && (
+              <div className="rounded-lg border border-green-200 bg-green-50 shadow-sm p-6">
+                <h2 className="text-lg font-semibold text-green-950 mb-1 flex items-center">
+                  <UserPlus className="w-5 h-5 mr-2" />
+                  Save this order to an account
+                </h2>
+                <p className="text-sm text-green-900 mb-4">
+                  We already have your details — just pick a password and this order (plus your cart) is linked instantly for tracking on any device.
+                </p>
+                <form onSubmit={handleCreateAccount} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-green-900 mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={upgradeEmail}
+                      readOnly
+                      className="w-full px-3 py-2 rounded-lg border border-green-200 bg-white text-sm text-gray-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-green-900 mb-1">Create password</label>
+                    <input
+                      type="password"
+                      value={upgradePassword}
+                      onChange={(e) => setUpgradePassword(e.target.value)}
+                      required
+                      minLength={8}
+                      placeholder="At least 8 characters"
+                      className="w-full px-3 py-2 rounded-lg border border-green-200 bg-white text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    />
+                    <p className="mt-1 text-xs text-green-800">Use uppercase, lowercase, a number and a symbol.</p>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={upgradeProcessing}
+                    className="w-full rounded-lg bg-green-700 text-white py-2.5 px-4 font-semibold hover:bg-green-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {upgradeProcessing ? 'Creating account...' : 'Create account in 10 seconds'}
+                  </button>
+                  <button type="button" onClick={() => navigate('/register')} className="w-full text-xs text-green-800 hover:text-green-950 underline">
+                    Or register with a different email
+                  </button>
+                </form>
+              </div>
+            )}
+
             <div className="bg-white rounded-lg shadow-sm p-6 sticky top-4">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('order.summary')}</h2>
               <div className="space-y-3 mb-6">

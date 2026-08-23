@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, Github, KeyRound, Loader2, Lock, Mail, QrCode, Smartphone, Truck, Star, Shield } from 'lucide-react'
+import { Eye, EyeOff, Github, KeyRound, Loader2, Lock, Mail, QrCode, Smartphone, Truck, Star, Shield, Camera, ShieldCheck } from 'lucide-react'
 import QRCodeGenerator from 'qrcode'
 import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
@@ -10,6 +10,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { useSiteContent } from '../contexts/SiteContentContext'
 import { getApiHost } from '../services/api'
 import { api } from '../services/api'
+import QrLaserScannerModal from '../components/ui/QrLaserScannerModal'
 
 const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ onNavigate }) => {
   const [formData, setFormData] = useState({ email: '', password: '', remember: false })
@@ -19,6 +20,9 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
   const [qrSession, setQrSession] = useState<{ id: string; secret: string; expiresAt: string } | null>(null)
   const [qrError, setQrError] = useState('')
   const [qrCreating, setQrCreating] = useState(false)
+  const [qrSuccess, setQrSuccess] = useState(false)
+  const [scannerOpen, setScannerOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const [otpRequested, setOtpRequested] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -30,6 +34,10 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
   const { t } = useLanguage()
   const { profile } = useSiteContent()
   const brand = profile.brand
+
+  useEffect(() => {
+    setIsMobile(/android|iphone|ipad|mobile/i.test(navigator.userAgent))
+  }, [])
 
   useEffect(() => {
     if (authMode !== 'qr') return
@@ -59,10 +67,17 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
       try {
         const { data } = await api.get(`/auth/qr-login/${qrSession.id}/status`, { params: { secret: qrSession.secret } })
         if (data.status === 'APPROVED' && data.token) {
-          localStorage.setItem('token', data.token); localStorage.setItem('user', JSON.stringify(data.user)); toast.success('Signed in securely.'); navigate(data.user?.role === 'admin' ? '/admin/dashboard' : '/profile'); window.location.reload()
+          setQrSuccess(true)
+          localStorage.setItem('token', data.token)
+          localStorage.setItem('user', JSON.stringify(data.user))
+          toast.success('Signed in securely.')
+          setTimeout(() => {
+            navigate(data.user?.role === 'admin' ? '/admin/dashboard' : '/profile')
+            window.location.reload()
+          }, 1200)
         }
         if (data.status === 'EXPIRED') { setQrSession(null); setQrImage(''); toast('QR code expired. Select QR sign-in to make a new one.') }
-      } catch { /* the code may be replaced or temporarily offline */ }
+      } catch {}
     }, 2200)
     return () => window.clearInterval(timer)
   }, [authMode, navigate, qrSession])
@@ -106,7 +121,6 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
       }
       setOtpRequested(true)
     } catch {
-      // AuthContext already shows the API error as a toast.
     } finally {
       setIsLoading(false)
     }
@@ -124,7 +138,6 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
       const user = JSON.parse(localStorage.getItem('user') || '{}')
       navigate(user.role === 'admin' || user.role === 'ADMIN' ? '/admin/dashboard' : '/profile')
     } catch {
-      // AuthContext already shows the API error as a toast.
     } finally {
       setIsLoading(false)
     }
@@ -132,7 +145,7 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
 
   const handleForgotPassword = () => {
     if (onNavigate) {
-      onNavigate(2) // forgot
+      onNavigate(2)
     } else {
       navigate('/forgot-password')
     }
@@ -145,12 +158,12 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
       return
     }
     const redirectOrigin = encodeURIComponent(window.location.origin)
-    window.location.href = `${baseUrl}/api/auth/${provider.toLowerCase()}?redirect=${redirectOrigin}`
+    const authHost = baseUrl.replace(/\/+$/,'')
+    window.location.href = `${authHost}/api/auth/${provider.toLowerCase()}?redirect=${redirectOrigin}`
   }
 
   return (
     <div className="auth-experience min-h-screen bg-black relative overflow-hidden">
-      {/* Blurred Background Image */}
       <div className="absolute inset-0">
         <div
           className="size-full bg-cover bg-center scale-110 blur-2xl brightness-50"
@@ -161,24 +174,17 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
         />
       </div>
 
-      {/* Animated Gradient Orbs */}
       <div className="absolute top-0 left-0 hidden h-96 w-96 rounded-full bg-gradient-to-br from-red-600/30 to-white/10 blur-3xl sm:block sm:animate-pulse" />
       <div className="absolute bottom-0 right-0 hidden h-96 w-96 rounded-full bg-gradient-to-br from-white/10 to-red-600/30 blur-3xl sm:block sm:animate-pulse" />
 
-      {/* Main Content */}
       <div className="relative z-10 flex items-center justify-center min-h-screen p-4">
         <div className="w-full max-w-5xl">
-          {/* Card Container */}
           <div className="relative">
-            {/* Animated Border Gradient */}
             <div className="auth-halo absolute -inset-0.5 rounded-3xl bg-gradient-to-r from-red-600 via-white to-red-600 opacity-25 blur sm:animate-spin" style={{animationDuration: '20s'}} />
 
-            {/* Main Card */}
             <div className="auth-card relative bg-zinc-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-red-600/20 overflow-hidden">
               <div className="grid lg:grid-cols-2">
-                {/* Left Side - Decorative */}
                 <div className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden">
-                  {/* Decorative Background Pattern */}
                   <div className="absolute inset-0 opacity-5">
                     {[...Array(8)].map((_, i) => (
                       <div
@@ -194,7 +200,6 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                     ))}
                   </div>
 
-                  {/* Logo and Title */}
                   <div className="relative z-10">
                     <div className="flex items-center gap-3 mb-6">
                       <div className="relative">
@@ -224,7 +229,6 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                     </div>
                   </div>
 
-                  {/* Features */}
                   <div className="relative z-10 space-y-4">
                     {[
                       { icon: Shield, text: t('login.premiumQuality') },
@@ -239,9 +243,7 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                   </div>
                 </div>
 
-                {/* Right Side - Form */}
                 <div className="p-8 lg:p-12">
-                  {/* Tab Switcher */}
                   <div className="flex bg-zinc-800/50 rounded-xl p-1 mb-8">
                     <button
                       onClick={() => setAuthMode('password')}
@@ -268,7 +270,6 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                     </button>
                   </div>
 
-                  {/* Welcome Text */}
                   <div className="mb-8">
                     <h1 className="text-3xl font-bold text-white mb-2">{t('login.welcomeBack')}</h1>
                     <p className="text-gray-400">
@@ -278,7 +279,6 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                     </p>
                   </div>
 
-                  {/* Form */}
                   {authMode === 'password' ? (
                     <form onSubmit={handleSubmit} className={`space-y-5 ${shakeForm ? 'auth-shake' : ''}`}>
                       {failedAttempts >= 5 && (
@@ -429,9 +429,81 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                         </>
                       )}
                     </div>
-                  ) : <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-center"><p className="text-sm font-semibold text-white">Scan to sign in securely</p><p className="mt-1 text-xs leading-5 text-gray-400">Your phone asks for approval. This code expires in three minutes and cannot reveal your password.</p><div className="mx-auto mt-5 w-fit rounded-2xl bg-white p-3">{qrImage ? <img src={qrImage} alt="Secure QR sign-in code" className="h-48 w-48" /> : <div className="grid h-48 w-48 place-items-center rounded-xl bg-gray-100 text-center text-sm font-semibold text-gray-500">{qrCreating ? <span><Loader2 className="mx-auto mb-2 h-7 w-7 animate-spin text-red-600" />Verifying connection…</span> : <QrCode className="h-10 w-10" />}</div>}</div>{qrError ? <div className="mt-4 rounded-xl border border-red-400/40 bg-red-950/40 p-3 text-sm text-red-100"><p>{qrError}</p><button type="button" onClick={() => setAuthMode('password')} className="mt-2 font-bold underline">Try again</button></div> : <p className="mt-4 text-xs font-medium text-gray-400">{qrSession ? `Protected code ready · expires at ${new Date(qrSession.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Creating and verifying protected code…'}</p>}</div>}
+                  ) : (
+                    <div className="space-y-4">
+                      {qrSuccess ? (
+                        <div className="rounded-3xl p-8 text-center text-white border-2 border-green-400 shadow-2xl animate-[fadeIn_0.3s_ease]">
+                          <div className="relative mx-auto h-20 w-20 rounded-full bg-green-500/20 border-2 border-green-400 flex items-center justify-center shadow-[0_0_50px_rgba(34,197,94,0.6)] mb-4">
+                            <div className="h-14 w-14 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white shadow-xl">
+                              <ShieldCheck className="h-8 w-8 stroke-[3]" />
+                            </div>
+                          </div>
+                          <h3 className="text-2xl font-black tracking-tight">Signed In!</h3>
+                          <p className="mt-1 text-xs text-green-300 font-semibold">Redirecting to your dashboard...</p>
+                        </div>
+                      ) : (
+                        <div className="rounded-3xl border border-white/10 bg-zinc-950/60 p-6 text-center space-y-4">
+                          <p className="text-sm font-extrabold text-white flex items-center justify-center gap-1.5">
+                            <QrCode className="h-4 w-4 text-[var(--site-primary)]" />
+                            {isMobile ? 'Scan to Sign In' : 'Sign In with Your Phone'}
+                          </p>
+                          <p className="text-[11px] text-gray-400">
+                            {isMobile
+                              ? 'Point your camera at the QR code on your other device'
+                              : 'Open the app on your phone and scan this code to sign in instantly'}
+                          </p>
 
-                  {/* Divider */}
+                          <div className="relative mx-auto w-fit rounded-3xl bg-white p-4 shadow-2xl border-4 border-stone-800">
+                            {qrImage ? (
+                              <img src={qrImage} alt="QR Code" className="h-48 w-48 rounded-xl object-contain" />
+                            ) : (
+                              <div className="grid h-48 w-48 place-items-center rounded-xl bg-gray-100 text-center text-xs font-bold text-gray-500">
+                                {qrCreating ? (
+                                  <span>
+                                    <Loader2 className="mx-auto mb-2 h-7 w-7 animate-spin text-[var(--site-primary)]" />
+                                    Generating...
+                                  </span>
+                                ) : (
+                                  <QrCode className="h-10 w-10 text-gray-400" />
+                                )}
+                              </div>
+                            )}
+                            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-stone-900 text-green-400 border border-stone-700 text-[10px] font-black flex items-center gap-1 shadow-md">
+                              <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-ping" />
+                              Expires in 180s
+                            </div>
+                          </div>
+
+                          {isMobile && (
+                            <button
+                              type="button"
+                              onClick={() => setScannerOpen(true)}
+                              className="w-full py-3 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm font-bold shadow-md hover:scale-105 transition flex items-center justify-center gap-2"
+                            >
+                              <Camera className="h-4 w-4" />
+                              <span>Open Scanner</span>
+                            </button>
+                          )}
+
+                          {qrError ? (
+                            <div className="mt-4 rounded-xl border border-red-400/40 bg-red-950/40 p-3 text-xs text-red-100">
+                              <p>{qrError}</p>
+                              <button type="button" onClick={() => setAuthMode('password')} className="mt-2 font-bold underline">
+                                Try password instead
+                              </button>
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-gray-400 font-medium pt-2">
+                              {qrSession
+                                ? `Encrypted \u00b7 Expires ${new Date(qrSession.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                : 'Preparing secure connection...'}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="relative my-6">
                     <div className="absolute inset-0 flex items-center">
                       <div className="w-full border-t border-zinc-700"></div>
@@ -441,7 +513,6 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                     </div>
                   </div>
 
-                  {/* Social Login */}
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => handleSocialLogin('Google')}
@@ -464,7 +535,6 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
                     </button>
                   </div>
 
-                  {/* Sign Up Link */}
                   <p className="text-center mt-6 text-gray-400">
                     {t('login.noAccount')}{' '}
                     <button
@@ -480,8 +550,22 @@ const LoginPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = ({ o
           </div>
         </div>
       </div>
+
+      <QrLaserScannerModal
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onSuccess={() => {
+          setQrSuccess(true)
+          toast.success('Scanner Authenticated! Signing in...')
+          setTimeout(() => {
+            navigate('/profile')
+            window.location.reload()
+          }, 1200)
+        }}
+      />
     </div>
   )
 }
 
 export default LoginPage
+

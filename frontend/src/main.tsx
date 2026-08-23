@@ -12,6 +12,7 @@ import { SiteThemeProvider } from './contexts/SiteThemeContext.tsx'
 import { SiteContentProvider } from './contexts/SiteContentContext.tsx'
 import './index.css'
 import { LanguageProvider } from './contexts/LanguageContext'
+import { LayoutSplitProvider } from './contexts/LayoutSplitContext'
 import { CurrencyProvider, injectLdScript, setVoiceMeta, getOrAssignExperiment } from './utils/currencyAndSeo'
 import { featuresApi } from './services/featuresApi'
 import { QuickViewProvider } from './components/ecommerce/QuickViewModal'
@@ -131,9 +132,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 <CurrencyProvider>
                   <CartProvider>
                     <WishlistProvider>
-                      <QuickViewProvider>
-                        <App />
-                      </QuickViewProvider>
+                      <LayoutSplitProvider>
+                        <QuickViewProvider>
+                          <App />
+                        </QuickViewProvider>
+                      </LayoutSplitProvider>
                     </WishlistProvider>
                   </CartProvider>
                 </CurrencyProvider>

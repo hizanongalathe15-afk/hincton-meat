@@ -12,6 +12,7 @@ import { sendEmail, sendPasswordResetEmail } from '../utils/emailService'
 import { uploadImage } from '../config/cloudinary'
 import { meatShopMessages, messageText, resolveMessage } from '../messages/meatShopMessages'
 import { authenticate } from '../middleware/auth'
+import { claimGuestData, getGuestSessionIdFromRequest } from '../services/guestClaimService'
 
 const router = express.Router()
 const upload = multer({
@@ -647,6 +648,11 @@ router.post('/register', async (req, res) => {
       html: `<p>Hello ${buyerName},</p><p>${welcomeMessage}</p><p><a href="${process.env.FRONTEND_URL || ''}/profile">Open your account</a></p>`,
     }).catch((error) => console.error('Welcome email failed:', error))
 
+    // Attach any guest orders/cart from this browser to the new account.
+    claimGuestData(user.id, getGuestSessionIdFromRequest(req)).catch((error) =>
+      console.error('Guest data claim after register failed:', error),
+    )
+
     res.status(201).json({
       ...resolveMessage({ ...meatShopMessages.auth.accountCreated, text: welcomeMessage }),
       user: serializeUser(user),
@@ -736,6 +742,11 @@ router.post('/login', async (req, res) => {
     })
 
     const session = await createLoginSession(refreshedUser || user, req, 'PASSWORD')
+
+    // Attach any guest orders/cart from this browser to the signed-in account.
+    claimGuestData(user.id, getGuestSessionIdFromRequest(req)).catch((error) =>
+      console.error('Guest data claim after login failed:', error),
+    )
 
     res.json({
       ...resolveMessage(meatShopMessages.auth.welcomeBack, { name: refreshedUser?.profile?.fullName || user.profile?.fullName || user.email }),
@@ -875,6 +886,10 @@ router.post('/phone/verify-otp', async (req, res) => {
 
     const session = await createLoginSession(refreshedUser || user, req, 'PHONE')
 
+    claimGuestData(user.id, getGuestSessionIdFromRequest(req)).catch((error) =>
+      console.error('Guest data claim after phone login failed:', error),
+    )
+
     res.json({
       message: 'Phone login successful',
       user: serializeUser(refreshedUser || user),
@@ -1011,6 +1026,11 @@ router.post('/google', async (req, res) => {
     }
 
     const session = await createLoginSession(user, req, 'PASSWORD')
+
+    claimGuestData(user.id, getGuestSessionIdFromRequest(req)).catch((error) =>
+      console.error('Guest data claim after Google login failed:', error),
+    )
+
     res.json({
       success: true,
       message: 'Google login successful',

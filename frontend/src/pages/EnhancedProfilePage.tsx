@@ -15,6 +15,7 @@ import { useConfirmationDialog } from '../hooks/useConfirmationDialog';
 import ConfirmationDialog from '../components/ui/ConfirmationDialog';
 import { getApiHost } from '../services/api';
 import { formatPrice } from '../utils/currency';
+import DeviceLinkingSection from '../components/profile/DeviceLinkingSection';
 
 interface UserProfile {
   id: string;
@@ -1925,6 +1926,9 @@ const EnhancedProfilePage: React.FC = () => {
                   )}
                 </div>
               </div>
+
+              {/* Dynamic QR & Laser Scanner Device Linking */}
+              <DeviceLinkingSection />
               </div>
             )}
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 
 import { 
@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { Product } from '../types/index'
 import { formatPrice } from '../utils/currency'
+import { productConfigApi } from '../services/buyerApi'
 
 interface ProductDetailsProps {
   product: Product
@@ -44,8 +45,34 @@ const ProductDetails = ({
   const [selectedMedia, setSelectedMedia] = useState(0)
   const [isMuted, setIsMuted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
-
   const [showZoom, setShowZoom] = useState(false)
+  const [cutStyle, setCutStyle] = useState('Standard Butcher Cut')
+  const [fatTrim, setFatTrim] = useState('Standard Trim')
+  const [marinade, setMarinade] = useState('Natural (Unseasoned)')
+  const [cutStyles, setCutStyles] = useState<string[]>(['Standard Butcher Cut'])
+  const [fatTrimLevels, setFatTrimLevels] = useState<string[]>(['Standard Trim'])
+  const [seasonings, setSeasonings] = useState<string[]>(['Natural (Unseasoned)'])
+  const [storageGuidelines, setStorageGuidelines] = useState<string[]>([])
+
+  useEffect(() => {
+    productConfigApi.get().then((data) => {
+      if (data.butcherPrep?.cutStyles?.length) {
+        setCutStyles(data.butcherPrep.cutStyles)
+        if (!data.butcherPrep.cutStyles.includes(cutStyle)) setCutStyle(data.butcherPrep.cutStyles[0])
+      }
+      if (data.butcherPrep?.fatTrimLevels?.length) {
+        setFatTrimLevels(data.butcherPrep.fatTrimLevels)
+        if (!data.butcherPrep.fatTrimLevels.includes(fatTrim)) setFatTrim(data.butcherPrep.fatTrimLevels[0])
+      }
+      if (data.butcherPrep?.seasonings?.length) {
+        setSeasonings(data.butcherPrep.seasonings)
+        if (!data.butcherPrep.seasonings.includes(marinade)) setMarinade(data.butcherPrep.seasonings[0])
+      }
+      if (data.storageGuidelines?.length) {
+        setStorageGuidelines(data.storageGuidelines)
+      }
+    }).catch(() => {})
+  }, [])
 
   // Enhanced media data with videos and images
   const parsedImages: string[] = Array.isArray((product as any).images)
@@ -170,7 +197,19 @@ const ProductDetails = ({
     setIsAdding(true)
     try {
       if (onAddToCart) {
-        await onAddToCart(product, quantity)
+        const customTitle = [
+          product.name,
+          cutStyle !== cutStyles[0] ? `[${cutStyle}]` : null,
+          fatTrim !== fatTrimLevels[0] ? `[${fatTrim}]` : null,
+          marinade !== seasonings[0] ? `[${marinade}]` : null,
+        ].filter(Boolean).join(' ')
+
+        const customizedProduct = {
+          ...product,
+          name: customTitle,
+        }
+
+        await onAddToCart(customizedProduct, quantity)
       }
     } finally {
       setIsAdding(false)
@@ -403,6 +442,87 @@ const ProductDetails = ({
             )}
           </div>
 
+          {/* Master Butcher Customization Options */}
+          <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between pb-1 border-b border-stone-200/80">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-stone-900">
+                🥩 Butcher's Preparation
+              </span>
+              <span className="text-[11px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-md">
+                Freshly Hand-Cut
+              </span>
+            </div>
+
+            {/* Cut Style */}
+            <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                Cut & Portioning Style:
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {cutStyles.map((style) => (
+                  <button
+                    key={style}
+                    type="button"
+                    onClick={() => setCutStyle(style)}
+                    className={`rounded-xl px-2.5 py-2 text-xs font-semibold border transition text-center ${
+                      cutStyle === style
+                        ? 'border-red-600 bg-red-600 text-white shadow-sm'
+                        : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300'
+                    }`}
+                  >
+                    {style}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Fat Trim Level */}
+            <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                Fat Trim Level:
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {fatTrimLevels.map((trim) => (
+                  <button
+                    key={trim}
+                    type="button"
+                    onClick={() => setFatTrim(trim)}
+                    className={`rounded-xl px-2.5 py-2 text-xs font-semibold border transition text-center ${
+                      fatTrim === trim
+                        ? 'border-stone-900 bg-stone-900 text-white shadow-sm'
+                        : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300'
+                    }`}
+                  >
+                    {trim}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Seasoning / Marinade */}
+            <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                Complimentary Seasoning & Rub:
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {seasonings.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setMarinade(item)}
+                    className={`rounded-xl px-2 py-2 text-[11px] font-semibold border transition text-center ${
+                      marinade === item
+                        ? 'border-amber-600 bg-amber-50 text-amber-900 ring-1 ring-amber-600 font-bold'
+                        : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300'
+                    }`}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* Quantity and Add to Cart */}
           <div className="space-y-4">
             <div className="flex items-center gap-4">
@@ -572,10 +692,9 @@ const ProductDetails = ({
                   <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4">
                     <h4 className="font-medium text-yellow-800 mb-2">Storage Guidelines:</h4>
                     <ul className="list-disc list-inside space-y-1 text-yellow-700">
-                      <li>Refrigerate immediately upon receipt</li>
-                      <li>Consume within 3-5 days of opening</li>
-                      <li>Freeze for extended storage (up to 6 months)</li>
-                      <li>Thaw in refrigerator, not at room temperature</li>
+                      {storageGuidelines.map((line, idx) => (
+                        <li key={idx}>{line}</li>
+                      ))}
                     </ul>
                   </div>
                 </div>

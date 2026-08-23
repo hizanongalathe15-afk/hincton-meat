@@ -219,6 +219,12 @@ router.post('/callback', async (req, res) => {
     if (callbackToken && req.query.token !== callbackToken) {
       return res.status(401).json({ ResultCode: 1, ResultDesc: 'Invalid callback token' })
     }
+    // Real-money callbacks must be authenticated. Without MPESA_CALLBACK_TOKEN a forged
+    // callback could mark a payment as completed, so refuse them outside sandbox.
+    if (!callbackToken && MPESA_CONFIG.environment !== 'sandbox') {
+      console.error('M-Pesa callback rejected: MPESA_CALLBACK_TOKEN is not configured for live payments')
+      return res.status(401).json({ ResultCode: 1, ResultDesc: 'Callback token required' })
+    }
     const body = req.body
     const stkCallback = body?.Body?.stkCallback
     const checkoutRequestId = stkCallback?.CheckoutRequestID

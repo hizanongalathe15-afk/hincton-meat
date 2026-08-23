@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Package, 
   Truck, 
@@ -10,6 +10,7 @@ import {
   Calendar,
   User
 } from 'lucide-react'
+import LiveMap, { MapMarker } from '../components/LiveMap'
 import { LocalOrder } from '../services/localOrderService'
 import { ordersApi } from '../services/buyerApi'
 import { formatPrice } from '../utils/currency'
@@ -34,6 +35,10 @@ const OrderTracker = ({ orderId, onClose }: OrderTrackerProps) => {
   const [backendTracking, setBackendTracking] = useState<TrackingStep[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Cross-device guest tracking verification (order number is already in the URL).
+  const [verifyEmail, setVerifyEmail] = useState('')
+  const [verifyPhone, setVerifyPhone] = useState('')
+  const [verifying, setVerifying] = useState(false)
   const { t } = useLanguage()
 
   useEffect(() => {
@@ -53,6 +58,28 @@ const OrderTracker = ({ orderId, onClose }: OrderTrackerProps) => {
       setError(t('order.notFoundError'))
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Guest opened the tracking link on another device (no guest session cookie there):
+  // verify with the email or phone used at checkout instead of requiring a login.
+  const handleVerifyTracking = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!verifyEmail.trim() && !verifyPhone.trim()) return
+    setVerifying(true)
+    setError(null)
+    try {
+      const data = await ordersApi.trackOrder({
+        orderNumber: orderId,
+        email: verifyEmail.trim() || undefined,
+        phone: verifyPhone.trim() || undefined,
+      })
+      setOrderDetails(transformBackendOrder(data.order))
+      setBackendTracking(transformTrackingHistory(data.order))
+    } catch {
+      setError('We could not match those details to this order. Use the exact email or phone from checkout.')
+    } finally {
+      setVerifying(false)
     }
   }
 
@@ -226,31 +253,74 @@ const OrderTracker = ({ orderId, onClose }: OrderTrackerProps) => {
 
   if (error || !orderDetails) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error || 'Order not found'}</p>
-          <button
-            onClick={onClose}
-            className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700"
-          >
-            Go Back
-          </button>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-white rounded-xl shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">Verify it's you</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Enter the email or phone number used when placing order <span className="font-semibold">{orderId}</span> to view its live tracking. No account needed.
+          </p>
+          {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
+          <form onSubmit={handleVerifyTracking} className="space-y-3">
+            <input
+              type="email"
+              value={verifyEmail}
+              onChange={(e) => setVerifyEmail(e.target.value)}
+              placeholder="Email used at checkout"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            />
+            <input
+              type="tel"
+              value={verifyPhone}
+              onChange={(e) => setVerifyPhone(e.target.value)}
+              placeholder="Or phone number used at checkout"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            />
+            <button
+              type="submit"
+              disabled={verifying || (!verifyEmail.trim() && !verifyPhone.trim())}
+              className="w-full bg-red-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {verifying ? 'Checking...' : 'Track my order'}
+            </button>
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full text-gray-600 py-2 rounded-lg hover:bg-gray-50"
+              >
+                Go Back
+              </button>
+            )}
+          </form>
         </div>
       </div>
     )
   }
 
   const trackingSteps = getTrackingSteps()
-  const mapQuery = (orderDetails.shippingAddress as any).latitude && (orderDetails.shippingAddress as any).longitude
-    ? `${(orderDetails.shippingAddress as any).latitude},${(orderDetails.shippingAddress as any).longitude}`
-    : [
-        orderDetails.shippingAddress.street,
-        orderDetails.shippingAddress.city,
-        orderDetails.shippingAddress.state,
-        orderDetails.shippingAddress.country,
-      ].filter(Boolean).join(', ')
-  const mapSrc = mapQuery ? `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=15&output=embed` : ''
-  const mapUrl = mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}` : ''
+  const hasCoordinates = (orderDetails.shippingAddress as any).latitude && (orderDetails.shippingAddress as any).longitude
+  const mapUrl = hasCoordinates
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${(orderDetails.shippingAddress as any).latitude},${(orderDetails.shippingAddress as any).longitude}`)}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([orderDetails.shippingAddress.street, orderDetails.shippingAddress.city, orderDetails.shippingAddress.state, orderDetails.shippingAddress.country].filter(Boolean).join(', '))}`
+
+  const mapMarkers = useMemo<MapMarker[]>(() => {
+    if (hasCoordinates) {
+      return [{
+        id: 'delivery',
+        position: [Number((orderDetails.shippingAddress as any).latitude), Number((orderDetails.shippingAddress as any).longitude)],
+        type: 'customer',
+        label: orderDetails.id,
+        popup: (
+          <div>
+            <p className="font-semibold text-gray-900">Delivery Address</p>
+            <p className="text-sm text-gray-600">{orderDetails.shippingAddress.street}</p>
+            <p className="text-sm text-gray-600">{orderDetails.shippingAddress.city}, {orderDetails.shippingAddress.state}</p>
+          </div>
+        ),
+      }]
+    }
+    return []
+  }, [orderDetails, hasCoordinates])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -421,13 +491,33 @@ const OrderTracker = ({ orderId, onClose }: OrderTrackerProps) => {
                   {orderDetails.shippingAddress.city}, {orderDetails.shippingAddress.state} {orderDetails.shippingAddress.zipCode}
                 </p>
               </div>
-              {mapSrc && (
-                <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
-                  <iframe title="Order delivery map" src={mapSrc} className="h-56 w-full" loading="lazy" />
+              {mapMarkers.length > 0 ? (
+                <div className="mt-4">
+                  <LiveMap
+                    markers={mapMarkers}
+                    height={224}
+                    fitBounds={false}
+                    center={mapMarkers[0].position}
+                    zoom={15}
+                    scrollWheelZoom={true}
+                  />
                   <div className="flex items-center justify-between gap-3 bg-gray-50 px-3 py-2 text-sm">
                     <span className="font-medium text-gray-700">Delivery map</span>
                     <a href={mapUrl} target="_blank" rel="noreferrer" className="font-bold text-red-700 hover:text-red-800">
                       Open live map
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
+                  <div className="flex h-32 items-center justify-center text-sm text-gray-600">
+                    <MapPin className="w-5 h-5 mr-2 text-gray-400" />
+                    Address-only location — no GPS coordinates
+                  </div>
+                  <div className="flex items-center justify-between gap-3 bg-gray-50 px-3 py-2 text-sm">
+                    <span className="font-medium text-gray-700">Delivery address</span>
+                    <a href={mapUrl} target="_blank" rel="noreferrer" className="font-bold text-red-700 hover:text-red-800">
+                      Open in Google Maps
                     </a>
                   </div>
                 </div>

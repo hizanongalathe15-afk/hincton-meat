@@ -92,7 +92,8 @@ const RegisterPage: React.FC<{ onNavigate?: (page: 0 | 1 | 2 | 3) => void }> = (
       return
     }
     const redirectOrigin = encodeURIComponent(window.location.origin)
-    window.location.href = `${baseUrl}/api/auth/${provider.toLowerCase()}?redirect=${redirectOrigin}`
+    const authHost = baseUrl.replace(/\/+$/,'')
+    window.location.href = `${authHost}/api/auth/${provider.toLowerCase()}?redirect=${redirectOrigin}`
   }
 
   return (

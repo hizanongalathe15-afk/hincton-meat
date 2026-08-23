@@ -46,7 +46,11 @@ class MpesaService {
     this.consumerSecret = process.env.MPESA_CONSUMER_SECRET!
     this.passKey = process.env.MPESA_PASSKEY!
     this.shortCode = process.env.MPESA_SHORTCODE!
-    this.callbackUrl = process.env.MPESA_CALLBACK_URL || `${process.env.BACKEND_URL || process.env.API_URL || 'https://hincton-meat-api.onrender.com'}/api/mpesa/callback`
+    const builtCallback = process.env.MPESA_CALLBACK_URL || ((process.env.BACKEND_URL || process.env.API_URL)
+      ? `${(process.env.BACKEND_URL || process.env.API_URL).replace(/\/+$/,'')}/api/mpesa/callback`
+      : '')
+    this.callbackUrl = builtCallback
+    if (!this.callbackUrl) console.warn('MPESA callback URL not configured. Set MPESA_CALLBACK_URL or BACKEND_URL/API_URL in your environment.')
   }
 
   private async getAccessToken(): Promise<string> {

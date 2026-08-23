@@ -2018,5 +2018,31 @@
   "shop.highestRated": "Highest Rated",
   "shop.newestFirst": "Newest First",
   "shop.nameAZ": "Name: A-Z",
-  "shop.nameZA": "Name: Z-A"
+  "shop.nameZA": "Name: Z-A",
+
+  "careers.hiring": "We Are Hiring",
+  "careers.heroTitle": "Join the Hincton Meat Family",
+  "careers.heroSubtitle": "Build your career with Kenya's premium meat company. We're looking for passionate people to join our growing team.",
+  "careers.applyNow": "Apply Now",
+  "careers.allDepartments": "All Departments",
+  "careers.noOpenPositions": "No open positions at the moment. Check back soon!",
+  "careers.spotsLeft": "{count} spots left",
+  "careers.spotsUnavailable": "Spots Unavailable",
+  "careers.applicationDeadline": "Application deadline",
+  "careers.submitApplication": "Submit Application",
+  "careers.applicationSubmitted": "Application Submitted!",
+  "careers.applicationSubmittedMsg": "We'll review your application and get back to you soon.",
+
+  "giftCards.title": "Gift Cards",
+  "giftCards.subtitle": "Send a Hincton Meat gift card to someone special",
+  "giftCards.chooseOccasion": "Choose an Occasion",
+  "giftCards.selectAmount": "Select Amount",
+  "giftCards.personalMessage": "Personal Message",
+  "giftCards.deliveryMethod": "Delivery Method",
+  "giftCards.previewCard": "Preview Card",
+  "giftCards.purchase": "Purchase",
+  "giftCards.cardCreated": "Gift Card Created!",
+  "giftCards.shareWhatsApp": "Share via WhatsApp",
+  "giftCards.shareEmail": "Share via Email",
+  "giftCards.copyCode": "Copy Code"
 }

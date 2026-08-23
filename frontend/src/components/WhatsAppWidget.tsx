@@ -1,21 +1,34 @@
-import { useState } from 'react'
-import { MessageCircle, X, Send, ShoppingBag, Truck, RefreshCcw, CreditCard, HelpCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { MessageCircle, X, Send, ShoppingBag, CreditCard, Flame, MapPin } from 'lucide-react'
 import { useSiteContent } from '../contexts/SiteContentContext'
+import { useCart } from '../contexts/CartContext'
+import { formatPrice } from '../utils/currency'
 
-const DEFAULT_MESSAGE = 'Hi Hincton team! I would like help with my order/account/question.'
+const DEFAULT_MESSAGE = 'Hi Hincton team! I would like help with ordering fresh meat.'
 
 const QuickTopics = [
-  { label: 'Order status', icon: ShoppingBag, prompt: 'Hello! Could I get an update on my recent order, please?' },
-  { label: 'Delivery questions', icon: Truck, prompt: 'Hi! I have a question about shipping or delivery timelines.' },
-  { label: 'Returns & refunds', icon: RefreshCcw, prompt: 'Hello! I need help with a return or refund request.' },
-  { label: 'Payments', icon: CreditCard, prompt: 'Hi! I have a question about payment options or invoicing.' },
-  { label: 'Something else', icon: HelpCircle, prompt: DEFAULT_MESSAGE },
+  { label: 'Today’s 6 AM Cuts', icon: Flame, prompt: 'Hello! What fresh beef, mbuzi, or capon cuts were sourced this morning?' },
+  { label: 'Delivery Zones & Times', icon: MapPin, prompt: 'Hi! Could you confirm delivery rates and timelines for Nairobi and Upcountry?' },
+  { label: 'Order Status', icon: ShoppingBag, prompt: 'Hello! Could I get an update on my recent order, please?' },
+  { label: 'M-PESA Payment', icon: CreditCard, prompt: 'Hi! I have a question regarding M-PESA payment for my order.' },
 ]
 
 const WhatsAppWidget = () => {
   const { profile } = useSiteContent()
+  const { items, getTotalPrice } = useCart()
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState(DEFAULT_MESSAGE)
+
+  useEffect(() => {
+    if (items.length > 0) {
+      const itemsList = items.map((i) => `• ${i.name} (x${i.quantity})`).join('\n')
+      setMessage(
+        `Hi Hincton Meat! I would like to place an order for my cart:\n\n${itemsList}\n\n*Total: ${formatPrice(getTotalPrice())}*\nDelivery location: Nairobi`
+      )
+    } else {
+      setMessage(DEFAULT_MESSAGE)
+    }
+  }, [items, getTotalPrice])
 
   const phone = profile?.brand?.whatsapp || profile?.brand?.supportPhone || profile?.brand?.phone
 

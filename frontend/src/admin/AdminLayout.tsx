@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState, useRef } from 'react'
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { 
   LayoutDashboard, 
   Package, 
@@ -30,7 +31,13 @@ import {
   Sparkles,
   LifeBuoy,
   HelpCircle,
-  BookOpen
+  BookOpen,
+  Briefcase,
+  Gift,
+  FolderTree,
+  ChefHat,
+  Beef,
+  Camera
 } from 'lucide-react'
 import { useAdminSearch } from '../hooks/useAdminSearch'
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog'
@@ -105,6 +112,13 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { path: '/admin/knowledge-base', icon: BookOpen, label: 'Knowledge Base' },
     { path: '/admin/qr-codes', icon: QrCode, label: t('admin.qrCodes') },
     { path: '/admin/content', icon: FileText, label: t('admin.content') },
+    { path: '/admin/recipes', icon: ChefHat, label: "Butcher's Recipes" },
+    { path: '/admin/meat-guide', icon: Beef, label: "Meat Cuts Guide" },
+    { path: '/admin/photo-reviews', icon: Camera, label: 'Customer Creations' },
+    { path: '/admin/product-config', icon: Settings, label: 'Product Config' },
+    { path: '/admin/categories', icon: FolderTree, label: 'Categories' },
+    { path: '/admin/careers', icon: Briefcase, label: 'Careers' },
+    { path: '/admin/gift-cards', icon: Gift, label: 'Gift Cards' },
     { path: '/admin/companies', icon: Building2, label: 'Branches & Companies' },
     { path: '/admin/system-metrics', icon: Activity, label: 'System Metrics' },
     { path: '/admin/settings', icon: Settings, label: t('admin.settings') },
@@ -866,7 +880,17 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
 
         {/* Page content */}
         <main className="flex-1 p-3 sm:p-5 lg:p-6">
-          {children || <Outlet />}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+            >
+              {children || <Outlet />}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
     </div>

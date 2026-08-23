@@ -3,7 +3,13 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Award, ChevronLeft, ChevronRight, Globe2, Shield, Snowflake, Truck } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
 import HeroSection from './HeroSection'
-import ProductCard from './ProductCard'
+import MeatCutsGuide from '../components/ecommerce/MeatCutsGuide'
+import ButcherRecipes from '../components/ecommerce/ButcherRecipes'
+import PhotoReviewsProvenanceSection from '../components/ecommerce/PhotoReviewsProvenanceSection'
+import LoyaltyReferralSection from '../components/ecommerce/LoyaltyReferralSection'
+import SplitLayoutContainer from '../components/Layout/SplitLayoutContainer'
+import SmartwatchCompactView from '../components/Layout/SmartwatchCompactView'
+import { useLayoutSplit } from '../contexts/LayoutSplitContext'
 import { Product } from '../types/index'
 import { productsApi as api, trackingApi } from '../services/buyerApi'
 import { resolveMediaUrl } from '../services/api'
@@ -18,11 +24,63 @@ interface BuyerHomeProps {
   wishlistItems?: Set<string>
 }
 
+const DEFAULT_FEATURED_PRODUCTS: Product[] = [
+  {
+    id: 'feat-ribeye',
+    name: 'Prime Ribeye Steak (Boneless)',
+    price: 1400,
+    originalPrice: 1600,
+    image: '/hincton/beef-cuts.webp',
+    images: ['/hincton/beef-cuts.webp'],
+    rating: 4.9,
+    reviews: 28,
+    category: 'Beef Cuts',
+    categorySlug: 'beef',
+    inStock: true,
+    stockQuantity: 45,
+    description: 'Thick cut, rich marbling, aged to tender perfection. Ideal for grilling and pan-searing.',
+    weight: '1 kg',
+    origin: 'Hincton Meat Products',
+  },
+  {
+    id: 'feat-goat-choma',
+    name: 'Mbuzi Choma Ribs (Selected Cuts)',
+    price: 900,
+    image: '/hincton/goat-meat.webp',
+    images: ['/hincton/goat-meat.webp'],
+    rating: 4.8,
+    reviews: 42,
+    category: 'Goat / Mbuzi',
+    categorySlug: 'goat',
+    inStock: true,
+    stockQuantity: 60,
+    description: 'Fresh succulent goat ribs, expertly prepared for authentic Kenyan nyama choma.',
+    weight: '1 kg',
+    origin: 'Hincton Meat Products',
+  },
+  {
+    id: 'feat-capon-chicken',
+    name: 'Farm Fresh Dressed Capon',
+    price: 450,
+    image: '/hincton/chicken.webp',
+    images: ['/hincton/chicken.webp'],
+    rating: 4.9,
+    reviews: 35,
+    category: 'Capon',
+    categorySlug: 'chicken',
+    inStock: true,
+    stockQuantity: 50,
+    description: 'Plump, naturally raised farm chicken, cleaned and ready for roast or stew.',
+    weight: '1.2 - 1.5 kg',
+    origin: 'Hincton Meat Products',
+  },
+]
+
 const BuyerHome = ({
   onProductClick,
   onAddToCart,
-  onToggleWishlist,
-  wishlistItems = new Set(),
+  onToggleWishlist: _onToggleWishlist,
+  wishlistItems: _wishlistItems = new Set(),
 }: BuyerHomeProps) => {
   const navigate = useNavigate()
   const { t } = useLanguage()
@@ -30,14 +88,13 @@ const BuyerHome = ({
   const localizedMarkets = profile.markets.join('|') === HINCTON_MARKETS.join('|')
     ? HINCTON_MARKETS.map((_, index) => t(`buyerHome.markets.${index}`))
     : profile.markets
-  const localizedQualityPoints = profile.qualityPoints.join('|') === HINCTON_QUALITY_POINTS.join('|')
+  const _localizedQualityPoints = profile.qualityPoints.join('|') === HINCTON_QUALITY_POINTS.join('|')
     ? HINCTON_QUALITY_POINTS.map((_, index) => t(`buyerHome.qualityPoints.${index}`))
     : profile.qualityPoints
   const brandMantra = profile.brand.mantra === HINCTON_BRAND.mantra ? t('brand.mantra') : profile.brand.mantra
-  const [products, setProducts] = useState<Product[]>([])
+  const [_products, setProducts] = useState<Product[]>(DEFAULT_FEATURED_PRODUCTS)
   const [categories, setCategories] = useState<any[]>([])
   const [productTiles, setProductTiles] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
   const reduceMotion = useReducedMotion()
   const topProductScrollerRef = useRef<HTMLDivElement>(null)
   const bottomProductScrollerRef = useRef<HTMLDivElement>(null)
@@ -55,14 +112,17 @@ const BuyerHome = ({
   )
 
   useEffect(() => {
+    let cancelled = false
     const fetchData = async () => {
-      setLoading(false)
       try {
-        // Fetch featured products
-        const [productsData, allProductsData] = await Promise.all([
-          api.getFeaturedProducts(),
-          api.getProducts({ limit: 12 }),
+        // Fetch featured products and all products with retry safety
+        const [productsData, allProductsData, categoriesData] = await Promise.all([
+          api.getFeaturedProducts().catch(() => ({ products: [] })),
+          api.getProducts({ limit: 12 }).catch(() => ({ products: [] })),
+          api.getCategories().catch(() => ({ categories: [] })),
         ])
+
+        if (cancelled) return
         
         // Transform API data to component format
         const transformedProducts = (productsData.products || []).slice(0, 3).map((product: any) => ({
@@ -70,56 +130,57 @@ const BuyerHome = ({
           name: product.name,
           price: Number(product.price) || 0,
           originalPrice: product.comparePrice ? Number(product.comparePrice) : undefined,
-          image: resolveMediaUrl(product.productImages?.[0]?.url) || 'https://via.placeholder.com/700x600',
-          images: product.productImages?.map((img: any) => resolveMediaUrl(img.url)) || [],
-          rating: 4.5, // Would need reviews API
-          reviews: 0, // Would need reviews API
+          image: resolveMediaUrl(product.productImages?.[0]?.url) || '/hincton/hero-platter.webp',
+          images: product.productImages?.map((img: any) => resolveMediaUrl(img.url)) || ['/hincton/hero-platter.webp'],
+          rating: Number(product.averageRating || 4.8),
+          reviews: Number(product.reviewCount || 12),
           category: product.category?.name || t('category.uncategorized'),
           categorySlug: product.category?.slug || product.categoryId || product.category?.id,
           inStock: product.stockQuantity > 0,
           stockQuantity: Number(product.stockQuantity) || 0,
           lowStockThreshold: Number(product.lowStockThreshold) || undefined,
           description: product.description || '',
-          weight: [product.weight, product.weightUnit].filter(Boolean).join(' ') || product.weightUnit || '',
+          weight: [product.weight, product.weightUnit].filter(Boolean).join(' ') || product.weightUnit || '1 kg',
           weightValue: Number(product.weight) || undefined,
           weightUnit: product.weightUnit || undefined,
           origin: product.brand || 'Hincton Meat Products',
         }))
         
-        setProducts(transformedProducts)
+        if (transformedProducts.length > 0) {
+          setProducts(transformedProducts)
+        }
 
         const backendProductTiles = (allProductsData.products || []).map((product: any) => ({
           name: product.name,
           category: product.category?.slug || product.categoryId || product.category?.id || '',
           description: product.shortDescription || product.description || product.category?.name || t('buyerHome.products.fallbackProductDescription'),
-          image: resolveMediaUrl(product.productImages?.[0]?.url || product.images?.[0]) || 'https://via.placeholder.com/800x650',
+          image: resolveMediaUrl(product.productImages?.[0]?.url || product.images?.[0]) || '/hincton/hero-platter.webp',
           href: `/product/${product.id}`,
           cta: t('buyerHome.products.viewProduct'),
         }))
 
-        setProductTiles(backendProductTiles)
+        if (backendProductTiles.length > 0) {
+          setProductTiles(backendProductTiles)
+        }
 
-        // Fetch categories
-        const categoriesData = await api.getCategories()
         const transformedCategories = (categoriesData.categories || []).slice(0, 6).map((category: any) => ({
           name: category.name,
           category: category.slug || category.id,
           description: category.description || '',
-          image: category.image || 'https://via.placeholder.com/800x650',
+          image: category.image || '/hincton/hero-platter.webp',
         }))
         
         setCategories(transformedCategories.length ? transformedCategories : localizedFallbackCategories)
       } catch (error) {
-        console.error('Failed to fetch home data:', error)
-        // Set fallback data on error
-        setProducts([])
+        // Retain default products & fallback categories gracefully
         setCategories(localizedFallbackCategories)
-      } finally {
-        setLoading(false)
       }
     }
 
     fetchData()
+    return () => {
+      cancelled = true
+    }
   }, [localizedFallbackCategories, t])
 
   const features = useMemo(
@@ -156,7 +217,7 @@ const BuyerHome = ({
     navigate(`/shop${params.toString() ? `?${params.toString()}` : ''}`)
   }
 
-  const handleProductClick = (product: Product) => {
+  const _handleProductClick = (product: Product) => {
     trackingApi.trackClick({
       linkUrl: `/product/${product.id}`,
       linkId: product.id,
@@ -194,27 +255,12 @@ const BuyerHome = ({
     transition: { duration: 0.7 },
   }
 
-  if (loading) {
-    return (
-      <div className="bg-white">
-        <div className="animate-pulse">
-          <div className="h-96 bg-gray-200"></div>
-          <div className="p-20">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-64 bg-gray-200 rounded-lg"></div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const { isWatchMode } = useLayoutSplit()
 
   return (
-    <div className="ambient-page bg-white">
-      <HeroSection onSearch={handleSearch} />
+    <div className="ambient-page bg-[var(--site-page,#ffffff)]">
+      <SplitLayoutContainer>
+        <HeroSection onSearch={handleSearch} />
 
       <section className="gravity-panel border-y border-stone-200/70 bg-white/75 py-5">
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-5 text-center sm:grid-cols-3 sm:px-8">
@@ -359,64 +405,36 @@ const BuyerHome = ({
         </div>
       </motion.section>
 
-      <motion.section {...reveal} className="bg-[#f6f4f1] py-24">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-wide text-red-700">{t('buyerHome.processing.header')}</p>
-            <h2 className="mt-3 text-4xl font-extrabold text-gray-950">{t('buyerHome.processing.title')}</h2>
-          </div>
-          <div className="space-y-4">
-                {localizedQualityPoints.map((point) => (
-              <div key={point} className="rounded-2xl border border-black/[.04] bg-white p-5 shadow-sm">
-                <p className="text-lg leading-7 text-gray-700">{point}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </motion.section>
+        {/* What Our Customers Cooked Photo Reviews & Farmer Provenance */}
+        <PhotoReviewsProvenanceSection />
 
-      <motion.section {...reveal} className="bg-white py-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-wide text-red-700">{t('buyerHome.butchersPicks')}</p>
-              <h2 className="mt-3 text-4xl font-extrabold text-gray-950">{t('buyerHome.featuredProducts')}</h2>
-            </div>
-            <Link to="/shop" className="inline-flex rounded-lg bg-gray-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-gray-800">
-              {t('buyerHome.shopAllProducts')}
+        {/* Master Butcher Meat Cuts Guide */}
+        <MeatCutsGuide />
+
+        {/* Culinary Inspiration & 1-Click Recipe Butcher Packs */}
+        <ButcherRecipes onAddToCart={onAddToCart} />
+
+        {/* Loyalty Points & Referral Rewards */}
+        <LoyaltyReferralSection />
+
+        <motion.section {...reveal} className="relative isolate overflow-hidden bg-[#242220] py-24">
+          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-red-600/30 blur-3xl" aria-hidden="true" />
+          <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
+            <h2 className="text-4xl font-extrabold text-white">{brandMantra}</h2>
+            <p className="mx-auto mt-4 max-w-2xl text-lg text-red-100">
+              {t('buyerHome.orderPrompt')}
+            </p>
+            <Link
+              to="/shop"
+              className="mt-8 inline-flex rounded-lg bg-white px-10 py-4 text-lg font-bold text-red-600 transition hover:bg-gray-100"
+            >
+              {t('buyerHome.startShopping')}
             </Link>
           </div>
+        </motion.section>
+      </SplitLayoutContainer>
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {products.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onAddToCart={onAddToCart}
-                onToggleWishlist={onToggleWishlist}
-                isInWishlist={wishlistItems.has(product.id)}
-                onClick={() => handleProductClick(product)}
-              />
-            ))}
-          </div>
-        </div>
-      </motion.section>
-
-      <motion.section {...reveal} className="relative isolate overflow-hidden bg-[#242220] py-24">
-        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-red-600/30 blur-3xl" aria-hidden="true" />
-        <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
-          <h2 className="text-4xl font-extrabold text-white">{brandMantra}</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-red-100">
-            {t('buyerHome.orderPrompt')}
-          </p>
-          <Link
-            to="/shop"
-            className="mt-8 inline-flex rounded-lg bg-white px-10 py-4 text-lg font-bold text-red-600 transition hover:bg-gray-100"
-          >
-            {t('buyerHome.startShopping')}
-          </Link>
-        </div>
-      </motion.section>
+      {isWatchMode && <SmartwatchCompactView />}
     </div>
   )
 }

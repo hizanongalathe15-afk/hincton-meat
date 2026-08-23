@@ -100,8 +100,21 @@ const PwaInstallPrompt: React.FC<PwaInstallPromptProps> = ({
     }
   }, [enabled, variant])
 
+  const isIos = typeof window !== 'undefined' && /iphone|ipad|ipod/i.test(window.navigator.userAgent)
+
   const handleInstall = async () => {
-    if (!deferredPrompt.current || installing) return
+    if (isIos && !deferredPrompt.current) {
+      toast('To install: Tap the Share button in Safari, then select "Add to Home Screen" 📲', { duration: 6000 })
+      setShow(false)
+      return
+    }
+
+    if (!deferredPrompt.current || installing) {
+      toast('Open browser menu and select "Install" or "Add to Home Screen"', { duration: 4500 })
+      setShow(false)
+      return
+    }
+
     setInstalling(true)
     try {
       await deferredPrompt.current.prompt()
@@ -124,12 +137,12 @@ const PwaInstallPrompt: React.FC<PwaInstallPromptProps> = ({
       if (accepted) {
         toast.success('App is being added to your home screen')
       } else {
-        toast('Install dismissed. We will remind you again later.')
+        toast('Install dismissed. You can install anytime from the menu.')
       }
       setShow(false)
       setCanInstall(false)
-    } catch (error) {
-      toast.error('Install prompt is unavailable. Add to Home Screen manually.')
+    } catch {
+      toast('Install via browser menu: Tap "Add to Home screen"')
     } finally {
       setInstalling(false)
       deferredPrompt.current = null

@@ -1,4 +1,5 @@
 import express from 'express'
+import rateLimit from 'express-rate-limit'
 import { prisma } from '../config/prisma'
 import { z } from 'zod'
 import { notifyOrderCustomer, notifyRecipients } from '../utils/notificationService'
@@ -50,9 +51,9 @@ const createOrderSchema = z.object({
   mpesaPhone: z.string().optional(),
   notes: z.string().optional(),
   items: z.array(z.object({
-    productId: z.string().min(1),
-    quantity: z.number().int().positive(),
-  })).min(1),
+    productId: z.string().min(1).max(64),
+    quantity: z.number().int().positive().max(999),
+  })).min(1).max(100),
 })
 
 import type { AuthRequest } from '../middleware/auth'
@@ -95,7 +96,9 @@ const reservationQuantityFor = (reservations: CartReservation[], productId: stri
 
 const getGuestSessionId = (req: AuthRequest): string | null => {
   const value = req.header('X-Guest-Session-Id')
-  return typeof value === 'string' && value.trim().length >= 12 ? value.trim() : null
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim().slice(0, 128)
+  return trimmed.length >= 12 ? trimmed : null
 }
 
 const getIdempotencyKey = (req: AuthRequest): string | null => {
@@ -332,6 +335,75 @@ router.get('/mine', async (req: AuthRequest, res) => {
     res.json({ orders })
   } catch (error) {
     console.error('Get my orders error:', error)
+    res.status(500).json(apiMessage(meatShopMessages.system.serverBusy))
+  }
+})
+
+// Public cross-device tracking: order number + the email or phone used at checkout.
+// Guests can track from any device (e.g. after scanning the confirmation QR on a phone)
+// without logging in, while order details stay protected behind contact verification.
+const trackOrderSchema = z
+  .object({
+    orderNumber: z.string().trim().min(4).max(64),
+    email: z.string().trim().email().optional(),
+    phone: z.string().trim().min(6).max(20).optional(),
+  })
+  .refine((value) => value.email || value.phone, {
+    message: 'Enter the email or phone number used on the order',
+  })
+
+const normalizePhoneDigits = (value?: string | null) => (value || '').replace(/\D/g, '').slice(-9)
+
+const trackOrderLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.ORDER_TRACK_RATE_LIMIT_MAX || 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many tracking attempts. Please try again in 15 minutes.' },
+})
+
+router.post('/track', trackOrderLimiter, async (req: AuthRequest, res) => {
+  try {
+    const payload = trackOrderSchema.parse(req.body)
+
+    const order = await prisma.order.findFirst({
+      where: {
+        deletedAt: null,
+        OR: [{ orderNumber: payload.orderNumber }, { trackingNumber: payload.orderNumber }],
+      },
+      include: {
+        orderItems: true,
+        trackingHistory: { orderBy: { timestamp: 'asc' } },
+        payments: { orderBy: { createdAt: 'desc' }, take: 1 },
+        user: { select: { email: true, phone: true } },
+      },
+    })
+
+    // Same 404 for "not found" and "wrong contact details" so order numbers can't be probed.
+    if (!order) return res.status(404).json(apiMessage(meatShopMessages.order.failedAttempt))
+
+    const shipping = (order.shippingAddress || {}) as Record<string, any>
+    const candidateEmails = [order.guestEmail, shipping.email, order.user?.email]
+      .filter(Boolean)
+      .map((value) => String(value).toLowerCase())
+    const candidatePhones = [order.guestPhone, shipping.phone, order.user?.phone]
+      .map(normalizePhoneDigits)
+      .filter((value) => value.length >= 9)
+
+    const emailMatches = Boolean(payload.email && candidateEmails.includes(payload.email.toLowerCase()))
+    const phoneMatches = Boolean(payload.phone && candidatePhones.includes(normalizePhoneDigits(payload.phone)))
+
+    if (!emailMatches && !phoneMatches) {
+      return res.status(404).json(apiMessage(meatShopMessages.order.failedAttempt))
+    }
+
+    const { user: _user, ...safeOrder } = order
+    res.json({ order: safeOrder })
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ ...apiMessage(meatShopMessages.system.unknownError), details: error.issues })
+    }
+    console.error('Track order error:', error)
     res.status(500).json(apiMessage(meatShopMessages.system.serverBusy))
   }
 })

@@ -13,8 +13,10 @@ const FEED_PLACEHOLDERS = [
   { prompt: 'Homemade meat stew with vegetables and Kenyan spices', idx: 7, size: 'portrait_4_3' as const },
 ]
 
+const IMAGE_API_HOST = (import.meta.env.VITE_IMAGE_API_HOST as string) || 'https://coresg-normal.trae.ai'
+
 const imgUrl = (prompt: string, image_size: string, seed: number) =>
-  `https://coresg-normal.trae.ai/api/ide/v1/text_to_image?prompt=${encodeURIComponent(prompt)}&image_size=${image_size}&seed=${seed}`
+  `${IMAGE_API_HOST.replace(/\/+$/,'')}/api/ide/v1/text_to_image?prompt=${encodeURIComponent(prompt)}&image_size=${image_size}&seed=${seed}`
 
 const InstagramFeedEmbed: React.FC = () => {
   const { profile } = useSiteContent()

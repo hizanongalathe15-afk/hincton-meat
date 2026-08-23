@@ -47,11 +47,10 @@ apiClient.interceptors.response.use(
   }
 )
 
-const call = <T>(fn: () => Promise<T>) => {
-  if (isFeaturesApiDisabled()) return Promise.resolve(undefined as T)
-  return fn().catch((error) => {
-    if (axios.isCancel(error)) return undefined as T
-    throw error
+const call = <T>(fn: () => Promise<T>, fallbackValue: T = undefined as T): Promise<T> => {
+  if (isFeaturesApiDisabled()) return Promise.resolve(fallbackValue)
+  return fn().catch(() => {
+    return fallbackValue
   })
 }
 

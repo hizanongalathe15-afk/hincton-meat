@@ -48,7 +48,8 @@ const AdPlacement = ({ placementId, type, className = '', fallback, autoOpen = f
         const device = getDeviceType()
         const userAgent = navigator.userAgent
 
-        const response = await fetch(`${API_URL}/marketing/serve?placementId=${encodeURIComponent(placementId)}&device=${device}&userAgent=${encodeURIComponent(userAgent)}`)
+        const apiHost = API_URL.replace(/\/+$/,'')
+        const response = await fetch(`${apiHost}/marketing/serve?placementId=${encodeURIComponent(placementId)}&device=${device}&userAgent=${encodeURIComponent(userAgent)}`)
         const data = await response.json()
 
         if (data.ad) {
@@ -83,7 +84,8 @@ const AdPlacement = ({ placementId, type, className = '', fallback, autoOpen = f
 
   const trackInteraction = async (type: 'click' | 'impression', impressionId: string, campaignId: string, placementId: string) => {
     try {
-      await fetch(`${API_URL}/marketing/track/${type}`, {
+      const apiHost = API_URL.replace(/\/+$/,'')
+      await fetch(`${apiHost}/marketing/track/${type}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ impressionId, campaignId, placementId })

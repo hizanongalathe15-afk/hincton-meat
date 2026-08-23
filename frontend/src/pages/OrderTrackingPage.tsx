@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Package, Truck, MapPin, Check, Phone, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
+import LiveMap, { MapMarker } from '../components/LiveMap';
 import { useSiteContent } from '../contexts/SiteContentContext';
 import { ordersApi } from '../services/buyerApi';
 
@@ -209,6 +210,24 @@ const OrderTrackingPage: React.FC = () => {
     );
   }
 
+  const trackingMapMarkers = useMemo<MapMarker[]>(() => {
+    if (orderDetails?.currentLocation) {
+      return [{
+        id: 'current',
+        position: [orderDetails.currentLocation.latitude, orderDetails.currentLocation.longitude],
+        type: 'driver',
+        label: 'Current location',
+        popup: (
+          <div>
+            <p className="font-semibold text-gray-900">Current Location</p>
+            <p className="text-sm text-gray-600">{orderDetails.currentLocation.address}</p>
+          </div>
+        ),
+      }]
+    }
+    return []
+  }, [orderDetails?.currentLocation])
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -264,21 +283,30 @@ const OrderTrackingPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Map View - Placeholder */}
+            {/* Live Map View */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Live Tracking</h2>
               
-              <div className="bg-gray-100 rounded-lg h-64 flex items-center justify-center">
-                <div className="text-center">
-                  <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600">Interactive map coming soon</p>
-                  {orderDetails.currentLocation && (
+              {orderDetails.currentLocation ? (
+                <LiveMap
+                  markers={trackingMapMarkers}
+                  height={256}
+                  fitBounds={false}
+                  center={[orderDetails.currentLocation.latitude, orderDetails.currentLocation.longitude]}
+                  zoom={15}
+                  scrollWheelZoom={true}
+                />
+              ) : (
+                <div className="bg-gray-100 rounded-lg h-64 flex items-center justify-center">
+                  <div className="text-center">
+                    <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-600">Live location not available yet</p>
                     <p className="text-sm text-gray-500 mt-2">
-                      Current Location: {orderDetails.currentLocation.address}
+                      Map will appear once the driver is en route
                     </p>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 

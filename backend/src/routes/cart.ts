@@ -12,12 +12,12 @@ const router = express.Router()
 // - CartItem: cartId + productId (+ variantId optional)
 
 const addToCartSchema = z.object({
-  productId: z.string().min(1),
-  quantity: z.number().int().positive(),
+  productId: z.string().min(1).max(64),
+  quantity: z.number().int().positive().max(999),
 })
 
 const updateCartItemSchema = z.object({
-  quantity: z.number().int().positive(),
+  quantity: z.number().int().positive().max(999),
 })
 
 const getAuthUserId = (req: any): string | null => {
@@ -26,7 +26,9 @@ const getAuthUserId = (req: any): string | null => {
 
 const getGuestSessionId = (req: any): string | null => {
   const value = req.header('X-Guest-Session-Id')
-  return typeof value === 'string' && value.trim().length >= 12 ? value.trim() : null
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim().slice(0, 128)
+  return trimmed.length >= 12 ? trimmed : null
 }
 
 const getCartScope = (req: any): { userId?: string; sessionId?: string } | null => {

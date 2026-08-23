@@ -21,5 +21,8 @@
   },
   "dependencies": {
     "serverless-http": "^3.0.0"
+  },
+  "devDependencies": {
+    "@esbuild/win32-x64": "^0.28.2"
   }
 }

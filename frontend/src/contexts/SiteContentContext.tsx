@@ -258,6 +258,17 @@ export const defaultSiteProfile: SiteProfile = {
       image: '/hincton/cattle-market.webp',
       sections: [],
     },
+    provenance: {
+      title: 'What Our Customers Cooked & Farm Provenance',
+      subtitle: 'See real culinary creations from our Nairobi home chefs and trace our direct ethical sourcing from Kenyan highland pastures.',
+      body: '',
+      image: '/hincton/cattle-market.webp',
+      sections: [
+        { title: 'Naivasha & Laikipia Pastures', body: 'Our cattle graze naturally on pesticide-free Kenyan highland pastures with free access to mineral springs. 100% grass-fed and finished for healthy omega fats and deep beef flavor.', image: '', linkLabel: '100% Halal & Vet Certified', linkUrl: '' },
+        { title: 'Sourced at 6:00 AM Daily', body: 'Every carcass is processed at dawn under strict cold-chain supervision. Never frozen twice, ensuring natural juices and enzymes remain preserved from the counter to your doorstep.', image: '', linkLabel: 'Strict 2°C Cold Chain', linkUrl: '' },
+        { title: 'Hand-Trimmed by Master Cutters', body: 'Every cut is hand-portioned by veteran Kenyan butchers with 15+ years experience. Custom thicknesses, special marinades, or bone-in cuts available upon request on WhatsApp.', image: '', linkLabel: 'Custom Cut Precision', linkUrl: '' },
+      ],
+    },
     sustainability: {
       title: 'Sustainability',
       subtitle: 'Responsible sourcing, cold-chain handling, and reduced waste.',

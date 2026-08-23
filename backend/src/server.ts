@@ -43,6 +43,13 @@ import companyRoutes from './routes/companies';
 import featureRoutes from './routes/features';
 import flashSalesRoutes from './routes/flashSales';
 import communityRoutes from './routes/community';
+import photoReviewRoutes, { seedPhotoReviews } from './routes/photoReviews';
+import meatGuideRoutes, { seedMeatGuide } from './routes/meatGuide';
+import recipeRoutes, { seedRecipes } from './routes/recipes';
+import careersRoutes from './routes/careers';
+import giftCardsRoutes from './routes/giftCards';
+import supportRoutes from './routes/support';
+import productConfigRoutes, { seedProductConfig } from './routes/productConfig';
 
 import { authenticate, authorize, optionalAuthenticate } from './middleware/auth';
 import { rejectUnsafeKeys } from './middleware/sanitizer';
@@ -112,7 +119,13 @@ if (!process.env.VERCEL) {
 }
 
 prisma.$connect()
-  .then(() => console.log('Database connected successfully'))
+  .then(() => {
+    console.log('Database connected successfully');
+    seedPhotoReviews();
+    seedMeatGuide();
+    seedRecipes();
+    seedProductConfig();
+  })
   .catch((error) => console.error('Database connection failed:', error));
 
 const limiter = rateLimit({
@@ -129,6 +142,18 @@ const contactLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many contact requests. Please try again later.' },
+});
+
+// Tighter limiter for auth endpoints to blunt brute-force and credential-stuffing attacks.
+// Kept above legitimate usage (QR-login polling, profile fetches); per-account lockout in
+// the login route provides the fine-grained brute-force protection.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.AUTH_RATE_LIMIT_MAX || 100),
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
+  message: { error: 'Too many authentication attempts. Please try again in 15 minutes.' },
 });
 
 app.use(helmet({
@@ -179,8 +204,8 @@ if (hinctonStaticPath) {
   app.use('/hincton', express.static(hinctonStaticPath, { setHeaders: staticMediaHeaders }));
 }
 
-app.use('/api/auth', authRoutes);
-app.use('/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/auth', authLimiter, authRoutes);
 app.use('/api/products', optionalAuthenticate, productRoutes);
 app.use('/api/orders', optionalAuthenticate, orderRoutes);
 app.use('/api/cart', optionalAuthenticate, cartRoutes);
@@ -207,8 +232,16 @@ app.use('/api/marketing', adRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/features', featureRoutes);
+app.use('/features', featureRoutes);
 app.use('/api', optionalAuthenticate, flashSalesRoutes);
 app.use('/api', communityRoutes);
+app.use('/api', supportRoutes);
+app.use('/api', photoReviewRoutes);
+app.use('/api', meatGuideRoutes);
+app.use('/api', recipeRoutes);
+app.use('/api', productConfigRoutes);
+app.use('/api/careers', careersRoutes);
+app.use('/api/gift-cards', giftCardsRoutes);
 
 const safeJsonParse = <T = any>(value: string | undefined, fallback: T): T => {
   try {

@@ -12,12 +12,15 @@ import {
 import { useSiteContent } from '../contexts/SiteContentContext'
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog'
 import ConfirmationDialog from '../components/ui/ConfirmationDialog'
+import { ColorPickerPopup } from '../components/ui/ColorPickerPopup'
+import AdminColorMixerModal from '../components/ui/AdminColorMixerModal'
+import { Palette } from 'lucide-react'
 
 const presets: Record<string, SiteTheme> = {
   'Market Red': defaultSiteTheme,
-  Forest: { ...defaultSiteTheme, primary: '#16744b', accent: '#d6922d', page: '#f6fbf7', ad: '#e8f7ed', navActive: '#16744b' },
-  Midnight: { ...defaultSiteTheme, primary: '#4f46e5', accent: '#ec4899', page: '#f7f7ff', ad: '#f2efff', footer: '#0f172a', navActive: '#4f46e5' },
-  Ocean: { ...defaultSiteTheme, primary: '#0369a1', accent: '#06b6d4', page: '#f0f9ff', ad: '#e0f2fe', navActive: '#0369a1' },
+  Forest: { ...defaultSiteTheme, primary: '#16744b', accent: '#d6922d', page: '#f6fbf7', ad: '#e8f7ed', navActive: '#16744b', laserColor: '#22c55e' },
+  Midnight: { ...defaultSiteTheme, primary: '#4f46e5', accent: '#ec4899', page: '#f7f7ff', ad: '#f2efff', footer: '#0f172a', navActive: '#4f46e5', laserColor: '#06b6d4' },
+  Ocean: { ...defaultSiteTheme, primary: '#0369a1', accent: '#06b6d4', page: '#f0f9ff', ad: '#e0f2fe', navActive: '#0369a1', laserColor: '#38bdf8' },
 }
 
 export default function ThemePage() {
@@ -27,6 +30,7 @@ export default function ThemePage() {
   const [theme, setTheme] = useState<SiteTheme>(liveTheme)
   const [saving, setSaving] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [mixerOpen, setMixerOpen] = useState(false)
   const [customKey, setCustomKey] = useState('')
   const [customValue, setCustomValue] = useState('#6366f1')
 
@@ -127,6 +131,13 @@ export default function ThemePage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setMixerOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-3 text-sm font-black text-white shadow-lg hover:scale-105 transition"
+            >
+              <Palette className="h-4 w-4" /> Open Color Mixer Popup
+            </button>
             <button type="button" onClick={() => resetLocal(defaultSiteTheme)} className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-bold hover:bg-white/20">
               <RotateCcw className="h-4 w-4" /> Preview defaults
             </button>
@@ -162,14 +173,14 @@ export default function ThemePage() {
           </div>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             {themeColorFields.map(([key, label, help]) => (
-              <label key={key} className="rounded-2xl border border-stone-200 p-4 transition hover:border-stone-300">
-                <span className="block text-sm font-bold text-stone-900">{label}</span>
-                <span className="mt-0.5 block text-xs text-stone-500">{help}</span>
-                <span className="mt-3 flex items-center gap-3">
-                  <input aria-label={label} type="color" value={theme[key]?.startsWith('#') && theme[key].length <= 9 ? theme[key] : '#6b7280'} onChange={(e) => update(key, e.target.value)} className="h-10 w-12 cursor-pointer rounded-lg border-0 bg-transparent p-0" />
-                  <input value={theme[key] || ''} onChange={(e) => update(key, e.target.value)} className="min-w-0 flex-1 rounded-lg border border-stone-200 px-3 py-2 font-mono text-sm outline-none focus:border-[var(--site-primary)]" />
-                </span>
-              </label>
+              <div key={key}>
+                <ColorPickerPopup
+                  label={label}
+                  description={help}
+                  value={theme[key]?.startsWith('#') && theme[key].length <= 9 ? theme[key] : '#6b7280'}
+                  onChange={(hex) => update(key, hex)}
+                />
+              </div>
             ))}
           </div>
 
@@ -234,6 +245,11 @@ export default function ThemePage() {
           </section>
         </aside>
       </div>
+
+      <AdminColorMixerModal
+        isOpen={mixerOpen}
+        onClose={() => setMixerOpen(false)}
+      />
     </div>
   )
 }

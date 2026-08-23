@@ -9,7 +9,7 @@ export const normalizeApiUrl = (url?: string): string => {
 }
 
 export const API_URL = normalizeApiUrl(VITE_API_URL)
-export const API_TIMEOUT_MS = 15000
+export const API_TIMEOUT_MS = 40000
 
 export const getApiHost = (): string => {
   if (typeof window === 'undefined') {
@@ -70,7 +70,10 @@ export const isDirectVideoUrl = (url?: string): boolean => {
 
 export const getApiErrorMessage = (error: any, fallback = 'Something went wrong. Please try again.') => {
   if (!error.response) {
-    if (error instanceof Error && error.message) return error.message
+    if (error instanceof Error && error.message) {
+      if (error.message.includes('timeout')) return 'Server is starting up. Please give it a few moments.'
+      return error.message
+    }
     return 'Network error. Check your connection.'
   }
 
@@ -115,24 +118,30 @@ api.interceptors.request.use(
   }
 )
 
-// Response interceptor to handle errors
+// Response interceptor with automatic retry on cold start and clean auth handling
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    const requestUrl = String(error.config?.url || '')
-    const isAuthAttempt =
-      requestUrl.includes('/auth/login') ||
-      requestUrl.includes('/auth/register') ||
-      requestUrl.includes('/auth/phone/request-otp') ||
-      requestUrl.includes('/auth/phone/verify-otp') ||
-      requestUrl.includes('/auth/forgot-password') ||
-      requestUrl.includes('/auth/reset-password')
+  async (error) => {
+    const config = error.config
+    const isGetOrSafe = config?.method === 'get' || config?.url?.includes('/cart') || config?.url?.includes('/products') || config?.url?.includes('/content')
 
-    if (error.response?.status === 401 && !isAuthAttempt) {
+    // Retry on timeouts, 502, 503, 504, or network error (up to 2 times) for idempotent/read requests
+    if (config && isGetOrSafe && (!config.__retryCount || config.__retryCount < 2)) {
+      const isNetworkOrTimeout = !error.response || error.code === 'ECONNABORTED' || [502, 503, 504].includes(error.response?.status)
+      if (isNetworkOrTimeout) {
+        config.__retryCount = (config.__retryCount || 0) + 1
+        const delay = config.__retryCount * 1200
+        await new Promise((resolve) => setTimeout(resolve, delay))
+        return api(config)
+      }
+    }
+
+    if (error.response?.status === 401) {
+      // Clear token silently without breaking the guest user journey
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      window.location.href = '/login'
     }
+
     return Promise.reject(error)
   }
 )

@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import type { MouseEvent } from 'react'
 import { ShoppingCart, Heart, Star, Plus, Minus, MessageCircle, Loader2 } from 'lucide-react'
 import { Product } from '../types/index'
 import { formatPrice } from '../utils/currency'
 import { useSiteContent } from '../contexts/SiteContentContext'
 import { useLanguage } from '../contexts/LanguageContext'
+import { motion, useReducedMotion } from 'framer-motion'
 
 interface ProductCardProps {
   product: Product
@@ -27,6 +28,9 @@ const ProductCard = ({
 }: ProductCardProps) => {
   const { profile } = useSiteContent()
   const { t } = useLanguage()
+  const reduceMotion = useReducedMotion()
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [tilt, setTilt] = useState({ rotateX: 0, rotateY: 0 })
   const [quantity, setQuantity] = useState(1)
   const baseWeight = product.weightValue || Number.parseFloat(String(product.weight || '1')) || 1
   const baseUnit = product.weightUnit || (String(product.weight || '').toLowerCase().includes('g') ? 'g' : 'kg')
@@ -81,10 +85,31 @@ const ProductCard = ({
     ? `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(t('product.whatsappMessage').replace('{brand}', profile.brand.name).replace('{product}', product.name))}`
     : ''
 
+  const handleMouseMove = useCallback((e: MouseEvent<HTMLDivElement>) => {
+    if (reduceMotion) return
+    const card = cardRef.current
+    if (!card) return
+    const rect = card.getBoundingClientRect()
+    const cx = rect.left + rect.width / 2
+    const cy = rect.top + rect.height / 2
+    const dx = (e.clientX - cx) / (rect.width / 2)
+    const dy = (e.clientY - cy) / (rect.height / 2)
+    setTilt({ rotateX: -dy * 6, rotateY: dx * 6 })
+  }, [reduceMotion])
+
+  const handleMouseLeave = useCallback(() => {
+    setTilt({ rotateX: 0, rotateY: 0 })
+  }, [])
+
   return (
-    <div 
-        className={`glass-panel group overflow-hidden rounded-3xl border border-white/70 bg-white/85 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl ${onClick ? 'cursor-pointer' : ''} ${className}`}
+    <motion.div
+        ref={cardRef}
+        style={{ rotateX: tilt.rotateX, rotateY: tilt.rotateY, transformStyle: 'preserve-3d' }}
+        transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+        className={`glass-panel group overflow-hidden rounded-3xl border border-white/70 bg-white/85 shadow-sm hover:-translate-y-1 hover:shadow-xl ${onClick ? 'cursor-pointer' : ''} ${className}`}
         onClick={onClick}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
       >
       {/* Product Image */}
       <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
@@ -261,7 +286,7 @@ const ProductCard = ({
           </a>
         )}
       </div>
-    </div>
+    </motion.div>
   )
 }
 

@@ -1,14 +1,15 @@
-import { useState } from 'react'
-import { 
-  MapPin, 
-  Truck, 
-  Clock, 
+import { useState, useMemo } from 'react'
+import {
+  MapPin,
+  Truck,
+  Clock,
   CheckCircle,
   Phone,
   Mail,
   User,
   Package,
 } from 'lucide-react'
+import LiveMap, { MapMarker, MarkerType } from '../components/LiveMap'
 
 interface DeliveryLocation {
   id: string
@@ -172,6 +173,47 @@ const DeliveryMap = ({
     failed: deliveriesData.filter(d => d.status === 'failed').length
   }
 
+  const mapMarkers = useMemo<MapMarker[]>(() => {
+    const deliveryMarkers: MapMarker[] = deliveriesData
+      .filter(d => d.address.coordinates)
+      .map(d => ({
+        id: `delivery-${d.id}`,
+        position: [d.address.coordinates.lat, d.address.coordinates.lng],
+        type: d.status as MarkerType,
+        label: d.orderNumber,
+        popup: (
+          <div>
+            <p className="font-semibold text-gray-900">{d.orderNumber}</p>
+            <p className="text-sm text-gray-600">{d.customerName}</p>
+            <p className="text-sm text-gray-500">{d.address.city}</p>
+            <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs ${getStatusColor(d.status)}`}>
+              {d.status.replace('_', ' ')}
+            </span>
+          </div>
+        ),
+      }))
+
+    const driverMarkers: MapMarker[] = showDrivers
+      ? deliveriesData
+          .filter(d => d.driver?.coordinates)
+          .map(d => ({
+            id: `driver-${d.id}`,
+            position: [d.driver!.coordinates!.lat, d.driver!.coordinates!.lng],
+            type: 'driver' as MarkerType,
+            label: d.driver!.name,
+            popup: (
+              <div>
+                <p className="font-semibold text-gray-900">{d.driver!.name}</p>
+                <p className="text-sm text-gray-600">{d.driver!.vehicle}</p>
+                <p className="text-sm text-gray-500">{d.driver!.plateNumber}</p>
+              </div>
+            ),
+          }))
+      : []
+
+    return [...deliveryMarkers, ...driverMarkers]
+  }, [deliveriesData, showDrivers])
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow">
@@ -235,72 +277,38 @@ const DeliveryMap = ({
               </div>
             </div>
             
-            {/* Map Placeholder */}
-            <div className="relative h-96 bg-gray-100 rounded-lg overflow-hidden">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 font-medium">Interactive Map View</p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Real-time delivery tracking would be displayed here
-                  </p>
-                  <div className="mt-4 space-y-2">
-                    <div className="flex items-center justify-center gap-4 text-sm">
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                        <span>Pending</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                        <span>Assigned</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                        <span>In Transit</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                        <span>Delivered</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            {/* Real Interactive Map */}
+            <LiveMap
+              markers={mapMarkers}
+              height={384}
+              fitBounds={mapMarkers.length > 0}
+              center={mapMarkers[0]?.position || [-1.2921, 36.8219]}
+              zoom={6}
+              scrollWheelZoom={true}
+            />
+            <div className="mt-3 flex items-center justify-center gap-4 text-sm text-gray-600">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                <span>Pending</span>
               </div>
-
-              {/* Mock Map Markers */}
-              {deliveriesData.map((delivery) => (
-                <div
-                  key={delivery.id}
-                  className="absolute cursor-pointer transform -translate-x-1/2 -translate-y-1/2"
-                  style={{
-                    left: `${20 + (delivery.id === '1' ? 30 : delivery.id === '2' ? 60 : 80)}%`,
-                    top: `${20 + (delivery.id === '1' ? 20 : delivery.id === '2' ? 50 : 70)}%`
-                  }}
-                  onClick={() => setSelectedDelivery(delivery)}
-                >
-                  <div className={`w-8 h-8 rounded-full border-2 border-white shadow-lg flex items-center justify-center ${getStatusColor(delivery.status).split(' ')[0]} ${getStatusColor(delivery.status).split(' ')[1]}`}>
-                    {getStatusIcon(delivery.status)}
-                  </div>
-                  <div className="absolute top-full mt-1 left-1/2 transform -translate-x-1/2 bg-white px-2 py-1 rounded shadow text-xs whitespace-nowrap">
-                    {delivery.orderNumber}
-                  </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <span>Assigned</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                <span>In Transit</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <span>Delivered</span>
+              </div>
+              {showDrivers && (
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                  <span>Driver</span>
                 </div>
-              ))}
-
-              {showDrivers && deliveriesData.filter(d => d.driver).map((delivery) => (
-                <div
-                  key={`driver-${delivery.id}`}
-                  className="absolute cursor-pointer transform -translate-x-1/2 -translate-y-1/2"
-                  style={{
-                    left: `${25 + (delivery.id === '1' ? 30 : 0)}%`,
-                    top: `${25 + (delivery.id === '1' ? 20 : 0)}%`
-                  }}
-                >
-                  <div className="w-6 h-6 bg-orange-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-                    <Truck className="w-3 h-3 text-white" />
-                  </div>
-                </div>
-              ))}
+              )}
             </div>
           </div>
         </div>

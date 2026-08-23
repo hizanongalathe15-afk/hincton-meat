@@ -13,6 +13,9 @@ import { useSiteContent } from '../contexts/SiteContentContext'
 import { chatApi } from '../services/buyerApi'
 import { getApiHost } from '../services/api'
 import LinkifiedText from '../components/ui/LinkifiedText'
+import ThemeToggleButton from '../components/ui/ThemeToggleButton'
+import { useTheme } from '../contexts/ThemeContext'
+import { getChatPalette } from '../utils/chatTheme'
 import { io, Socket } from 'socket.io-client'
 
 interface Message {
@@ -233,6 +236,8 @@ void createBotResponse
 const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWidgetProps) => {
   const { profile } = useSiteContent()
   const brand = profile?.brand || defaultBrand
+  const { theme } = useTheme()
+  const pal = getChatPalette(theme)
 
   const chatSessionId = useMemo(() => {
     if (typeof window === 'undefined') return `support-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -437,7 +442,8 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
         <button
           onClick={handleToggle}
           title="Open live customer support chat"
-          className="relative bg-red-600 text-white p-4 rounded-full shadow-lg hover:bg-red-700 transition-all duration-300 hover:scale-110"
+          className="relative p-4 rounded-full shadow-lg transition-all duration-300 hover:scale-110 hover:opacity-90"
+          style={{ background: pal.accent, color: pal.accentText }}
           aria-label="Open live customer support chat"
         >
           <span className="sr-only">Open live customer support chat</span>
@@ -453,36 +459,39 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
   }
 
   return (
-    <div className={`fixed bottom-6 right-6 bg-white rounded-lg shadow-2xl z-50 transition-all duration-300 ${
+    <div className={`fixed bottom-6 right-6 rounded-lg shadow-2xl z-50 transition-all duration-300 overflow-hidden ${
       isMinimized ? 'w-80 h-16' : 'w-96 h-[600px]'
-    }`}>
-      <div className="bg-gradient-to-r from-red-600 to-red-500 text-white p-4 rounded-t-lg flex items-center justify-between">
+    }`} style={{ background: pal.bg }}>
+      <div className="p-4 rounded-t-lg flex items-center justify-between" style={{ background: pal.panel, color: pal.text }}>
         <div className="flex items-center gap-3">
           <div className="relative">
-            <MessageCircle className="w-6 h-6" />
+            <MessageCircle className="w-6 h-6" style={{ color: pal.accent }} />
             <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full ${
               isConnected ? 'bg-green-400' : 'bg-gray-400'
             }`} />
           </div>
           <div>
             <div className="font-semibold">{brand.name} Support</div>
-            <div className="text-xs text-red-100">
+            <div className="text-xs" style={{ color: pal.textSec }}>
               {isConnected ? 'Online' : 'Offline'} • {language.toUpperCase()}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <ThemeToggleButton iconColor={pal.textSec} className="!p-1" />
           <button
             onClick={handleMinimize}
-            className="p-1 hover:bg-red-700 rounded transition-colors"
+            className="p-1 rounded transition-colors hover:opacity-80"
+            style={{ color: pal.textSec }}
             aria-label={isMinimized ? 'Expand chat' : 'Minimize chat'}
           >
             {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
           </button>
           <button
             onClick={handleToggle}
-            className="p-1 hover:bg-red-700 rounded transition-colors"
+            className="p-1 rounded transition-colors hover:opacity-80"
+            style={{ color: pal.textSec }}
             aria-label="Close chat"
           >
             <X className="w-4 h-4" />
@@ -492,45 +501,51 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
 
       {!isMinimized && (
         <>
-          <div className="flex-1 p-4 overflow-y-auto h-[420px] bg-gray-50">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`mb-4 flex ${
-                  message.sender === 'user' ? 'justify-end' : 'justify-start'
-                }`}
-              >
-                <div className={`max-w-[80%] ${
-                  message.sender === 'user' ? 'order-2' : 'order-1'
-                }`}>
-                  <div className={`px-4 py-2 rounded-lg ${
-                    message.sender === 'user'
-                      ? 'bg-red-600 text-white'
-                      : 'bg-white border border-gray-200 text-gray-900'
-                  }`}>
-                    {message.agentName && (
-                      <div className="text-xs opacity-75 mb-1">{message.agentName}</div>
-                    )}
-                    <div className="text-sm whitespace-pre-wrap"><LinkifiedText text={message.text} /></div>
-                  </div>
-                  <div className={`text-xs text-gray-500 mt-1 ${
-                    message.sender === 'user' ? 'text-right' : 'text-left'
-                  }`}>
-                    {formatTime(message.timestamp)}
-                    {message.sender === 'user' && <Check className="w-3 h-3 inline ml-1" />}
+          <div
+            className="flex-1 p-4 overflow-y-auto h-[420px]"
+            style={{
+              background: pal.bg,
+              backgroundImage: `radial-gradient(circle, ${pal.wallpaper} 1px, transparent 1px)`,
+              backgroundSize: '24px 24px',
+            }}
+          >
+            {messages.map((message) => {
+              const isUser = message.sender === 'user'
+              return (
+                <div
+                  key={message.id}
+                  className={`mb-4 flex ${isUser ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-[80%] ${isUser ? 'order-2' : 'order-1'}`}>
+                    <div
+                      className="px-4 py-2 rounded-lg shadow-sm"
+                      style={{
+                        background: isUser ? pal.sent : pal.received,
+                        color: isUser ? pal.sentText : pal.receivedText,
+                      }}
+                    >
+                      {message.agentName && (
+                        <div className="text-xs opacity-75 mb-1">{message.agentName}</div>
+                      )}
+                      <div className="text-sm whitespace-pre-wrap"><LinkifiedText text={message.text} /></div>
+                    </div>
+                    <div className={`text-xs mt-1 ${isUser ? 'text-right' : 'text-left'}`} style={{ color: pal.textSec }}>
+                      {formatTime(message.timestamp)}
+                      {isUser && <Check className="w-3 h-3 inline ml-1" />}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             {(isTyping || agentTyping) && (
               <div className="flex justify-start mb-4">
-                <div className="bg-white border border-gray-200 px-4 py-2 rounded-lg">
+                <div className="px-4 py-2 rounded-lg shadow-sm" style={{ background: pal.received }}>
                   <div className="flex gap-1 items-center">
-                    <span className="text-xs text-gray-500 mr-2">Thinking</span>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                    <span className="text-xs mr-2" style={{ color: pal.textSec }}>Thinking</span>
+                    <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: pal.textSec }} />
+                    <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: pal.textSec, animationDelay: '0.1s' }} />
+                    <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: pal.textSec, animationDelay: '0.2s' }} />
                   </div>
                 </div>
               </div>
@@ -539,14 +554,15 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
           </div>
 
           {messages.length === 1 && !satisfactionSent && (
-            <div className="px-4 pb-2">
-              <div className="text-xs text-gray-600 mb-2">Quick replies:</div>
+            <div className="px-4 pb-2" style={{ background: pal.bg }}>
+              <div className="text-xs mb-2" style={{ color: pal.textSec }}>Quick replies:</div>
               <div className="flex flex-wrap gap-2">
                 {quickReplies.map((reply) => (
                   <button
                     key={reply}
                     onClick={() => handleQuickReply(reply)}
-                    className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full hover:bg-gray-200 transition-colors"
+                    className="px-3 py-1 text-xs rounded-full transition-colors hover:opacity-80"
+                    style={{ background: pal.raised, color: pal.text }}
                   >
                     {reply}
                   </button>
@@ -556,8 +572,8 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
           )}
           
           {satisfactionSent && (
-            <div className="px-4 pb-2">
-              <div className="text-xs text-gray-600 mb-2">How was your experience?</div>
+            <div className="px-4 pb-2" style={{ background: pal.bg }}>
+              <div className="text-xs mb-2" style={{ color: pal.textSec }}>How was your experience?</div>
               <div className="flex gap-2">
                 <button
                   onClick={() => {
@@ -581,7 +597,7 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200">
+          <form onSubmit={handleSubmit} className="p-4" style={{ background: pal.panel, borderTop: `1px solid ${pal.border}` }}>
             <div className="flex gap-2">
               <input
                 ref={inputRef}
@@ -589,32 +605,34 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="Type your message..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                className="flex-1 px-4 py-2 rounded-lg outline-none"
+                style={{ background: pal.inputField, color: pal.text }}
                 disabled={!isConnected}
               />
               <button
                 type="submit"
                 disabled={!inputValue.trim() || !isConnected}
-                className="bg-red-600 text-white p-2 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:opacity-80"
+                style={{ background: pal.accent, color: pal.accentText }}
               >
                 <Send className="w-5 h-5" />
               </button>
             </div>
           </form>
 
-          <div className="px-4 pb-3 border-t border-gray-100">
-            <div className="flex items-center justify-between text-xs text-gray-500 gap-3">
+          <div className="px-4 pb-3" style={{ background: pal.panel, borderTop: `1px solid ${pal.border}` }}>
+            <div className="flex items-center justify-between text-xs gap-3" style={{ color: pal.textSec }}>
               <div className="flex flex-wrap items-center gap-4">
-                <a href={brand.phoneHref} className="flex items-center gap-1 hover:text-gray-700">
+                <a href={brand.phoneHref} className="flex items-center gap-1 hover:opacity-80">
                   <Phone className="w-3 h-3" />
                   <span>{brand.phone}</span>
                 </a>
-                <a href={brand.emailHref} className="flex items-center gap-1 hover:text-gray-700">
+                <a href={brand.emailHref} className="flex items-center gap-1 hover:opacity-80">
                   <Mail className="w-3 h-3" />
                   <span>{brand.email}</span>
                 </a>
                 {whatsappHref && (
-                  <a href={whatsappHref} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-semibold text-green-700 hover:text-green-800">
+                  <a href={whatsappHref} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-semibold hover:opacity-80" style={{ color: pal.badge }}>
                     <Phone className="w-3 h-3" />
                     <span>WhatsApp</span>
                   </a>

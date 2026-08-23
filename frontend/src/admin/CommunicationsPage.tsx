@@ -4,6 +4,9 @@ import toast from 'react-hot-toast'
 import api, { getApiHost } from '../services/api'
 import { contactMessagesApi, usersApi } from '../services/adminApi'
 import LinkifiedText from '../components/ui/LinkifiedText'
+import ThemeToggleButton from '../components/ui/ThemeToggleButton'
+import { useTheme } from '../contexts/ThemeContext'
+import { getChatPalette } from '../utils/chatTheme'
 import { io, Socket } from 'socket.io-client'
 
 interface AdminUser {
@@ -64,6 +67,8 @@ type Target = 'all' | 'users' | 'emails'
 type MessageType = 'SYSTEM' | 'PROMOTION' | 'ACCOUNT'
 
 const CommunicationsPage = () => {
+  const { theme } = useTheme()
+  const pal = getChatPalette(theme)
   const [activeTab, setActiveTab] = useState<ActiveTab>('broadcast')
   const [users, setUsers] = useState<AdminUser[]>([])
   const [target, setTarget] = useState<Target>('all')
@@ -451,73 +456,103 @@ const CommunicationsPage = () => {
 
       {activeTab === 'chat' && (
         <section className="grid gap-6 lg:grid-cols-[20rem_1fr]">
-          <div className="bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-base font-semibold text-gray-900">
-                <MessageCircle className="h-5 w-5 text-red-600" />
+          <div className="overflow-hidden shadow-sm" style={{ background: pal.list }}>
+            <div className="flex items-center justify-between px-4 py-3" style={{ background: pal.panel }}>
+              <h3 className="flex items-center gap-2 text-base font-semibold" style={{ color: pal.text }}>
+                <MessageCircle className="h-5 w-5" style={{ color: pal.accent }} />
                 Support Inbox
               </h3>
-              <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
-                {chatLoading ? 'Loading' : 'Live'}
-              </span>
+              <div className="flex items-center gap-1">
+                <span className="rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: pal.raised, color: pal.accent }}>
+                  {chatLoading ? 'Loading' : 'Live'}
+                </span>
+                <ThemeToggleButton iconColor={pal.textSec} />
+              </div>
             </div>
 
-            <div className="max-h-96 overflow-y-auto">
+            <div className="max-h-[32rem] overflow-y-auto">
               {chatSessions.length > 0 ? chatSessions.map((session) => {
                 const customerName = session.user?.profile?.fullName || session.user?.username || session.user?.email || 'Customer'
+                const isActive = activeSessionId === session.sessionId
                 return (
                   <button
                     key={session.sessionId}
                     type="button"
                     onClick={() => setActiveSessionId(session.sessionId)}
-                    className={`mb-2 w-full rounded-lg border p-3 text-left transition ${activeSessionId === session.sessionId ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:bg-gray-50'}`}
+                    className="w-full p-3 text-left transition-colors"
+                    style={{ background: isActive ? pal.selected : 'transparent' }}
+                    onMouseEnter={(event) => { if (!isActive) event.currentTarget.style.background = pal.hover }}
+                    onMouseLeave={(event) => { if (!isActive) event.currentTarget.style.background = 'transparent' }}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-bold text-gray-900">{customerName}</span>
-                      {session.unreadCount > 0 && <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">{session.unreadCount}</span>}
+                      <span className="truncate text-sm font-semibold" style={{ color: pal.text }}>{customerName}</span>
+                      {session.unreadCount > 0 && (
+                        <span className="rounded-full px-2 py-0.5 text-xs font-bold" style={{ background: pal.badge, color: pal.badgeText }}>
+                          {session.unreadCount}
+                        </span>
+                      )}
                     </div>
-                    <p className="mt-1 truncate text-xs text-gray-600">{session.lastMessage?.message || 'No message text'}</p>
+                    <p className="mt-1 truncate text-xs" style={{ color: pal.textSec }}>{session.lastMessage?.message || 'No message text'}</p>
                   </button>
                 )
               }) : (
-                <p className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600">No saved chats yet. Logged-in customer chats will appear here.</p>
+                <p className="p-4 text-sm" style={{ color: pal.textSec }}>No saved chats yet. Logged-in customer chats will appear here.</p>
               )}
             </div>
           </div>
 
-          <div className="flex min-h-[30rem] flex-col bg-white shadow-sm">
-            <div className="border-b border-gray-200 p-5">
-              <h3 className="text-base font-semibold text-gray-900">Chat Thread</h3>
-              <p className="mt-1 text-sm text-gray-600">Reply to customers from the same saved support session.</p>
+          <div className="flex min-h-[30rem] flex-col overflow-hidden shadow-sm" style={{ background: pal.bg }}>
+            <div className="px-4 py-3" style={{ background: pal.panel }}>
+              <h3 className="text-base font-semibold" style={{ color: pal.text }}>Chat Thread</h3>
+              <p className="mt-0.5 text-xs" style={{ color: pal.textSec }}>Reply to customers from the same saved support session.</p>
             </div>
 
-            <div className="flex-1 space-y-3 overflow-y-auto bg-gray-50 p-5">
+            <div
+              className="flex-1 space-y-3 overflow-y-auto p-5"
+              style={{
+                background: pal.bg,
+                backgroundImage: `radial-gradient(circle, ${pal.wallpaper} 1px, transparent 1px)`,
+                backgroundSize: '24px 24px',
+              }}
+            >
               {chatMessages.length > 0 ? chatMessages.map((chatMessage) => (
                 <div key={chatMessage.id} className={`flex ${chatMessage.isFromUser ? 'justify-start' : 'justify-end'}`}>
-                  <div className={`max-w-[78%] rounded-lg px-4 py-3 text-sm shadow-sm ${chatMessage.isFromUser ? 'bg-white text-gray-900' : 'bg-red-600 text-white'}`}>
+                  <div
+                    className="max-w-[78%] rounded-lg px-4 py-3 text-sm shadow-sm"
+                    style={{
+                      background: chatMessage.isFromUser ? pal.received : pal.sent,
+                      color: chatMessage.isFromUser ? pal.receivedText : pal.sentText,
+                    }}
+                  >
                     <p><LinkifiedText text={chatMessage.message || chatMessage.content || ''} /></p>
-                    <p className={`mt-1 text-xs ${chatMessage.isFromUser ? 'text-gray-500' : 'text-red-100'}`}>
+                    <p className="mt-1 text-xs" style={{ color: pal.textSec }}>
                       {new Date(chatMessage.createdAt || chatMessage.timestamp || '').toLocaleString()}
                     </p>
                   </div>
                 </div>
               )) : (
-                <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                <div className="flex h-full items-center justify-center text-sm" style={{ color: pal.textSec }}>
                   Select a support chat to view messages.
                 </div>
               )}
             </div>
 
-            <form onSubmit={sendChatReply} className="border-t border-gray-200 p-4">
+            <form onSubmit={sendChatReply} className="p-4" style={{ background: pal.panel, borderTop: `1px solid ${pal.border}` }}>
               <div className="flex gap-2">
                 <input
                   value={reply}
                   onChange={(event) => setReply(event.target.value)}
                   disabled={!activeSessionId}
-                  className="min-w-0 flex-1 rounded-lg border border-gray-300 px-4 py-3 focus:border-red-500 focus:ring-2 focus:ring-red-500 disabled:bg-gray-100"
+                  className="min-w-0 flex-1 rounded-lg px-4 py-3 outline-none disabled:opacity-60"
+                  style={{ background: pal.inputField, color: pal.text }}
                   placeholder={activeSessionId ? 'Type an admin reply...' : 'Select a chat first'}
                 />
-                <button type="submit" disabled={!activeSessionId || !reply.trim()} className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60">
+                <button
+                  type="submit"
+                  disabled={!activeSessionId || !reply.trim()}
+                  className="inline-flex items-center gap-2 rounded-lg px-5 py-3 font-bold transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
+                  style={{ background: pal.accent, color: pal.accentText }}
+                >
                   <Send className="h-4 w-4" />
                   Reply
                 </button>

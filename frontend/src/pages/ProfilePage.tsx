@@ -45,7 +45,7 @@ interface UserProfile {
 }
 
 const ProfilePage: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
@@ -169,8 +169,8 @@ const ProfilePage: React.FC = () => {
       async (position) => {
         const { latitude, longitude } = position.coords
         try {
-          // Reverse geocode to get address
-          const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`)
+        // Reverse geocode to get address
+        const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=${encodeURIComponent(locale || 'en')}`)
           const data = await response.json()
           const address = `${data.city}, ${data.countryName}`
           

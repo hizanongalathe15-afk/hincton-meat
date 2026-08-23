@@ -43,10 +43,11 @@ const ContentPage = () => {
   const [blogPosts, setBlogPosts] = useState<any[]>([])
   const [blogDraft, setBlogDraft] = useState({ title: '', excerpt: '', content: '', featuredImage: '', category: 'Updates', tags: '', isPublished: true, isFeatured: false })
   const [seoKeywordDraft, setSeoKeywordDraft] = useState('')
-  const pageKeys = ['about', 'farms', 'sustainability', 'contact', 'careers', 'wellness', 'returns', 'maintenance', 'downloadThankYou', 'blog'] as const
+  const pageKeys = ['about', 'farms', 'provenance', 'sustainability', 'contact', 'careers', 'wellness', 'returns', 'maintenance', 'downloadThankYou', 'blog'] as const
   const pageLabels: Record<typeof pageKeys[number], string> = {
     about: 'About Us',
     farms: 'Farms',
+    provenance: 'Reviews & Provenance',
     sustainability: 'Sustainability',
     contact: 'Contact',
     careers: 'Careers',

@@ -781,4 +781,160 @@ export const reviewsApi = {
   }
 }
 
+// Careers Admin API
+export const careersAdminApi = {
+  getJobs: async () => {
+    const r = await apiClient.get('/careers/jobs')
+    return r.data
+  },
+  createJob: async (data: any) => {
+    const r = await apiClient.post('/careers/jobs', data)
+    return r.data
+  },
+  updateJob: async (id: string, data: any) => {
+    const r = await apiClient.put(`/careers/jobs/${id}`, data)
+    return r.data
+  },
+  deleteJob: async (id: string) => {
+    const r = await apiClient.delete(`/careers/jobs/${id}`)
+    return r.data
+  },
+  getApplications: async (params?: { status?: string; department?: string; jobId?: string; page?: number }) => {
+    const r = await apiClient.get('/careers/applications', { params })
+    return r.data
+  },
+  getApplication: async (id: string) => {
+    const r = await apiClient.get(`/careers/applications/${id}`)
+    return r.data
+  },
+  updateApplicationStatus: async (id: string, data: { status: string; notes?: string }) => {
+    const r = await apiClient.put(`/careers/applications/${id}/status`, data)
+    return r.data
+  },
+  getPageContent: async () => {
+    const r = await apiClient.get('/careers/page-content')
+    return r.data
+  },
+  savePageContent: async (content: any) => {
+    const r = await apiClient.put('/careers/page-content', content)
+    return r.data
+  },
+}
+
+// Gift Cards Admin API
+export const giftCardsAdminApi = {
+  getAll: async (params?: { status?: string; page?: number }) => {
+    const r = await apiClient.get('/gift-cards', { params })
+    return r.data
+  },
+}
+
+// Homepage Content: Recipes Admin API
+export const recipesAdminApi = {
+  list: async () => {
+    const r = await apiClient.get('/admin/recipes')
+    return r.data
+  },
+  create: async (data: any) => {
+    const r = await apiClient.post('/admin/recipes', data)
+    return r.data
+  },
+  update: async (id: string, data: any) => {
+    const r = await apiClient.put(`/admin/recipes/${id}`, data)
+    return r.data
+  },
+  remove: async (id: string) => {
+    const r = await apiClient.delete(`/admin/recipes/${id}`)
+    return r.data
+  },
+}
+
+// Homepage Content: Meat Cuts Guide Admin API
+export const meatGuideAdminApi = {
+  listCategories: async () => {
+    const r = await apiClient.get('/admin/meat-guide/categories')
+    return r.data
+  },
+  createCategory: async (data: any) => {
+    const r = await apiClient.post('/admin/meat-guide/categories', data)
+    return r.data
+  },
+  updateCategory: async (id: string, data: any) => {
+    const r = await apiClient.put(`/admin/meat-guide/categories/${id}`, data)
+    return r.data
+  },
+  deleteCategory: async (id: string) => {
+    const r = await apiClient.delete(`/admin/meat-guide/categories/${id}`)
+    return r.data
+  },
+  listCuts: async () => {
+    const r = await apiClient.get('/admin/meat-guide/cuts')
+    return r.data
+  },
+  createCut: async (data: any) => {
+    const r = await apiClient.post('/admin/meat-guide/cuts', data)
+    return r.data
+  },
+  updateCut: async (id: string, data: any) => {
+    const r = await apiClient.put(`/admin/meat-guide/cuts/${id}`, data)
+    return r.data
+  },
+  deleteCut: async (id: string) => {
+    const r = await apiClient.delete(`/admin/meat-guide/cuts/${id}`)
+    return r.data
+  },
+}
+
+// Homepage Content: Customer Photo Reviews Admin API
+export const photoReviewsAdminApi = {
+  list: async () => {
+    const r = await apiClient.get('/admin/photo-reviews')
+    return r.data
+  },
+  create: async (formData: FormData) => {
+    const r = await apiClient.post('/admin/photo-reviews', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: UPLOAD_TIMEOUT_MS,
+    })
+    return r.data
+  },
+  update: async (id: string, data: { status?: 'APPROVED' | 'HIDDEN'; isFeatured?: boolean; cookingTip?: string }) => {
+    const r = await apiClient.patch(`/admin/photo-reviews/${id}`, data)
+    return r.data
+  },
+  remove: async (id: string) => {
+    const r = await apiClient.delete(`/admin/photo-reviews/${id}`)
+    return r.data
+  },
+}
+
+// Generic admin image upload (Cloudinary-backed) returning a hosted URL
+export const mediaUploadApi = {
+  uploadImage: async (file: File) => {
+    const fd = new FormData()
+    fd.append('image', file)
+    const r = await apiClient.post('/upload/upload-product-image', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: UPLOAD_TIMEOUT_MS,
+    })
+    return r.data
+  },
+}
+
+// Product Page Configuration Admin API
+export const productConfigAdminApi = {
+  updateButcherPrep: async (data: { cutStyles: string[]; fatTrimLevels: string[]; seasonings: string[] }) => {
+    const r = await apiClient.put('/admin/product-config/butcher-prep', data)
+    return r.data
+  },
+  updateShopPills: async (data: Array<{ id: string; label: string }>) => {
+    const r = await apiClient.put('/admin/product-config/shop-pills', data)
+    return r.data
+  },
+  updateStorageGuidelines: async (data: string[]) => {
+    const r = await apiClient.put('/admin/product-config/storage-guidelines', data)
+    return r.data
+  },
+}
+
 export default apiClient

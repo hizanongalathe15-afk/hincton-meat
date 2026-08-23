@@ -47,7 +47,8 @@ const Notifications: React.FC = () => {
 
     try {
       setIsLoading(true)
-      const response = await fetch(`${API_URL}/notifications`, {
+      const apiHost = API_URL.replace(/\/+$/,'')
+      const response = await fetch(`${apiHost}/notifications`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
@@ -69,7 +70,8 @@ const Notifications: React.FC = () => {
     if (!user) return
 
     try {
-      const response = await fetch(`${API_URL}/notifications/unread-count`, {
+      const apiHost = API_URL.replace(/\/+$/,'')
+      const response = await fetch(`${apiHost}/notifications/unread-count`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
@@ -111,7 +113,8 @@ const Notifications: React.FC = () => {
 
   const markAsRead = async (notificationId: string) => {
     try {
-      const response = await fetch(`${API_URL}/notifications/${notificationId}/read`, {
+      const apiHost = API_URL.replace(/\/+$/,'')
+      const response = await fetch(`${apiHost}/notifications/${notificationId}/read`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
@@ -129,7 +132,8 @@ const Notifications: React.FC = () => {
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch(`${API_URL}/notifications/mark-all-read`, {
+      const apiHost = API_URL.replace(/\/+$/,'')
+      const response = await fetch(`${apiHost}/notifications/mark-all-read`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
@@ -148,7 +152,8 @@ const Notifications: React.FC = () => {
 
   const deleteNotification = async (notificationId: string) => {
     try {
-      const response = await fetch(`${API_URL}/notifications/${notificationId}`, {
+      const apiHost = API_URL.replace(/\/+$/,'')
+      const response = await fetch(`${apiHost}/notifications/${notificationId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`

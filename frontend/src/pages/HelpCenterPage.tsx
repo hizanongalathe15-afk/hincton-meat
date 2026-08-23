@@ -20,6 +20,7 @@ import {
   ShieldAlert,
   Users,
   ExternalLink,
+  Sparkles,
 } from 'lucide-react'
 import { useSiteContent } from '../contexts/SiteContentContext'
 import { Link, useNavigate } from 'react-router-dom'
@@ -336,48 +337,72 @@ const HelpCenterPage = () => {
     }
   }
 
-  // ============ RENDER ============
+  // ============ ARTICLE DETAIL VIEW ============
   if (selectedArticle) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <section className="bg-gray-950 px-4 py-10 text-white sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-4xl">
+      <div className="min-h-screen bg-[#faf9f7]">
+        <section className="relative overflow-hidden bg-[#1a1b1e] px-4 py-16 text-white sm:px-6 lg:px-8">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-900/20 via-transparent to-transparent" />
+          <div className="relative mx-auto max-w-3xl">
             <button
               onClick={() => setSelectedSlug(null)}
-              className="inline-flex items-center gap-2 text-sm text-red-300 hover:text-white"
+              className="group inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white/90 backdrop-blur transition hover:bg-white/20"
             >
-              <ArrowLeft className="h-4 w-4" /> Back to Help Center
+              <ArrowLeft className="h-4 w-4 transition group-hover:-translate-x-0.5" />
+              Back to Help Center
             </button>
-            <p className="mt-4 text-xs font-bold uppercase tracking-wide text-red-300">
-              {formatCategory(selectedArticle.category)}
-            </p>
-            <h1 className="mt-2 text-4xl font-extrabold">{selectedArticle.title}</h1>
-            <p className="mt-4 max-w-3xl text-gray-300">{selectedArticle.excerpt}</p>
-            <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-400">
-              <span className="inline-flex items-center gap-1"><Clock className="h-4 w-4" />Updated {new Date(selectedArticle.createdAt).toLocaleDateString()}</span>
-              <span className="inline-flex items-center gap-1"><BookOpen className="h-4 w-4" />{selectedArticle.views || 0} views</span>
+            <div className="mt-8">
+              {selectedArticle.category && (
+                <span className="inline-block rounded-full bg-red-500/20 px-3 py-1 text-xs font-bold uppercase tracking-wider text-red-300">
+                  {formatCategory(selectedArticle.category)}
+                </span>
+              )}
+              <h1 className="mt-4 text-4xl font-black tracking-tight sm:text-5xl">
+                {selectedArticle.title}
+              </h1>
+              {selectedArticle.excerpt && (
+                <p className="mt-5 max-w-2xl text-lg leading-relaxed text-white/70">
+                  {selectedArticle.excerpt}
+                </p>
+              )}
+              <div className="mt-6 flex flex-wrap items-center gap-5 text-sm text-white/50">
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock className="h-4 w-4" />
+                  {new Date(selectedArticle.createdAt).toLocaleDateString()}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <BookOpen className="h-4 w-4" />
+                  {selectedArticle.views || 0} views
+                </span>
+              </div>
             </div>
           </div>
         </section>
-        <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
-          <article className="rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
-            <div className="prose prose-red max-w-none text-gray-800">
-              <p className="whitespace-pre-wrap leading-7"><LinkifiedText text={selectedArticle.content} /></p>
+
+        <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+          <article className="rounded-3xl border border-stone-200/80 bg-white p-8 shadow-xl shadow-black/5 sm:p-12">
+            <div className="prose prose-stone max-w-none text-stone-700">
+              <p className="whitespace-pre-wrap text-base leading-8">
+                <LinkifiedText text={selectedArticle.content} />
+              </p>
             </div>
-            <div className="mt-10 border-t border-gray-100 pt-6">
-              <p className="text-sm font-medium text-gray-700 mb-3">Was this article helpful?</p>
+
+            <div className="mt-12 border-t border-stone-100 pt-8">
+              <p className="mb-4 text-sm font-semibold text-stone-700">Was this article helpful?</p>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => voteArticle(selectedArticle.slug, true)}
-                  className="inline-flex items-center gap-2 rounded border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:border-green-200 hover:text-green-700"
+                  className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-5 py-2.5 text-sm font-medium text-stone-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
                 >
-                  <ThumbsUp className="h-4 w-4" /> Yes ({selectedArticle.helpfulYes || 0})
+                  <ThumbsUp className="h-4 w-4" />
+                  Yes ({selectedArticle.helpfulYes || 0})
                 </button>
                 <button
                   onClick={() => voteArticle(selectedArticle.slug, false)}
-                  className="inline-flex items-center gap-2 rounded border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:border-red-200 hover:text-red-700"
+                  className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-5 py-2.5 text-sm font-medium text-stone-700 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
                 >
-                  <ThumbsDown className="h-4 w-4" /> No ({selectedArticle.helpfulNo || 0})
+                  <ThumbsDown className="h-4 w-4" />
+                  No ({selectedArticle.helpfulNo || 0})
                 </button>
               </div>
             </div>
@@ -387,56 +412,68 @@ const HelpCenterPage = () => {
     )
   }
 
+  // ============ MAIN VIEW ============
   return (
-    <div className="min-h-screen bg-gray-50">
-      <section className="bg-gray-950 px-4 py-16 text-white sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-5xl">
-          <p className="text-sm font-bold uppercase tracking-wide text-red-300">{brand.name}</p>
-          <h1 className="mt-3 text-4xl font-extrabold sm:text-5xl">Help Center</h1>
-          <p className="mt-4 max-w-3xl text-gray-300">
-            Find answers to common questions, browse step-by-step guides, or reach our team for personalized assistance.
+    <div className="min-h-screen bg-[#faf9f7]">
+      {/* Hero */}
+      <section className="relative overflow-hidden bg-[#1a1b1e] px-4 pb-28 pt-20 text-white sm:px-6 lg:px-8">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-red-900/25 via-transparent to-transparent" />
+        <div className="relative mx-auto max-w-4xl text-center">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-red-300 backdrop-blur">
+            <Sparkles className="h-3.5 w-3.5" />
+            {brand.name} Support
+          </div>
+          <h1 className="text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl">
+            How can we help?
+          </h1>
+          <p className="mx-auto mt-5 max-w-2xl text-lg text-white/70">
+            Search FAQs, read guides, or get personal support from our team.
           </p>
         </div>
       </section>
 
-      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-        {/* Search & Tabs */}
-        <div className="mb-6 space-y-5">
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      {/* Floating Search + Tabs */}
+      <div className="relative z-20 -mt-14 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-4xl">
+          <div className="rounded-2xl border border-stone-200/80 bg-white p-2 shadow-2xl shadow-black/10">
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-stone-400" />
               <input
                 type="text"
                 placeholder="Search FAQs, guides, and help articles..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 py-4 pl-12 pr-4 text-base focus:border-red-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full rounded-xl border-0 bg-transparent py-4 pl-14 pr-5 text-base text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-0"
               />
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 pb-3">
-            {(['faq', 'kb', 'contact'] as TabKey[]).map((t) => (
+          {/* Tabs */}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            {([
+              { key: 'faq' as TabKey, label: 'FAQ', icon: HelpCircle },
+              { key: 'kb' as TabKey, label: 'Help Guides', icon: BookOpen },
+              { key: 'contact' as TabKey, label: 'Contact Support', icon: MessageCircle },
+            ]).map(({ key, label, icon: Icon }) => (
               <button
-                key={t}
-                onClick={() => setActiveTab(t)}
-                className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-colors ${
-                  activeTab === t
-                    ? 'bg-[#9f2f20] text-white shadow'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
+                  activeTab === key
+                    ? 'bg-[#9f2f20] text-white shadow-lg shadow-red-900/25'
+                    : 'bg-white text-stone-600 shadow-sm hover:bg-stone-50 border border-stone-200'
                 }`}
               >
-                {t === 'faq' && <HelpCircle className="h-4 w-4" />}
-                {t === 'kb' && <BookOpen className="h-4 w-4" />}
-                {t === 'contact' && <MessageCircle className="h-4 w-4" />}
-                {t === 'faq' ? 'FAQ' : t === 'kb' ? 'Help Guides' : 'Contact Support'}
+                <Icon className="h-4 w-4" />
+                {label}
               </button>
             ))}
+
             {allCategories.length > 1 && (
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="ml-auto rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                className="ml-2 rounded-full border border-stone-200 bg-white px-4 py-2.5 text-sm font-medium text-stone-600 shadow-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
               >
                 {allCategories.map((c) => (
                   <option key={c} value={c}>
@@ -447,131 +484,166 @@ const HelpCenterPage = () => {
             )}
           </div>
         </div>
+      </div>
 
-        {/* FAQ */}
+      <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+        {/* ───────── FAQ TAB ───────── */}
         {activeTab === 'faq' && (
-          <section className="mb-10">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-extrabold text-gray-950">Frequently Asked Questions</h2>
+          <section>
+            <div className="mb-8 flex items-center justify-between">
+              <h2 className="text-2xl font-black tracking-tight text-stone-950">
+                Frequently Asked Questions
+              </h2>
               <button
                 onClick={() => setShowTicketForm(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-gray-950 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800"
+                className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-stone-800"
               >
-                <MessageCircle className="h-4 w-4" /> Contact Support
+                <MessageCircle className="h-4 w-4" />
+                Contact Support
               </button>
             </div>
+
             {faqLoading ? (
               <div className="space-y-3">
                 {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="h-16 animate-pulse rounded-lg border border-gray-200 bg-white" />
+                  <div key={i} className="h-16 animate-pulse rounded-2xl bg-white" />
                 ))}
               </div>
             ) : faqs.length === 0 ? (
-              <div className="rounded-xl border border-gray-200 bg-white p-12 text-center shadow-sm">
-                <AlertCircle className="mx-auto h-10 w-10 text-gray-400" />
-                <p className="mt-4 font-medium text-gray-700">No FAQs match your search.</p>
-                <p className="mt-1 text-sm text-gray-500">Try a different keyword or browse the help guides.</p>
+              <div className="rounded-3xl border border-stone-200 bg-white p-16 text-center">
+                <AlertCircle className="mx-auto h-12 w-12 text-stone-300" />
+                <p className="mt-5 text-lg font-semibold text-stone-700">No FAQs match your search</p>
+                <p className="mt-2 text-sm text-stone-500">Try a different keyword or browse the guides</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {faqs.map((faq) => (
-                  <div key={faq.id} className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                    <button
-                      onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
-                      className="flex w-full items-center justify-between gap-4 p-5 text-left"
+                {faqs.map((faq) => {
+                  const isOpen = expandedFaq === faq.id
+                  return (
+                    <div
+                      key={faq.id}
+                      className={`overflow-hidden rounded-2xl border bg-white transition-all ${
+                        isOpen
+                          ? 'border-red-200 shadow-lg shadow-red-900/5'
+                          : 'border-stone-200/80 shadow-sm hover:border-stone-300'
+                      }`}
                     >
-                      <div className="flex-1">
-                        {faq.category && (
-                          <span className="mb-1 inline-block rounded-full bg-red-50 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-red-700">
-                            {formatCategory(faq.category)}
-                          </span>
-                        )}
-                        <div className="text-lg font-semibold text-gray-950">{faq.question}</div>
-                      </div>
-                      <div className="flex-shrink-0">
-                        {expandedFaq === faq.id ? (
-                          <ChevronDown className="h-5 w-5 text-gray-500" />
-                        ) : (
-                          <ChevronRight className="h-5 w-5 text-gray-500" />
-                        )}
-                      </div>
-                    </button>
-                    {expandedFaq === faq.id && (
-                      <div className="border-t border-gray-100 px-5 pb-5">
-                        <p className="mt-4 text-gray-700 leading-7">
-                          <LinkifiedText text={faq.answer} />
-                        </p>
-                        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-gray-50 pt-4">
-                          <p className="text-sm text-gray-500">Was this FAQ helpful?</p>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => voteFaq(faq.id, true)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-green-50 hover:border-green-200 hover:text-green-700"
-                            >
-                              <ThumbsUp className="h-3.5 w-3.5" /> Yes ({faq.helpfulYes})
-                            </button>
-                            <button
-                              onClick={() => voteFaq(faq.id, false)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-red-50 hover:border-red-200 hover:text-red-700"
-                            >
-                              <ThumbsDown className="h-3.5 w-3.5" /> No ({faq.helpfulNo})
-                            </button>
+                      <button
+                        onClick={() => setExpandedFaq(isOpen ? null : faq.id)}
+                        className="flex w-full items-center justify-between gap-4 p-5 text-left sm:p-6"
+                      >
+                        <div className="flex-1">
+                          {faq.category && (
+                            <span className="mb-2 inline-block rounded-full bg-red-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-700">
+                              {formatCategory(faq.category)}
+                            </span>
+                          )}
+                          <div className="text-base font-semibold text-stone-900 sm:text-lg">
+                            {faq.question}
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                        <div
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition ${
+                            isOpen ? 'bg-red-50 text-red-600' : 'bg-stone-100 text-stone-500'
+                          }`}
+                        >
+                          {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                        </div>
+                      </button>
+
+                      {isOpen && (
+                        <div className="border-t border-stone-100 px-5 pb-6 sm:px-6">
+                          <p className="mt-5 text-stone-600 leading-7">
+                            <LinkifiedText text={faq.answer} />
+                          </p>
+                          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-stone-50 pt-5">
+                            <p className="text-sm text-stone-500">Was this helpful?</p>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => voteFaq(faq.id, true)}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                              >
+                                <ThumbsUp className="h-3.5 w-3.5" />
+                                Yes ({faq.helpfulYes})
+                              </button>
+                              <button
+                                onClick={() => voteFaq(faq.id, false)}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                              >
+                                <ThumbsDown className="h-3.5 w-3.5" />
+                                No ({faq.helpfulNo})
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </section>
         )}
 
-        {/* Knowledge Base */}
+        {/* ───────── KNOWLEDGE BASE TAB ───────── */}
         {activeTab === 'kb' && (
-          <section className="mb-10">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-extrabold text-gray-950">Help Guides & Articles</h2>
+          <section>
+            <div className="mb-8 flex items-center justify-between">
+              <h2 className="text-2xl font-black tracking-tight text-stone-950">
+                Help Guides & Articles
+              </h2>
               <button
                 onClick={() => setShowTicketForm(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-gray-950 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800"
+                className="inline-flex items-center gap-2 rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-stone-800"
               >
-                <MessageCircle className="h-4 w-4" /> Contact Support
+                <MessageCircle className="h-4 w-4" />
+                Contact Support
               </button>
             </div>
+
             {kbLoading ? (
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-5 sm:grid-cols-2">
                 {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="h-40 animate-pulse rounded-2xl border border-gray-200 bg-white" />
+                  <div key={i} className="h-48 animate-pulse rounded-3xl bg-white" />
                 ))}
               </div>
             ) : articles.length === 0 ? (
-              <div className="rounded-xl border border-gray-200 bg-white p-12 text-center shadow-sm">
-                <FileText className="mx-auto h-10 w-10 text-gray-400" />
-                <p className="mt-4 font-medium text-gray-700">No guides match your search.</p>
-                <p className="mt-1 text-sm text-gray-500">Browse the FAQ or create a support ticket.</p>
+              <div className="rounded-3xl border border-stone-200 bg-white p-16 text-center">
+                <FileText className="mx-auto h-12 w-12 text-stone-300" />
+                <p className="mt-5 text-lg font-semibold text-stone-700">No guides match your search</p>
+                <p className="mt-2 text-sm text-stone-500">Browse the FAQ or create a support ticket</p>
               </div>
             ) : (
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-5 sm:grid-cols-2">
                 {articles.map((article) => (
                   <button
                     key={article.id}
                     onClick={() => setSelectedSlug(article.slug)}
-                    className="group flex flex-col items-start rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm hover:border-red-300 hover:shadow-md transition-all"
+                    className="group flex flex-col items-start rounded-3xl border border-stone-200/80 bg-white p-6 text-left shadow-sm transition-all hover:-translate-y-1 hover:border-red-200 hover:shadow-xl hover:shadow-red-900/5"
                   >
                     {article.category && (
-                      <span className="mb-3 inline-block rounded-full bg-red-50 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-red-700">
+                      <span className="mb-4 inline-block rounded-full bg-red-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-700">
                         {formatCategory(article.category)}
                       </span>
                     )}
-                    <HelpCircle className="h-8 w-8 text-[#9f2f20]" />
-                    <h3 className="mt-4 text-lg font-bold text-gray-950 group-hover:text-[#9f2f20]">{article.title}</h3>
-                    <p className="mt-2 line-clamp-3 text-sm text-gray-600 leading-6">
-                      {article.excerpt || article.content.slice(0, 140)}...
+                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-[#9f2f20] transition group-hover:bg-[#9f2f20] group-hover:text-white">
+                      <BookOpen className="h-5 w-5" />
+                    </div>
+                    <h3 className="text-lg font-bold text-stone-900 group-hover:text-[#9f2f20]">
+                      {article.title}
+                    </h3>
+                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-stone-500">
+                      {article.excerpt || article.content.slice(0, 140)}…
                     </p>
-                    <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">
-                      <span className="inline-flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{article.views} views</span>
-                      <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{new Date(article.createdAt).toLocaleDateString()}</span>
+                    <div className="mt-5 flex items-center gap-4 text-xs text-stone-400">
+                      <span className="inline-flex items-center gap-1">
+                        <BookOpen className="h-3.5 w-3.5" />
+                        {article.views} views
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        {new Date(article.createdAt).toLocaleDateString()}
+                      </span>
                     </div>
                   </button>
                 ))}
@@ -580,173 +652,186 @@ const HelpCenterPage = () => {
           </section>
         )}
 
-        {/* Contact Summary */}
+        {/* ───────── CONTACT TAB ───────── */}
         {activeTab === 'contact' && (
-          <section className="mb-10 grid gap-6 lg:grid-cols-3">
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-1">
-              <h2 className="text-2xl font-extrabold text-gray-950">Reach Our Team</h2>
-              <p className="mt-2 text-sm text-gray-600">
-                Real humans, ready to help with orders, delivery, quality questions, and wholesale.
-              </p>
-              <div className="mt-6 space-y-4">
-                <a href={`tel:${brand.phone}`} className="flex items-start gap-3 rounded-xl bg-gray-50 p-4 hover:bg-red-50">
-                  <div className="rounded-xl bg-red-100 p-2"><Phone className="h-5 w-5 text-[#9f2f20]" /></div>
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-wide text-gray-500">Call</div>
-                    <div className="font-semibold text-gray-900">{brand.phone}</div>
+          <section className="space-y-8">
+            {/* Quick contact cards */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { icon: Phone, label: 'Call', value: brand.phone, href: `tel:${brand.phone}` },
+                { icon: Mail, label: 'Email', value: brand.email, href: brand.emailHref || `mailto:${brand.email}` },
+                { icon: MessageCircle, label: 'Form', value: 'Contact Form', href: '/contact' },
+                { icon: Users, label: 'Community', value: 'Customer Forum', href: '/forum' },
+              ].map((item) => {
+                const Icon = item.icon
+                const isInternal = item.href.startsWith('/')
+                const cardClass = "group flex flex-col items-start rounded-2xl border border-stone-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-red-200 hover:shadow-lg"
+                return isInternal ? (
+                  <Link key={item.label} to={item.href} className={cardClass}>
+                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-[#9f2f20] transition group-hover:bg-[#9f2f20] group-hover:text-white">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-stone-400">{item.label}</p>
+                    <p className="mt-1 text-sm font-semibold text-stone-900 break-all">{item.value}</p>
+                  </Link>
+                ) : (
+                  <a key={item.label} href={item.href} className={cardClass}>
+                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-[#9f2f20] transition group-hover:bg-[#9f2f20] group-hover:text-white">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-stone-400">{item.label}</p>
+                    <p className="mt-1 text-sm font-semibold text-stone-900 break-all">{item.value}</p>
+                  </a>
+                )
+              })}
+            </div>
+
+            {/* Guided Help Flow */}
+            <div className="rounded-3xl border border-stone-200/80 bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-[#9f2f20]">
+                    <GitBranch className="h-5 w-5" />
                   </div>
-                </a>
-                <a href={brand.emailHref || `mailto:${brand.email}`} className="flex items-start gap-3 rounded-xl bg-gray-50 p-4 hover:bg-red-50">
-                  <div className="rounded-xl bg-red-100 p-2"><Mail className="h-5 w-5 text-[#9f2f20]" /></div>
                   <div>
-                    <div className="text-xs font-bold uppercase tracking-wide text-gray-500">Email</div>
-                    <div className="font-semibold text-gray-900 break-all">{brand.email}</div>
+                    <h2 className="text-xl font-black text-stone-950">Guided Help Flow</h2>
+                    <p className="mt-1 text-sm text-stone-500">
+                      Answer one question at a time — we’ll guide you to the fastest solution.
+                    </p>
                   </div>
-                </a>
-                <Link to="/contact" className="flex items-start gap-3 rounded-xl bg-gray-50 p-4 hover:bg-red-50">
-                  <div className="rounded-xl bg-red-100 p-2"><MessageCircle className="h-5 w-5 text-[#9f2f20]" /></div>
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-wide text-gray-500">Form</div>
-                    <div className="font-semibold text-gray-900">Contact Form Page</div>
-                  </div>
-                </Link>
-                <Link to="/forum" className="flex items-start gap-3 rounded-xl bg-gray-50 p-4 hover:bg-red-50">
-                  <div className="rounded-xl bg-red-100 p-2"><Users className="h-5 w-5 text-[#9f2f20]" /></div>
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-wide text-gray-500">Community</div>
-                    <div className="font-semibold text-gray-900">Browse the customer forum</div>
-                  </div>
-                </Link>
+                </div>
+                <button
+                  type="button"
+                  onClick={resetDecisionTree}
+                  className="rounded-full border border-stone-200 px-3.5 py-1.5 text-xs font-semibold text-stone-600 hover:bg-stone-50"
+                >
+                  Restart
+                </button>
+              </div>
+
+              <div className="mt-6 rounded-2xl bg-stone-50 p-5 sm:p-6">
+                {decisionLoading ? (
+                  <p className="text-sm text-stone-500">Loading guided help…</p>
+                ) : decisionNode ? (
+                  <>
+                    <p className="text-xs font-bold uppercase tracking-wider text-stone-400">Current step</p>
+                    <h3 className="mt-2 text-lg font-bold text-stone-900 sm:text-xl">{decisionNode.question}</h3>
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                      {decisionNode.options.map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => handleDecisionOption(option)}
+                          className="rounded-2xl border border-stone-200 bg-white p-4 text-left transition hover:border-red-300 hover:bg-red-50/50"
+                        >
+                          <div className="font-semibold text-stone-900">{option.label}</div>
+                          {option.resolution && (
+                            <div className="mt-2 text-sm text-stone-500">{option.resolution}</div>
+                          )}
+                          {option.linkUrl && (
+                            <div className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-red-700">
+                              {option.linkLabel || 'Open help link'}
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    {decisionTrail.length > 0 && (
+                      <p className="mt-4 text-xs text-stone-400">
+                        Previous: {decisionTrail.join(' → ')}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-stone-500">No guided help flow has been published yet.</p>
+                )}
               </div>
             </div>
-            <div className="space-y-6 lg:col-span-2">
-              <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                <div className="flex items-start gap-3">
-                  <div className="rounded-xl bg-red-100 p-2"><GitBranch className="h-5 w-5 text-[#9f2f20]" /></div>
-                  <div className="flex-1">
-                    <h2 className="text-2xl font-extrabold text-gray-950">Guided Help Flow</h2>
-                    <p className="mt-2 text-sm text-gray-600">
-                      Answer one question at a time and we will guide you to the fastest next step.
-                    </p>
-                  </div>
+
+            {/* VIP Emergency Bypass */}
+            <div className="rounded-3xl border border-red-200 bg-gradient-to-br from-red-50 to-orange-50 p-6 shadow-sm sm:p-8">
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#9f2f20] shadow-sm">
+                  <ShieldAlert className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-stone-950">VIP Emergency Bypass</h2>
+                  <p className="mt-1 text-sm text-stone-600">
+                    Time-sensitive issue? Send an urgent request and our team can prioritize a manual workaround.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={submitVipBypass} className="mt-6 grid gap-4 sm:grid-cols-2">
+                <input
+                  value={vipForm.name}
+                  onChange={(e) => setVipForm({ ...vipForm, name: e.target.value })}
+                  placeholder="Your full name"
+                  className="rounded-xl border border-red-200/80 bg-white px-4 py-3 text-sm outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-500/10"
+                />
+                <input
+                  type="email"
+                  value={vipForm.email}
+                  onChange={(e) => setVipForm({ ...vipForm, email: e.target.value })}
+                  placeholder="Email address"
+                  className="rounded-xl border border-red-200/80 bg-white px-4 py-3 text-sm outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-500/10"
+                />
+                <input
+                  value={vipForm.orderRef}
+                  onChange={(e) => setVipForm({ ...vipForm, orderRef: e.target.value })}
+                  placeholder="Order number or reference"
+                  className="rounded-xl border border-red-200/80 bg-white px-4 py-3 text-sm outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-500/10 sm:col-span-2"
+                />
+                <textarea
+                  value={vipForm.issue}
+                  onChange={(e) => setVipForm({ ...vipForm, issue: e.target.value })}
+                  rows={3}
+                  placeholder="Describe the urgent issue..."
+                  className="rounded-xl border border-red-200/80 bg-white px-4 py-3 text-sm outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-500/10 sm:col-span-2"
+                />
+                <div className="sm:col-span-2 flex justify-end">
                   <button
-                    type="button"
-                    onClick={resetDecisionTree}
-                    className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                    type="submit"
+                    disabled={vipSubmitting}
+                    className="inline-flex items-center gap-2 rounded-full bg-[#9f2f20] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-900/20 transition hover:bg-[#842719] disabled:opacity-60"
                   >
-                    Restart
+                    <AlertCircle className="h-4 w-4" />
+                    {vipSubmitting ? 'Sending…' : 'Request emergency help'}
                   </button>
                 </div>
-                <div className="mt-5 rounded-2xl bg-gray-50 p-5">
-                  {decisionLoading ? (
-                    <p className="text-sm text-gray-500">Loading guided help…</p>
-                  ) : decisionNode ? (
-                    <>
-                      <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">Current step</p>
-                      <h3 className="mt-2 text-xl font-bold text-gray-950">{decisionNode.question}</h3>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        {decisionNode.options.map((option) => (
-                          <button
-                            key={option.id}
-                            type="button"
-                            onClick={() => handleDecisionOption(option)}
-                            className="rounded-2xl border border-gray-200 bg-white p-4 text-left hover:border-red-300 hover:bg-red-50"
-                          >
-                            <div className="font-semibold text-gray-900">{option.label}</div>
-                            {option.resolution && <div className="mt-2 text-sm text-gray-600">{option.resolution}</div>}
-                            {option.linkUrl && (
-                              <div className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-red-700">
-                                {option.linkLabel || 'Open help link'} <ExternalLink className="h-4 w-4" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                      {decisionTrail.length > 0 && (
-                        <p className="mt-4 text-xs text-gray-400">Previous steps: {decisionTrail.join(' / ')}</p>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-sm text-gray-500">No guided help flow has been published yet.</p>
-                  )}
-                </div>
-              </div>
+              </form>
+            </div>
 
-              <div className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-sm">
-                <div className="flex items-start gap-3">
-                  <div className="rounded-xl bg-white p-2"><ShieldAlert className="h-5 w-5 text-[#9f2f20]" /></div>
-                  <div>
-                    <h2 className="text-2xl font-extrabold text-gray-950">VIP Emergency Bypass</h2>
-                    <p className="mt-2 text-sm text-gray-700">
-                      Paying customer with a time-sensitive issue? Send an urgent request and the support team can prioritize a manual workaround.
-                    </p>
-                  </div>
-                </div>
-                <form onSubmit={submitVipBypass} className="mt-5 grid gap-4 md:grid-cols-2">
-                  <input
-                    value={vipForm.name}
-                    onChange={(e) => setVipForm({ ...vipForm, name: e.target.value })}
-                    placeholder="Your full name"
-                    className="rounded-xl border border-red-200 bg-white px-4 py-3 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500"
-                  />
-                  <input
-                    type="email"
-                    value={vipForm.email}
-                    onChange={(e) => setVipForm({ ...vipForm, email: e.target.value })}
-                    placeholder="Email address"
-                    className="rounded-xl border border-red-200 bg-white px-4 py-3 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500"
-                  />
-                  <input
-                    value={vipForm.orderRef}
-                    onChange={(e) => setVipForm({ ...vipForm, orderRef: e.target.value })}
-                    placeholder="Order number or reference"
-                    className="rounded-xl border border-red-200 bg-white px-4 py-3 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 md:col-span-2"
-                  />
-                  <textarea
-                    value={vipForm.issue}
-                    onChange={(e) => setVipForm({ ...vipForm, issue: e.target.value })}
-                    rows={4}
-                    placeholder="Describe the urgent issue and why you need a manual workaround"
-                    className="rounded-xl border border-red-200 bg-white px-4 py-3 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 md:col-span-2"
-                  />
-                  <div className="md:col-span-2 flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={vipSubmitting}
-                      className="inline-flex items-center gap-2 rounded-xl bg-[#9f2f20] px-6 py-3 text-sm font-bold text-white hover:bg-[#842719] disabled:opacity-60"
-                    >
-                      <AlertCircle className="h-4 w-4" />
-                      {vipSubmitting ? 'Sending urgent request…' : 'Request emergency help'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            {/* Create Ticket */}
+            <div className="rounded-3xl border border-stone-200/80 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-extrabold text-gray-950">Create a Support Ticket</h2>
-                  <p className="mt-2 text-sm text-gray-600">
-                    Share the details so our team can respond with the right information. You can track responses in your account.
+                  <h2 className="text-xl font-black text-stone-950">Create a Support Ticket</h2>
+                  <p className="mt-1 text-sm text-stone-500">
+                    Share the details so our team can respond with the right information.
                   </p>
                 </div>
                 {!user && (
                   <Link
                     to="/login"
-                    className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                    className="rounded-full border border-stone-200 px-3.5 py-1.5 text-xs font-semibold text-stone-600 hover:bg-stone-50"
                   >
                     Sign in first
                   </Link>
                 )}
               </div>
+
               <form onSubmit={submitTicket} className="mt-6 space-y-5">
-                <div className="grid gap-5 md:grid-cols-2">
+                <div className="grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">Category</label>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-stone-500">
+                      Category
+                    </label>
                     <select
                       value={ticketForm.category}
                       onChange={(e) => setTicketForm({ ...ticketForm, category: e.target.value })}
-                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-red-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-4 py-3 text-sm outline-none transition focus:border-red-500 focus:bg-white focus:ring-4 focus:ring-red-500/10"
                     >
                       {TICKET_CATEGORIES.map((c) => (
                         <option key={c} value={c}>{formatCategory(c)}</option>
@@ -754,11 +839,13 @@ const HelpCenterPage = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">Priority</label>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-stone-500">
+                      Priority
+                    </label>
                     <select
                       value={ticketForm.priority}
                       onChange={(e) => setTicketForm({ ...ticketForm, priority: e.target.value as any })}
-                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-red-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-4 py-3 text-sm outline-none transition focus:border-red-500 focus:bg-white focus:ring-4 focus:ring-red-500/10"
                     >
                       <option value="LOW">Low — General Question</option>
                       <option value="MEDIUM">Medium — Needs Response</option>
@@ -768,35 +855,42 @@ const HelpCenterPage = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">Subject</label>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-stone-500">
+                    Subject
+                  </label>
                   <input
                     type="text"
                     value={ticketForm.subject}
                     onChange={(e) => setTicketForm({ ...ticketForm, subject: e.target.value })}
                     required
-                    placeholder="Brief summary, e.g. “My order has not arrived yet”"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-red-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                    placeholder="Brief summary of your issue"
+                    className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-4 py-3 text-sm outline-none transition focus:border-red-500 focus:bg-white focus:ring-4 focus:ring-red-500/10"
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">Message</label>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-stone-500">
+                    Message
+                  </label>
                   <textarea
                     value={ticketForm.message}
                     onChange={(e) => setTicketForm({ ...ticketForm, message: e.target.value })}
                     required
-                    rows={6}
-                    placeholder="Include order number (if applicable), delivery details, and any relevant notes..."
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-red-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                    rows={5}
+                    placeholder="Include order number, delivery details, and any relevant notes..."
+                    className="w-full resize-none rounded-xl border border-stone-200 bg-stone-50/60 px-4 py-3 text-sm outline-none transition focus:border-red-500 focus:bg-white focus:ring-4 focus:ring-red-500/10"
                   />
                 </div>
                 <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
-                  <Link to="/contact" className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50">
+                  <Link
+                    to="/contact"
+                    className="rounded-full border border-stone-200 px-5 py-3 text-center text-sm font-semibold text-stone-700 hover:bg-stone-50"
+                  >
                     Open Contact Form
                   </Link>
                   <button
                     type="submit"
                     disabled={submitting || !user}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#9f2f20] px-6 py-3 text-sm font-bold text-white hover:bg-[#842719] disabled:opacity-60"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#9f2f20] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-900/20 transition hover:bg-[#842719] disabled:opacity-60"
                   >
                     <Send className="h-4 w-4" />
                     {submitting ? 'Sending…' : user ? 'Submit Ticket' : 'Sign in to Submit'}
@@ -804,39 +898,39 @@ const HelpCenterPage = () => {
                 </div>
               </form>
             </div>
-            </div>
           </section>
         )}
 
-        {/* Contact Support CTA (for FAQ/KB tabs) */}
+        {/* Still Need Help CTA (FAQ / KB) */}
         {activeTab !== 'contact' && (
-          <section className="rounded-2xl border border-gray-200 bg-white p-6 sm:p-8 shadow-sm">
-            <div className="flex flex-col items-start justify-between gap-5 md:flex-row md:items-center">
+          <section className="mt-14 rounded-3xl border border-stone-200/80 bg-white p-8 shadow-sm">
+            <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
               <div>
-                <h2 className="text-2xl font-extrabold text-gray-950">Still Need Help?</h2>
-                <p className="mt-2 text-gray-700 max-w-2xl">
-                  Cannot find what you're looking for? Our support team will get back to you with a tailored response.
+                <h2 className="text-2xl font-black tracking-tight text-stone-950">Still need help?</h2>
+                <p className="mt-2 max-w-lg text-stone-500">
+                  Can’t find what you’re looking for? Our support team is ready to assist.
                 </p>
               </div>
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex flex-wrap gap-3">
                 <Link
                   to="/contact"
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#9f2f20] px-6 py-3 font-bold text-white hover:bg-[#842719]"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#9f2f20] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-red-900/20 transition hover:bg-[#842719]"
                 >
-                  <MessageCircle className="h-4 w-4" /> Contact Form
+                  <MessageCircle className="h-4 w-4" />
+                  Contact Form
                 </Link>
                 <button
                   onClick={() => setShowTicketForm(true)}
-                  className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-6 py-3 font-bold text-gray-900 hover:bg-gray-50"
+                  className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-5 py-3 text-sm font-semibold text-stone-800 transition hover:bg-stone-50"
                 >
-                  Send Feedback
+                  Create Ticket
                 </button>
                 <a
                   href={`tel:${brand.phone}`}
-                  className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-6 py-3 font-bold text-gray-900 hover:bg-gray-50"
+                  className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-5 py-3 text-sm font-semibold text-stone-800 transition hover:bg-stone-50"
                 >
                   <Phone className="h-4 w-4" />
-                  Call {brand.phone}
+                  Call
                 </a>
               </div>
             </div>
@@ -844,32 +938,34 @@ const HelpCenterPage = () => {
         )}
       </main>
 
-      {/* Ticket form modal */}
+      {/* Ticket Modal */}
       {showTicketForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
-          <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-100 bg-gray-950 px-6 py-5 text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8 backdrop-blur-sm">
+          <div className="w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between bg-[#1a1b1e] px-6 py-5 text-white">
               <div>
-                <h3 className="text-xl font-extrabold">Create Support Ticket</h3>
-                <p className="text-sm text-gray-300 mt-0.5">
-                  {user ? 'Your ticket will be linked to your account.' : 'Sign in first to create a ticket.'}
+                <h3 className="text-lg font-bold">Create Support Ticket</h3>
+                <p className="mt-0.5 text-sm text-white/60">
+                  {user ? 'Linked to your account' : 'Sign in required to submit'}
                 </p>
               </div>
               <button
                 onClick={() => setShowTicketForm(false)}
-                className="rounded-lg p-2 text-gray-300 hover:bg-white/10 hover:text-white"
+                className="rounded-full p-2 text-white/60 transition hover:bg-white/10 hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <form onSubmit={submitTicket} className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
-              <div className="grid gap-5 md:grid-cols-2">
+            <form onSubmit={submitTicket} className="max-h-[70vh] space-y-5 overflow-y-auto p-6">
+              <div className="grid gap-5 sm:grid-cols-2">
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">Category</label>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-stone-500">
+                    Category
+                  </label>
                   <select
                     value={ticketForm.category}
                     onChange={(e) => setTicketForm({ ...ticketForm, category: e.target.value })}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-red-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-4 py-3 text-sm outline-none focus:border-red-500 focus:bg-white focus:ring-4 focus:ring-red-500/10"
                   >
                     {TICKET_CATEGORIES.map((c) => (
                       <option key={c} value={c}>{formatCategory(c)}</option>
@@ -877,11 +973,13 @@ const HelpCenterPage = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">Priority</label>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-stone-500">
+                    Priority
+                  </label>
                   <select
                     value={ticketForm.priority}
                     onChange={(e) => setTicketForm({ ...ticketForm, priority: e.target.value as any })}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-red-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-4 py-3 text-sm outline-none focus:border-red-500 focus:bg-white focus:ring-4 focus:ring-red-500/10"
                   >
                     <option value="LOW">Low</option>
                     <option value="MEDIUM">Medium</option>
@@ -891,37 +989,41 @@ const HelpCenterPage = () => {
                 </div>
               </div>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">Subject</label>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-stone-500">
+                  Subject
+                </label>
                 <input
                   type="text"
                   value={ticketForm.subject}
                   onChange={(e) => setTicketForm({ ...ticketForm, subject: e.target.value })}
                   required
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-red-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-4 py-3 text-sm outline-none focus:border-red-500 focus:bg-white focus:ring-4 focus:ring-red-500/10"
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">Message</label>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-stone-500">
+                  Message
+                </label>
                 <textarea
                   value={ticketForm.message}
                   onChange={(e) => setTicketForm({ ...ticketForm, message: e.target.value })}
                   required
-                  rows={6}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-red-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                  rows={5}
+                  className="w-full resize-none rounded-xl border border-stone-200 bg-stone-50/60 px-4 py-3 text-sm outline-none focus:border-red-500 focus:bg-white focus:ring-4 focus:ring-red-500/10"
                 />
               </div>
-              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={() => setShowTicketForm(false)}
-                  className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50"
+                  className="rounded-full border border-stone-200 px-5 py-3 text-sm font-semibold text-stone-700 hover:bg-stone-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || !user}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#9f2f20] px-6 py-3 text-sm font-bold text-white hover:bg-[#842719] disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#9f2f20] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-900/20 transition hover:bg-[#842719] disabled:opacity-60"
                 >
                   <Send className="h-4 w-4" />
                   {submitting ? 'Sending…' : user ? 'Submit Ticket' : 'Sign in Required'}

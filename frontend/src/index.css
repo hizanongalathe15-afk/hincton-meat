@@ -263,3 +263,261 @@
   .auth-card { background: rgba(25, 23, 23, .94) !important; }
   .auth-card > div > div:last-child { background: transparent; }
 }
+
+/* ─── Glassmorphism System ───────────────────────────────────────────── */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(18px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.45) !important;
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.10), inset 0 1px 0 rgba(255,255,255,0.9) !important;
+}
+
+.glass-dark {
+  background: rgba(17, 16, 15, 0.78) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+}
+
+.glass-nav {
+  background: rgba(255, 255, 255, 0.80) !important;
+  backdrop-filter: blur(24px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.35) !important;
+  box-shadow: 0 2px 20px rgba(15, 23, 42, 0.06) !important;
+}
+
+.glass-glow-border {
+  border: 1px solid rgba(255, 255, 255, 0.30);
+  box-shadow: 0 0 0 1px rgba(var(--site-primary, 220,38,38), 0.15), 0 8px 32px rgba(15,23,42,0.10);
+}
+
+/* ─── Smartwatch & Tiny Device Breakpoints ───────────────────────────── */
+
+/* 241px–360px: very small phones & entry-level devices */
+@media (max-width: 360px) {
+  body {
+    min-width: 200px;
+    font-size: 14px;
+  }
+
+  /* Bottom navigation pill instead of top nav */
+  .nav-bottom-pill-trigger { display: flex !important; }
+  .nav-top-bar-desktop { display: none !important; }
+
+  /* Compressed headings */
+  .text-3xl { font-size: 1.35rem; line-height: 1.75rem; }
+  .text-4xl { font-size: 1.55rem; line-height: 1.95rem; }
+  .text-5xl, .text-6xl { font-size: 1.7rem; line-height: 2rem; }
+
+  /* Tighter spacing */
+  .px-6 { padding-left: 0.75rem; padding-right: 0.75rem; }
+  .px-8 { padding-left: 1rem; padding-right: 1rem; }
+  .gap-6 { gap: 0.75rem; }
+  .gap-8 { gap: 1rem; }
+
+  /* Horizontal scroll for card grids → single column */
+  .product-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* 200px–240px: smartwatch / ultra-compact (e.g. Galaxy Watch) */
+@media (max-width: 240px) {
+  body {
+    min-width: 180px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  /* Hide anything non-essential */
+  .hero-orbit-card,
+  .hero-ring,
+  .hero-glow,
+  footer,
+  .site-footer,
+  .antigravity-canvas,
+  .whatsapp-fab,
+  .newsletter-popup,
+  [data-hide-watch="true"] {
+    display: none !important;
+  }
+
+  /* Hero: super minimal */
+  .hero-orbit {
+    min-height: 180px !important;
+    padding: 1.5rem 0.75rem !important;
+  }
+
+  /* Navigation: icon-only strip at bottom */
+  nav, header {
+    position: fixed !important;
+    bottom: 0 !important;
+    top: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-around !important;
+    z-index: 9000 !important;
+    padding: 0 4px !important;
+    background: rgba(17,16,15,0.92) !important;
+    backdrop-filter: blur(16px) !important;
+  }
+
+  nav a span, nav button span { display: none !important; }
+  nav a svg, nav button svg { width: 18px !important; height: 18px !important; }
+
+  /* Product cards: super minimal */
+  .glass-panel.rounded-3xl {
+    border-radius: 0.65rem !important;
+    padding: 0 !important;
+  }
+
+  /* Product grid: 2 columns even on watch */
+  .product-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 4px !important;
+  }
+
+  /* Buttons: full width, short text */
+  button, .btn {
+    min-height: 36px !important;
+    font-size: 11px !important;
+    padding: 0.3rem 0.5rem !important;
+  }
+
+  /* Modals: full screen */
+  [role="dialog"], .modal {
+    inset: 0 !important;
+    border-radius: 0 !important;
+    max-height: 100dvh !important;
+    overflow-y: auto !important;
+  }
+
+  /* Hide decorative blur elements */
+  .blur-3xl, .blur-2xl { filter: none !important; display: none !important; }
+
+  /* Images: contained */
+  img { object-fit: cover; }
+
+  /* Page bottom padding for fixed nav */
+  #root { padding-bottom: 48px !important; }
+}
+
+/* Touch devices — disable 3D tilt (handled in JS too, belt-and-suspenders) */
+@media (pointer: coarse) {
+  .glass-panel { transform: none !important; }
+}
+
+/* ─── WhatsApp FAB spacing (doesn't overlap back-to-top orb) ─────────── */
+.whatsapp-fab {
+  position: fixed;
+  bottom: 5.5rem;
+  right: 1.5rem;
+  z-index: 49;
+}
+
+@media (max-width: 240px) {
+  .whatsapp-fab { display: none !important; }
+}
+
+/* ─── Ultra Luxury Glassmorphic Design System ─── */
+:root {
+  --laser-color: #22c55e;
+  --site-laser-color: #22c55e;
+  --site-glass-tint: rgba(255, 255, 255, 0.7);
+  --site-glass-border: rgba(255, 255, 255, 0.4);
+}
+
+.glass-card-ultra {
+  background: var(--site-glass-tint, rgba(255, 255, 255, 0.75));
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--site-glass-border, rgba(255, 255, 255, 0.4));
+  box-shadow: 0 20px 45px -15px rgba(0, 0, 0, 0.08), 0 0 1px 1px rgba(255, 255, 255, 0.5) inset;
+}
+
+.dark .glass-card-ultra,
+[data-theme='dark'] .glass-card-ultra {
+  background: rgba(18, 18, 22, 0.75);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 45px -15px rgba(0, 0, 0, 0.45), 0 0 1px 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+/* ─── Dynamic QR Scanner Laser Beam ─── */
+@keyframes laserSweep {
+  0% {
+    top: 5%;
+    opacity: 0.85;
+  }
+  50% {
+    top: 92%;
+    opacity: 1;
+  }
+  100% {
+    top: 5%;
+    opacity: 0.85;
+  }
+}
+
+.laser-scanner-beam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--laser-color, var(--site-laser-color, #22c55e));
+  box-shadow:
+    0 0 15px 3px var(--laser-color, var(--site-laser-color, #22c55e)),
+    0 0 35px 8px var(--laser-color, var(--site-laser-color, #22c55e)),
+    0 0 70px 18px var(--laser-color, var(--site-laser-color, #22c55e));
+  animation: laserSweep 2.2s ease-in-out infinite;
+  border-radius: 9999px;
+  z-index: 30;
+}
+
+/* ─── Authentication Meshed Box Success State ─── */
+.meshed-success-box {
+  background-color: #0b1510;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(34, 197, 94, 0.35) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.3) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(6, 78, 59, 0.4) 0px, transparent 60%),
+    linear-gradient(rgba(34, 197, 94, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 197, 94, 0.12) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 20px 20px, 20px 20px;
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  box-shadow: 0 0 40px rgba(34, 197, 94, 0.25), 0 0 80px rgba(16, 185, 129, 0.15) inset;
+}
+
+/* ─── Layout Engine Grid & PiP Helpers ─── */
+.split-layout-grid-dual {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .split-layout-grid-dual {
+    grid-template-columns: 1fr;
+  }
+}
+
+.split-layout-grid-quad {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 900px) {
+  .split-layout-grid-quad {
+    grid-template-columns: 1fr;
+  }
+}
+
+

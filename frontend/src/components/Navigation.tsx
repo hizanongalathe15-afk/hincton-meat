@@ -34,7 +34,7 @@ const Navigation = () => {
   const [isAppDownloadOpen, setIsAppDownloadOpen] = useState(false)
   const profileDropdownRef = useRef<HTMLDivElement>(null)
   const isAdmin = String(user?.role || '').toLowerCase() === 'admin'
-  const homePath = user ? (isAdmin ? '/admin/dashboard' : '/profile') : '/'
+  const homePath = '/'
   const API_HOST = getApiHost()
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>, searchTerm: string) => {

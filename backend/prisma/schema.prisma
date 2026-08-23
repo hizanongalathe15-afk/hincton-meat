@@ -73,6 +73,7 @@ model User {
   forumThreads           ForumThread[]
   forumReplies           ForumReply[]
   vipBypassRequests      VipBypassRequest[]
+  photoReviews           PhotoReview[]
 
   @@index([email])
   @@index([phone])
@@ -1306,6 +1307,108 @@ model ReviewImage {
 
   @@index([reviewId])
   @@map("review_images")
+}
+
+model PhotoReview {
+  id             String            @id @default(cuid())
+  userId         String?
+  guestSessionId String?
+  authorName     String
+  location       String?
+  rating         Int               @default(5)
+  cutPurchased   String
+  dishPrepared   String
+  cookingTip     String?
+  photoUrl       String
+  verifiedBuyer  Boolean           @default(false)
+  isFeatured     Boolean           @default(false)
+  status         String            @default("APPROVED")
+  likesCount     Int               @default(0)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deletedAt      DateTime?
+  user           User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  likes          PhotoReviewLike[]
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([userId])
+  @@map("photo_reviews")
+}
+
+model PhotoReviewLike {
+  id            String      @id @default(cuid())
+  photoReviewId String
+  voterKey      String
+  createdAt     DateTime    @default(now())
+  photoReview   PhotoReview @relation(fields: [photoReviewId], references: [id], onDelete: Cascade)
+
+  @@unique([photoReviewId, voterKey])
+  @@map("photo_review_likes")
+}
+
+model MeatCutCategory {
+  id        String           @id @default(cuid())
+  key       String           @unique
+  label     String
+  title     String
+  subtitle  String
+  sortOrder Int              @default(0)
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  cuts      MeatCutGuideCut[]
+
+  @@map("meat_cut_categories")
+}
+
+model MeatCutGuideCut {
+  id              String          @id @default(cuid())
+  categoryId      String
+  name            String
+  localName       String?
+  bestFor         String
+  cookingMethod   String
+  recommendedTemp String
+  flavorProfile   String
+  priceApprox     Float
+  unit            String          @default("per kg")
+  image           String
+  tips            String
+  categorySlug    String
+  sortOrder       Int             @default(0)
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  category        MeatCutCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId, sortOrder])
+  @@map("meat_cut_guide_cuts")
+}
+
+model Recipe {
+  id             String   @id @default(cuid())
+  title          String
+  subtitle       String
+  prepTime       String
+  cookTime       String
+  servings       String
+  difficulty     String   @default("Easy")
+  tags           Json     @default("[]")
+  ingredients    Json     @default("[]")
+  instructions   Json     @default("[]")
+  cutName        String
+  cutCategory    String
+  cutPrice       Float
+  cutWeight      String
+  cutImage       String
+  productId      String?
+  sortOrder      Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("recipes")
 }
 
 model Cart {
@@ -2920,5 +3023,86 @@ model PageSnapshot {
 
   @@index([pageKey])
   @@map("page_snapshots")
+}
+
+// ============================================================================
+// CAREERS / JOB POSTINGS
+// ============================================================================
+
+model JobPosting {
+  id              String           @id @default(cuid())
+  title           String
+  department      String
+  location        String
+  type            String           // FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP
+  description     String           @db.Text
+  requirements    String           @db.Text
+  salaryRange     String?
+  deadline        DateTime?
+  maxSpots        Int              @default(1)
+  googleFormUrl   String?
+  status          String           @default("OPEN") // OPEN, CLOSED, PAUSED
+  applications    JobApplication[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([status])
+  @@index([department])
+  @@index([createdAt])
+  @@map("job_postings")
+}
+
+model JobApplication {
+  id          String     @id @default(cuid())
+  jobId       String
+  job         JobPosting @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  name        String
+  email       String
+  phone       String
+  coverLetter String?    @db.Text
+  cvUrl       String?
+  status      String     @default("NEW") // NEW, REVIEWED, SHORTLISTED, INTERVIEW, HIRED, REJECTED
+  notes       String?    @db.Text
+  metadata    Json?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([jobId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("job_applications")
+}
+
+// ============================================================================
+// GIFT CARDS
+// ============================================================================
+
+model GiftCard {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  amount         Float
+  balance        Float
+  currency       String    @default("KES")
+  senderName     String
+  senderEmail    String?
+  recipientName  String
+  recipientEmail String?
+  recipientPhone String?
+  message        String?   @db.Text
+  occasion       String?   // WEDDING, EID, BIRTHDAY, CHRISTMAS, THANK_YOU, FUNERAL
+  template       String?
+  deliveryMethod String    @default("EMAIL") // EMAIL, WHATSAPP, PRINT
+  status         String    @default("ACTIVE") // ACTIVE, REDEEMED, EXPIRED
+  expiresAt      DateTime?
+  purchasedBy    String?
+  redeemedBy     String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([code])
+  @@index([status])
+  @@index([recipientEmail])
+  @@index([createdAt])
+  @@map("gift_cards")
 }
 

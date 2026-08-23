@@ -658,5 +658,31 @@
   "shop.highestRated": "Kiwango Cha Juu Zaidi",
   "shop.newestFirst": "Mpya Zaidi Kwanza",
   "shop.nameAZ": "Jina: A-Z",
-  "shop.nameZA": "Jina: Z-A"
+  "shop.nameZA": "Jina: Z-A",
+
+  "careers.hiring": "Tunaaajiri",
+  "careers.heroTitle": "Jiunge na Familia ya Hincton Meat",
+  "careers.heroSubtitle": "Jenga kazi yako na kampuni bora ya nyama ya Kenya. Tunatafuta watu wenye shauku kujiunga na timu yetu inayokua.",
+  "careers.applyNow": "Omba Sasa",
+  "careers.allDepartments": "Idara Zote",
+  "careers.noOpenPositions": "Hakuna nafasi wazi kwa sasa. Rudi tena baadaye!",
+  "careers.spotsLeft": "Nafasi {count} zimebaki",
+  "careers.spotsUnavailable": "Nafasi Hazipatikani",
+  "careers.applicationDeadline": "Tarehe ya mwisho ya maombi",
+  "careers.submitApplication": "Tuma Maombi",
+  "careers.applicationSubmitted": "Maombi Yametumwa!",
+  "careers.applicationSubmittedMsg": "Tutapitia maombi yako na kukujibu hivi karibuni.",
+
+  "giftCards.title": "Kadi za Zawadi",
+  "giftCards.subtitle": "Tuma kadi ya zawada ya Hincton Meat kwa mtu maalum",
+  "giftCards.chooseOccasion": "Chagua Tukio",
+  "giftCards.selectAmount": "Chagua Kiasi",
+  "giftCards.personalMessage": "Ujumbe wa Kibinafsi",
+  "giftCards.deliveryMethod": "Njia ya Uwasilishaji",
+  "giftCards.previewCard": "Hakiki Kadi",
+  "giftCards.purchase": "Nunua",
+  "giftCards.cardCreated": "Kadi ya Zawadi Imeundwa!",
+  "giftCards.shareWhatsApp": "Shiriki kupitia WhatsApp",
+  "giftCards.shareEmail": "Shiriki kupitia Barua pepe",
+  "giftCards.copyCode": "Nakili Msimbo"
 }
