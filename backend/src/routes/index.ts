@@ -42,6 +42,8 @@ import flashSaleRoutes from './flashSales'
 import dealBannerRoutes from './dealBanners'
 import supportRoutes from './support'
 import communityRoutes from './community'
+import systemOpsRoutes from './systemOps'
+import { authenticate, authorize } from '../middleware/auth'
 
 const router = Router()
 
@@ -70,6 +72,7 @@ router.use('/api', communityRoutes)
 router.use('/api/admin', adminRoutes)
 router.use('/api/admin/dashboard', adminDashboardRoutes)
 router.use('/api/admin/content', contentRoutes)
+router.use('/api/admin/system', authenticate, authorize('ADMIN'), systemOpsRoutes)
 router.use('/api/deliveries', deliveryRoutes)
 router.use('/api/messages', messageCatalogRoutes)
 router.use('/api/ads', adRoutes)

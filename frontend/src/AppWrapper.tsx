@@ -1,6 +1,7 @@
 import { CartProvider } from './contexts/CartContext'
 import { WishlistProvider } from './contexts/WishlistContext'
 import { AuthProvider } from './contexts/AuthContext'
+import PictureInPictureProvider from './components/PictureInPictureProvider'
 import App from './App'
 
 const AppWrapper = () => {
@@ -8,7 +9,9 @@ const AppWrapper = () => {
     <AuthProvider>
       <CartProvider>
         <WishlistProvider>
-          <App />
+          <PictureInPictureProvider>
+            <App />
+          </PictureInPictureProvider>
         </WishlistProvider>
       </CartProvider>
     </AuthProvider>

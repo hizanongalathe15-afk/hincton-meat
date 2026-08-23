@@ -30,6 +30,7 @@ const GiftCardsPage = () => {
   const [createdCard, setCreatedCard] = useState<any>(null)
 
   const finalAmount = customAmount ? Number(customAmount) : amount
+  const selectedOccasion = OCCASIONS.find((o) => o.id === occasion)
   const SelectedOccasionIcon = selectedOccasion?.icon || Gift
 
   const handlePurchase = async () => {
@@ -76,8 +77,6 @@ const GiftCardsPage = () => {
       toast.success(`Share link ready!`)
     } catch { toast.error('Failed to generate share link') }
   }
-
-  const selectedOccasion = OCCASIONS.find((o) => o.id === occasion)
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950">

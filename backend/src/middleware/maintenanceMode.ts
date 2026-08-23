@@ -46,6 +46,7 @@ const PUBLIC_PATHS = new Set([
   '/api/content/site-profile',
   '/api/content/site-theme',
   '/api/content/maintenance-status',
+  '/api/content/maintenance-notify',
 ])
 
 export function maintenanceModeMiddleware(req: any, res: any, next: any) {

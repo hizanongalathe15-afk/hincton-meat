@@ -25,6 +25,9 @@ apiClient.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  if (localStorage.getItem('hincton_dev_verbose_logs') === 'true') {
+    console.info('[admin-api]', (config.method || 'get').toUpperCase(), config.url)
+  }
   return config
 })
 
@@ -306,6 +309,61 @@ export const contentApi = {
     const response = await apiClient.post('/admin/content/uploads', data, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: UPLOAD_TIMEOUT_MS })
     return response.data
   }
+}
+
+// System Operations API (maintenance, backups, updates)
+const OPS_TOKEN_KEY = 'admin_ops_token'
+const OPS_TOKEN_EXPIRES_KEY = 'admin_ops_token_expires_at'
+
+export const opsTokenStore = {
+  get: (): string | null => {
+    const token = sessionStorage.getItem(OPS_TOKEN_KEY)
+    const expiresAt = Number(sessionStorage.getItem(OPS_TOKEN_EXPIRES_KEY) || 0)
+    if (!token || !expiresAt || Date.now() > expiresAt) {
+      sessionStorage.removeItem(OPS_TOKEN_KEY)
+      sessionStorage.removeItem(OPS_TOKEN_EXPIRES_KEY)
+      return null
+    }
+    return token
+  },
+  set: (token: string, expiresInSeconds: number) => {
+    sessionStorage.setItem(OPS_TOKEN_KEY, token)
+    sessionStorage.setItem(OPS_TOKEN_EXPIRES_KEY, String(Date.now() + expiresInSeconds * 1000 - 30000))
+  },
+  clear: () => {
+    sessionStorage.removeItem(OPS_TOKEN_KEY)
+    sessionStorage.removeItem(OPS_TOKEN_EXPIRES_KEY)
+  },
+}
+
+export const systemOpsApi = {
+  verifyAdminKey: async (adminKey: string) => {
+    const response = await apiClient.post('/admin/system/verify-admin-key', { adminKey })
+    return response.data as { opsToken: string; expiresIn: number }
+  },
+
+  getInfo: async () => {
+    const response = await apiClient.get('/admin/system/info')
+    return response.data
+  },
+
+  checkUpdates: async () => {
+    const token = opsTokenStore.get()
+    const response = await apiClient.post('/admin/system/updates/check', {}, { headers: token ? { 'x-ops-token': token } : {} })
+    return response.data
+  },
+
+  downloadBackup: async () => {
+    const token = opsTokenStore.get()
+    const response = await apiClient.get('/admin/system/backup', { responseType: 'blob', headers: token ? { 'x-ops-token': token } : {} })
+    return response.data as Blob
+  },
+
+  restoreBackup: async (backup: any) => {
+    const token = opsTokenStore.get()
+    const response = await apiClient.post('/admin/system/restore', { backup }, { headers: token ? { 'x-ops-token': token } : {} })
+    return response.data
+  },
 }
 
 // Settings API

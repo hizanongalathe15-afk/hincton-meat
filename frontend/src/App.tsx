@@ -31,6 +31,7 @@ import InventoryPage from './admin/InventoryPage'
 import SettingsPage from './admin/SettingsPage'
 import CommunicationsPage from './admin/CommunicationsPage'
 import ContentPage from './admin/ContentPage'
+import AdminMaintenancePage from './admin/AdminMaintenancePage'
 import QRCodeManager from './admin/QRCodeManager'
 import SystemMetrics from './admin/SystemMetrics'
 import AdManagement from './admin/AdManagement'
@@ -276,6 +277,7 @@ function App() {
             <Route path="communications" element={<CommunicationsPage />} />
             <Route path="qr-codes" element={<QRCodeManager />} />
             <Route path="content" element={<ContentPage />} />
+            <Route path="maintenance" element={<AdminMaintenancePage />} />
             <Route path="support" element={<AdminSupportPage />} />
             <Route path="support-analytics" element={<SupportAnalyticsPage />} />
             <Route path="faqs" element={<AdminFaqsPage />} />

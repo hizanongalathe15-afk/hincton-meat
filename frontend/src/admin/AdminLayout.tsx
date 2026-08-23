@@ -37,7 +37,8 @@ import {
   FolderTree,
   ChefHat,
   Beef,
-  Camera
+  Camera,
+  Wrench
 } from 'lucide-react'
 import { useAdminSearch } from '../hooks/useAdminSearch'
 import { useConfirmationDialog } from '../hooks/useConfirmationDialog'
@@ -112,6 +113,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { path: '/admin/knowledge-base', icon: BookOpen, label: 'Knowledge Base' },
     { path: '/admin/qr-codes', icon: QrCode, label: t('admin.qrCodes') },
     { path: '/admin/content', icon: FileText, label: t('admin.content') },
+    { path: '/admin/maintenance', icon: Wrench, label: 'Maintenance' },
     { path: '/admin/recipes', icon: ChefHat, label: "Butcher's Recipes" },
     { path: '/admin/meat-guide', icon: Beef, label: "Meat Cuts Guide" },
     { path: '/admin/photo-reviews', icon: Camera, label: 'Customer Creations' },

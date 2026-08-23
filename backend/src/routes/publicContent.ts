@@ -282,6 +282,32 @@ router.get('/maintenance-status', async (_req, res) => {
   }
 })
 
+router.post('/maintenance-notify', async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+      return res.status(400).json({ error: 'Please provide a valid email address' })
+    }
+    const setting = await prisma.systemSetting.findUnique({ where: { key: 'maintenance_notify_signups' } })
+    const signups = setting ? parseJsonValue<Array<{ email: string; at: string }>>(setting.value, []) : []
+    const list = Array.isArray(signups) ? signups : []
+    if (list.some((entry) => entry?.email === email)) {
+      return res.json({ success: true, alreadySubscribed: true, message: 'You are already on the list. We will email you when we are back.' })
+    }
+    list.push({ email, at: new Date().toISOString() })
+    const trimmed = list.slice(-5000)
+    if (setting) {
+      await prisma.systemSetting.update({ where: { key: 'maintenance_notify_signups' }, data: { value: JSON.stringify(trimmed) } })
+    } else {
+      await prisma.systemSetting.create({ data: { key: 'maintenance_notify_signups', value: JSON.stringify(trimmed), type: 'json', group: 'maintenance', description: 'Emails collected from the maintenance page notify-me form' } })
+    }
+    res.json({ success: true, message: 'Thanks! We will email you as soon as the site is back.' })
+  } catch (error) {
+    console.error('Maintenance notify signup error:', error)
+    res.status(500).json({ error: 'Could not save your signup. Please try again.' })
+  }
+})
+
 router.get('/web-profile', async (_req, res) => {
   try {
     const [setting, products, categories, featuredProducts, inStockProducts] = await Promise.all([

@@ -43,7 +43,7 @@ const ContentPage = () => {
   const [blogPosts, setBlogPosts] = useState<any[]>([])
   const [blogDraft, setBlogDraft] = useState({ title: '', excerpt: '', content: '', featuredImage: '', category: 'Updates', tags: '', isPublished: true, isFeatured: false })
   const [seoKeywordDraft, setSeoKeywordDraft] = useState('')
-  const pageKeys = ['about', 'farms', 'provenance', 'sustainability', 'contact', 'careers', 'wellness', 'returns', 'maintenance', 'downloadThankYou', 'blog'] as const
+  const pageKeys = ['about', 'farms', 'provenance', 'sustainability', 'contact', 'careers', 'wellness', 'returns', 'downloadThankYou', 'blog'] as const
   const pageLabels: Record<typeof pageKeys[number], string> = {
     about: 'About Us',
     farms: 'Farms',
@@ -53,7 +53,6 @@ const ContentPage = () => {
     careers: 'Careers',
     wellness: 'Wellness',
     returns: 'Returns',
-    maintenance: 'Maintenance Page',
     downloadThankYou: 'Download Thank You',
     blog: 'Blog',
   }
@@ -929,184 +928,6 @@ const ContentPage = () => {
         </div>
       </section>
 
-      <section className="rounded border-2 border-amber-400 bg-amber-50 p-6 shadow-sm">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
-              <Shield className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-amber-900">Maintenance Mode</h2>
-              <p className="mt-1 text-sm text-amber-700">Control how visitors see maintenance. Choose a display mode and customize every word.</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <label className="flex items-start gap-3 rounded border border-amber-300 bg-white p-3">
-            <input
-              type="checkbox"
-              checked={Boolean(profile.featureToggles.maintenanceMode)}
-              onChange={(event) => updateFeatureToggle('maintenanceMode', event.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-            />
-            <div className="flex-1">
-              <span className="text-sm font-bold text-amber-900">Enable Maintenance Mode</span>
-              <p className="mt-0.5 text-xs text-amber-700">When ON, visitors see the maintenance display you configure below.</p>
-            </div>
-          </label>
-          <label className="flex items-start gap-3 rounded border border-amber-300 bg-white p-3">
-            <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
-              <span className="h-2 w-2 rounded-full bg-amber-400" />
-            </div>
-            <div className="flex-1">
-              <span className="text-sm font-medium text-amber-900">Secret Backdoor Key</span>
-              <input
-                type="text"
-                value={String(profile.featureToggles.maintenanceSecretKey || '')}
-                onChange={(event) => updateFeatureToggle('maintenanceSecretKey', event.target.value)}
-                placeholder="e.g. hincton2026secret"
-                className="mt-1 w-full rounded border border-amber-300 px-3 py-2 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
-              />
-              <p className="mt-0.5 text-xs text-amber-600">Append <code className="rounded bg-amber-100 px-1">?maintenance_key=THIS_VALUE</code> to bypass maintenance.</p>
-            </div>
-          </label>
-        </div>
-
-        <div className="mt-5 rounded border border-amber-300 bg-white p-4">
-          <span className="text-sm font-bold text-amber-900">Display Mode</span>
-          <p className="mt-1 text-xs text-amber-700">Choose how maintenance is shown to visitors.</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            {[
-              { value: 'full', label: 'Full Page', desc: 'Blocks all access. Visitors see a full-screen maintenance page.' },
-              { value: 'banner', label: 'Top Banner', desc: 'Site works normally. A thin amber bar warns visitors at the top.' },
-              { value: 'popup', label: 'Glass Popup', desc: 'Site works normally. A frosted-glass modal pops up once.' },
-            ].map((mode) => (
-              <label
-                key={mode.value}
-                className={`cursor-pointer rounded-lg border p-3 transition ${
-                  profile.featureToggles.maintenanceDisplayMode === mode.value
-                    ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-500'
-                    : 'border-gray-200 bg-gray-50 hover:border-amber-300'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="maintenanceDisplayMode"
-                  value={mode.value}
-                  checked={profile.featureToggles.maintenanceDisplayMode === mode.value}
-                  onChange={(event) => updateFeatureToggle('maintenanceDisplayMode', event.target.value)}
-                  className="sr-only"
-                />
-                <span className="text-sm font-bold text-gray-900">{mode.label}</span>
-                <p className="mt-1 text-xs text-gray-600">{mode.desc}</p>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-5 space-y-4 rounded border border-amber-300 bg-white p-4">
-          <span className="text-sm font-bold text-amber-900">Full Page Content</span>
-          <p className="text-xs text-amber-700">Customize what visitors see on the full maintenance page.</p>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="block">
-              <span className="text-xs font-medium text-gray-700">Headline</span>
-              <input
-                type="text"
-                value={String(profile.featureToggles.maintenanceHeadline || '')}
-                onChange={(event) => updateFeatureToggle('maintenanceHeadline', event.target.value)}
-                placeholder="We'll Be Right Back!"
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-gray-700">Estimated Downtime</span>
-              <input
-                type="text"
-                value={String(profile.featureToggles.maintenanceEstimatedTime || '')}
-                onChange={(event) => updateFeatureToggle('maintenanceEstimatedTime', event.target.value)}
-                placeholder="~15 minutes"
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
-              />
-            </label>
-          </div>
-          <label className="block">
-            <span className="text-xs font-medium text-gray-700">Main Message</span>
-            <textarea
-              value={String(profile.featureToggles.maintenanceMessage || '')}
-              onChange={(event) => updateFeatureToggle('maintenanceMessage', event.target.value)}
-              placeholder="We're currently making some exciting upgrades..."
-              rows={3}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
-            />
-          </label>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="block">
-              <span className="text-xs font-medium text-gray-700">Contact Email</span>
-              <input
-                type="email"
-                value={String(profile.featureToggles.maintenanceContactEmail || '')}
-                onChange={(event) => updateFeatureToggle('maintenanceContactEmail', event.target.value)}
-                placeholder="support@hincton.com"
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-gray-700">Contact Phone</span>
-              <input
-                type="tel"
-                value={String(profile.featureToggles.maintenanceContactPhone || '')}
-                onChange={(event) => updateFeatureToggle('maintenanceContactPhone', event.target.value)}
-                placeholder="0712-345-678"
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
-              />
-            </label>
-          </div>
-        </div>
-
-        <div className="mt-5 space-y-4 rounded border border-amber-300 bg-white p-4">
-          <span className="text-sm font-bold text-amber-900">Banner Content</span>
-          <p className="text-xs text-amber-700">Text shown in the top banner when mode is "Top Banner".</p>
-          <label className="block">
-            <span className="text-xs font-medium text-gray-700">Banner Text</span>
-            <input
-              type="text"
-              value={String(profile.featureToggles.maintenanceBannerText || '')}
-              onChange={(event) => updateFeatureToggle('maintenanceBannerText', event.target.value)}
-              placeholder="We're making improvements. Some features may be temporarily unavailable."
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
-            />
-          </label>
-        </div>
-
-        <div className="mt-5 space-y-4 rounded border border-amber-300 bg-white p-4">
-          <span className="text-sm font-bold text-amber-900">Popup Content</span>
-          <p className="text-xs text-amber-700">Content shown in the glassmorphism popup when mode is "Glass Popup".</p>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="block">
-              <span className="text-xs font-medium text-gray-700">Popup Title</span>
-              <input
-                type="text"
-                value={String(profile.featureToggles.maintenancePopupTitle || '')}
-                onChange={(event) => updateFeatureToggle('maintenancePopupTitle', event.target.value)}
-                placeholder="Quick Maintenance"
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
-              />
-            </label>
-          </div>
-          <label className="block">
-            <span className="text-xs font-medium text-gray-700">Popup Message</span>
-            <textarea
-              value={String(profile.featureToggles.maintenancePopupMessage || '')}
-              onChange={(event) => updateFeatureToggle('maintenancePopupMessage', event.target.value)}
-              placeholder="We're making a quick fix. This feature will be back shortly."
-              rows={2}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
-            />
-          </label>
-        </div>
-      </section>
-
       <section className="rounded bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -1593,7 +1414,7 @@ const ContentPage = () => {
 
       <section className="rounded bg-white p-6 shadow-sm">
         <h2 className="text-lg font-bold text-gray-950">Editable Public Pages</h2>
-        <p className="mt-1 text-sm text-gray-600">Edit copy, images, videos, and sections for About, Farms, Sustainability, Contact, Careers, Blog, Wellness, Returns, Maintenance, and Download Thank You.</p>
+        <p className="mt-1 text-sm text-gray-600">Edit copy, images, videos, and sections for About, Farms, Sustainability, Contact, Careers, Blog, Wellness, Returns, and Download Thank You.</p>
         <div className="mt-5 space-y-6">
           {pageKeys.map((key) => {
             const page = profile.pages[key] || defaultSiteProfile.pages[key]

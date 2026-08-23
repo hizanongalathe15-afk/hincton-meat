@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Wrench, Clock, Mail, Phone, RefreshCw, ArrowRight } from 'lucide-react'
+import { Wrench, Clock, Mail, Phone, RefreshCw, ArrowRight, Bell, Timer, Loader2, CheckCircle2 } from 'lucide-react'
 
 type MaintenanceData = {
   enabled: boolean
@@ -10,34 +10,73 @@ type MaintenanceData = {
   contactPhone: string
 }
 
+const CHECK_INTERVAL_SECONDS = 15
+
 const MaintenancePage = () => {
   const [data, setData] = useState<MaintenanceData | null>(null)
   const [checking, setChecking] = useState(false)
+  const [nextCheckIn, setNextCheckIn] = useState(CHECK_INTERVAL_SECONDS)
+  const [notifyEmail, setNotifyEmail] = useState('')
+  const [notifyState, setNotifyState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
+  const [notifyMessage, setNotifyMessage] = useState('')
 
   useEffect(() => {
-    fetch('/api/content/maintenance-status')
-      .then((res) => res.json())
-      .then(setData)
-      .catch(() => null)
-  }, [])
-
-  useEffect(() => {
-    const interval = setInterval(async () => {
+    let active = true
+    const checkStatus = async () => {
       try {
         const res = await fetch('/api/content/maintenance-status')
+        if (!active) return
         if (res.ok) {
           const status = await res.json()
           if (!status.enabled) {
-            clearInterval(interval)
             window.location.href = '/'
+            return
           }
+          setData((prev) => prev ?? status)
         }
+        setChecking(false)
       } catch {
-        setChecking(true)
+        if (active) setChecking(true)
       }
-    }, 15_000)
-    return () => clearInterval(interval)
+    }
+    checkStatus()
+    const interval = setInterval(() => {
+      setNextCheckIn(CHECK_INTERVAL_SECONDS)
+      checkStatus()
+    }, CHECK_INTERVAL_SECONDS * 1000)
+    return () => {
+      active = false
+      clearInterval(interval)
+    }
   }, [])
+
+  useEffect(() => {
+    const countdown = setInterval(() => {
+      setNextCheckIn((prev) => (prev > 1 ? prev - 1 : CHECK_INTERVAL_SECONDS))
+    }, 1000)
+    return () => clearInterval(countdown)
+  }, [])
+
+  const handleNotify = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!notifyEmail.trim() || notifyState === 'submitting') return
+    setNotifyState('submitting')
+    try {
+      const res = await fetch('/api/content/maintenance-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: notifyEmail.trim() }),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Could not sign you up right now.')
+      setNotifyState('success')
+      setNotifyMessage(result.message || 'Thanks! We will email you as soon as the site is back.')
+      setNotifyEmail('')
+    } catch (err) {
+      setNotifyState('error')
+      setNotifyMessage(err instanceof Error ? err.message : 'Could not sign you up right now.')
+    }
+  }
 
   const headline = data?.headline || "We'll Be Right Back!"
   const message = data?.message || "We're upgrading our systems to serve you better."
@@ -76,6 +115,46 @@ const MaintenancePage = () => {
             </div>
           )}
 
+          <div className="mt-8 rounded-xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
+            <p className="flex items-center justify-center gap-2 text-sm font-semibold text-gray-200">
+              <Bell className="h-4 w-4 text-amber-400" />
+              Get notified when we're back
+            </p>
+            {notifyState === 'success' ? (
+              <p className="mt-3 flex items-center justify-center gap-2 text-center text-sm text-emerald-400">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                {notifyMessage}
+              </p>
+            ) : (
+              <>
+                <form onSubmit={handleNotify} className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    type="email"
+                    required
+                    value={notifyEmail}
+                    onChange={(e) => {
+                      setNotifyEmail(e.target.value)
+                      if (notifyState === 'error') setNotifyState('idle')
+                    }}
+                    placeholder="you@example.com"
+                    className="w-full flex-1 rounded-full border border-white/10 bg-gray-950/60 px-5 py-2.5 text-sm text-white placeholder-gray-500 focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={notifyState === 'submitting' || !notifyEmail.trim()}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-amber-500 px-6 py-2.5 text-sm font-semibold text-gray-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {notifyState === 'submitting' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                    Notify Me
+                  </button>
+                </form>
+                {notifyState === 'error' && (
+                  <p className="mt-2 text-center text-xs text-red-400">{notifyMessage}</p>
+                )}
+              </>
+            )}
+          </div>
+
           <div className="mt-8 flex justify-center">
             <button
               type="button"
@@ -108,11 +187,12 @@ const MaintenancePage = () => {
           )}
         </div>
 
-        {checking && (
-          <p className="mt-6 text-center text-xs text-gray-600">
-            Still working on it — this page auto-refreshes every 15 seconds.
-          </p>
-        )}
+        <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-gray-600">
+          <Timer className="h-3.5 w-3.5" />
+          {checking
+            ? `Still working on it — next check in ${nextCheckIn}s`
+            : `This page checks automatically every ${CHECK_INTERVAL_SECONDS} seconds (next in ${nextCheckIn}s)`}
+        </p>
 
         <div className="mt-6 flex justify-center">
           <a
