@@ -62,6 +62,7 @@ model User {
   socialAccounts         SocialAccount[]
   subscription           Subscription?           @relation("UserSubscription")
   supportTickets         SupportTicket[]
+  supportTicketResponses SupportTicketResponse[]
   profile                UserProfile?
   security               UserSecurity?
   userSessions           UserSession[]
@@ -1711,6 +1712,7 @@ model SupportTicketResponse {
   attachments Json?
   createdAt   DateTime      @default(now())
   ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id])
 
   @@index([ticketId])
   @@index([userId])

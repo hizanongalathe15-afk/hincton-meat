@@ -63,7 +63,7 @@ if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process
 }
 
 const app = express();
-app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false);
+app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : Boolean(process.env.RENDER || process.env.RAILWAY_ENV || process.env.FLY_APP_NAME || process.env.VERCEL));
 app.set('query parser', 'simple');
 
 let io: Server | null = null;
@@ -135,8 +135,10 @@ prisma.$connect()
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: Number(process.env.API_RATE_LIMIT_MAX || 300),
+  standardHeaders: true,
+  legacyHeaders: false,
   skip: (req) => {
-    return req.method === 'OPTIONS';
+    return req.method === 'OPTIONS' || req.path.startsWith('/socket.io');
   }
 });
 
@@ -166,9 +168,9 @@ app.use(helmet({
   hsts: process.env.NODE_ENV === 'production' ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
 }));
 app.use(compression({ threshold: 1024 }));
-app.use(limiter);
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+app.use(limiter);
 app.use((req, res, next) => {
   const requestId = req.header('X-Request-Id') || crypto.randomUUID();
   res.setHeader('X-Request-Id', requestId);
