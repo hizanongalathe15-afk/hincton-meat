@@ -427,7 +427,7 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
 
   if (!isOpen) {
     return (
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+      <div className="fixed bottom-6 left-6 z-50 flex flex-col items-start gap-3">
         {whatsappHref && (
           <a
             href={whatsappHref}
@@ -459,7 +459,7 @@ const LiveChatWidget = ({ isOpen: initialIsOpen = false, onToggle }: LiveChatWid
   }
 
   return (
-    <div className={`fixed bottom-6 right-6 rounded-lg shadow-2xl z-50 transition-all duration-300 overflow-hidden ${
+    <div className={`fixed bottom-6 left-6 rounded-lg shadow-2xl z-50 transition-all duration-300 overflow-hidden ${
       isMinimized ? 'w-80 h-16' : 'w-96 h-[600px]'
     }`} style={{ background: pal.bg }}>
       <div className="p-4 rounded-t-lg flex items-center justify-between" style={{ background: pal.panel, color: pal.text }}>
