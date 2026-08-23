@@ -520,4 +520,44 @@
   }
 }
 
+@keyframes maint-float {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -18px, 0) scale(1.05); }
+}
+
+@keyframes maint-glow {
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.15); }
+}
+
+@keyframes maint-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes maint-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.maint-float { animation: maint-float 7s ease-in-out infinite; }
+.maint-float-slow { animation: maint-float 11s ease-in-out infinite; }
+.maint-glow { animation: maint-glow 3.2s ease-in-out infinite; }
+.maint-spin-slow { animation: maint-spin 16s linear infinite; }
+
+.maint-shimmer {
+  background-size: 200% 100%;
+  animation: maint-shimmer 2.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .maint-float,
+  .maint-float-slow,
+  .maint-glow,
+  .maint-spin-slow,
+  .maint-shimmer {
+    animation: none;
+  }
+}
+
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Shield, Wrench, Lock, Unlock, RefreshCw, Download, UploadCloud, AlertTriangle, Save, Server, DatabaseBackup, Bug, CheckCircle2, Loader2 } from 'lucide-react'
+import { Shield, Wrench, Lock, Unlock, RefreshCw, Download, UploadCloud, AlertTriangle, Save, Server, DatabaseBackup, Bug, CheckCircle2, Loader2, Key, Wand2 } from 'lucide-react'
 import { contentApi, systemOpsApi, opsTokenStore } from '../services/adminApi'
 import { defaultSiteProfile, SiteProfile, useSiteContent } from '../contexts/SiteContentContext'
 
@@ -42,6 +42,9 @@ const AdminMaintenancePage = () => {
   const [updateResult, setUpdateResult] = useState<any>(null)
   const [restoring, setRestoring] = useState(false)
   const [devOptions, setDevOptions] = useState<DevOptions>(loadDevOptions)
+  const [keyDraft, setKeyDraft] = useState('')
+  const [keyConfirm, setKeyConfirm] = useState('')
+  const [keySaving, setKeySaving] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -75,6 +78,36 @@ const AdminMaintenancePage = () => {
 
   const updateFeatureToggle = (key: string, value: boolean | number | string) => {
     setProfile((current) => ({ ...current, featureToggles: { ...current.featureToggles, [key]: value } }))
+  }
+
+  const generateSecretKey = () => {
+    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789'
+    const bytes = new Uint8Array(16)
+    crypto.getRandomValues(bytes)
+    const generated = Array.from(bytes).map((byte) => chars[byte % chars.length]).join('')
+    setKeyDraft(generated)
+    setKeyConfirm(generated)
+  }
+
+  const saveSecretKey = async () => {
+    const key = keyDraft.trim()
+    if (key.length < 8) return toast.error('Secret key must be at least 8 characters')
+    if (key !== keyConfirm.trim()) return toast.error('Secret keys do not match')
+    setKeySaving(true)
+    try {
+      const updated: SiteProfile = {
+        ...profile,
+        featureToggles: { ...profile.featureToggles, maintenanceSecretKey: key },
+      }
+      await contentApi.updateSiteProfile(updated)
+      setProfile(updated)
+      await refresh()
+      toast.success('Secret key saved. You can now control maintenance mode.')
+    } catch {
+      toast.error('Could not save secret key')
+    } finally {
+      setKeySaving(false)
+    }
   }
 
   const unlock = async () => {
@@ -240,6 +273,67 @@ const AdminMaintenancePage = () => {
 
   if (loading) {
     return <div className="p-10 text-center text-sm text-gray-500">Loading maintenance console…</div>
+  }
+
+  if (!String(profile.featureToggles.maintenanceSecretKey || '').trim()) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center p-6">
+        <div className="w-full max-w-lg rounded-2xl border border-amber-200 bg-white p-8 shadow-lg">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+            <Key className="h-7 w-7" />
+          </div>
+          <h2 className="mt-5 text-center text-xl font-bold text-gray-950">Create your maintenance secret key</h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            First time here? Create a secret key before using maintenance mode. It is saved securely in our database and lets you open the site with
+            <code className="mx-1 rounded bg-amber-100 px-1">?maintenance_key=YOUR_KEY</code>
+            while visitors see the maintenance page.
+          </p>
+          <div className="mt-6 space-y-4">
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">New secret key</span>
+              <input
+                type="text"
+                value={keyDraft}
+                onChange={(event) => setKeyDraft(event.target.value)}
+                placeholder="At least 8 characters"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-3 font-mono text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">Confirm secret key</span>
+              <input
+                type="text"
+                value={keyConfirm}
+                onChange={(event) => setKeyConfirm(event.target.value)}
+                placeholder="Type the same key again"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-3 font-mono text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
+              />
+            </label>
+            {keyDraft && keyConfirm && keyDraft.trim() !== keyConfirm.trim() && (
+              <p className="text-xs font-medium text-red-600">The two keys do not match yet.</p>
+            )}
+          </div>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={generateSecretKey}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-amber-500 px-4 py-3 text-sm font-semibold text-amber-700 transition hover:bg-amber-50"
+            >
+              <Wand2 className="h-4 w-4" /> Generate for me
+            </button>
+            <button
+              type="button"
+              onClick={saveSecretKey}
+              disabled={keySaving || !keyDraft.trim() || !keyConfirm.trim()}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-500 disabled:opacity-60"
+            >
+              {keySaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save Secret Key
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

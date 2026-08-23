@@ -1,3 +1,4 @@
+import jwt from 'jsonwebtoken'
 import { prisma } from '../config/prisma'
 
 const safeJsonParse = (value: string | undefined, fallback: any) => {
@@ -49,6 +50,23 @@ const PUBLIC_PATHS = new Set([
   '/api/content/maintenance-notify',
 ])
 
+const isAdminRequest = (req: any): boolean => {
+  try {
+    const header = String(req?.header?.('Authorization') || req?.headers?.authorization || '')
+    const token = header.replace('Bearer ', '').trim()
+    if (!token) return false
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as {
+      role?: string
+      roles?: string[]
+    }
+    const roles = (decoded.roles || []).map((role) => String(role).toUpperCase())
+    if (roles.includes('ADMIN') || roles.includes('SUPER_ADMIN')) return true
+    return String(decoded.role || '').toLowerCase() === 'admin'
+  } catch {
+    return false
+  }
+}
+
 export function maintenanceModeMiddleware(req: any, res: any, next: any) {
   getMaintenanceState().then(({ enabled, secretKey, displayMode }) => {
     if (!enabled) return next()
@@ -56,6 +74,8 @@ export function maintenanceModeMiddleware(req: any, res: any, next: any) {
     if (secretKey && req.query.maintenance_key === secretKey) {
       return next()
     }
+
+    if (isAdminRequest(req)) return next()
 
     if (PUBLIC_PATHS.has(req.path)) return next()
 
