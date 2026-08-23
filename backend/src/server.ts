@@ -111,7 +111,9 @@ if (!process.env.VERCEL) {
   server = createServer(app);
   io = new Server(server, {
     cors: {
-      origin: allowedOrigins,
+      origin: (origin, callback) => {
+        callback(null, !origin || allowedOrigins.includes(origin) || isKnownPreviewOrigin(origin));
+      },
       methods: ["GET", "POST"],
       credentials: true,
     }
