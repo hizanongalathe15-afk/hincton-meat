@@ -12,7 +12,7 @@
     "postinstall": "node scripts/render-backend-build.js",
     "start": "npm --prefix backend start",
     "build": "npm --prefix backend run render-build",
-    "render-build": "npm --prefix backend run render-build",
+    "render-build": "npm --prefix backend ci --include=dev && npm --prefix backend run render-build",
     "db:push": "npm --prefix backend run db:push"
   },
   "resolutions": {
@@ -22,7 +22,5 @@
   "dependencies": {
     "serverless-http": "^3.0.0"
   },
-  "devDependencies": {
-    "@esbuild/win32-x64": "^0.28.2"
-  }
+  "devDependencies": {}
 }
