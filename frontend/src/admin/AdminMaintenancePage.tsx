@@ -373,7 +373,10 @@ const AdminMaintenancePage = () => {
             <input
               type="checkbox"
               checked={Boolean(profile.featureToggles.maintenanceMode)}
-              onChange={(event) => updateFeatureToggle('maintenanceMode', event.target.checked)}
+              onChange={(event) => {
+                updateFeatureToggle('maintenanceMode', event.target.checked)
+                if (event.target.checked) updateFeatureToggle('maintenanceStartedAt', new Date().toISOString())
+              }}
               className="mt-0.5 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
             />
             <div className="flex-1">
@@ -381,6 +384,25 @@ const AdminMaintenancePage = () => {
               <p className="mt-0.5 text-xs text-amber-700">When ON, visitors see the maintenance display you configure below.</p>
             </div>
           </label>
+          <label className="flex items-start gap-3 rounded border border-amber-300 bg-white p-3">
+            <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+              <span className="h-2 w-2 rounded-full bg-amber-400" />
+            </div>
+            <div className="flex-1">
+              <span className="text-sm font-medium text-amber-900">Auto-deactivate after (minutes)</span>
+              <input
+                type="number"
+                min={0}
+                value={Number(profile.featureToggles.maintenanceAutoOffMinutes ?? 30)}
+                onChange={(event) => updateFeatureToggle('maintenanceAutoOffMinutes', Math.max(0, Number(event.target.value) || 0))}
+                className="mt-1 w-full rounded border border-amber-300 px-3 py-2 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
+              />
+              <p className="mt-0.5 text-xs text-amber-600">Safety timer: maintenance turns itself off after this time (default 30). Set 0 to keep it on until you switch it off manually.</p>
+            </div>
+          </label>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="flex items-start gap-3 rounded border border-amber-300 bg-white p-3">
             <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
               <span className="h-2 w-2 rounded-full bg-amber-400" />

@@ -19,6 +19,36 @@ let cachedMaintenanceState: MaintenanceState = {
   lastChecked: 0,
 }
 const CACHE_TTL = 15_000
+const DEFAULT_AUTO_OFF_MINUTES = 30
+
+export const isMaintenanceExpired = (toggles: any): boolean => {
+  if (!toggles?.maintenanceMode) return false
+  const autoOffMinutes = Number(toggles.maintenanceAutoOffMinutes ?? DEFAULT_AUTO_OFF_MINUTES)
+  if (!Number.isFinite(autoOffMinutes) || autoOffMinutes <= 0) return false
+  const startedAt = Date.parse(String(toggles.maintenanceStartedAt || ''))
+  if (Number.isNaN(startedAt)) return true
+  return Date.now() > startedAt + autoOffMinutes * 60_000
+}
+
+let autoOffPersisting = false
+async function persistMaintenanceAutoOff() {
+  if (autoOffPersisting) return
+  autoOffPersisting = true
+  try {
+    const setting = await prisma.systemSetting.findUnique({ where: { key: 'site_profile' } })
+    const profile = safeJsonParse(setting?.value, {})
+    if (profile?.featureToggles?.maintenanceMode) {
+      profile.featureToggles.maintenanceMode = false
+      await prisma.systemSetting.update({
+        where: { key: 'site_profile' },
+        data: { value: JSON.stringify(profile) },
+      })
+    }
+  } catch {
+  } finally {
+    autoOffPersisting = false
+  }
+}
 
 async function getMaintenanceState(): Promise<MaintenanceState> {
   const now = Date.now()
@@ -28,9 +58,12 @@ async function getMaintenanceState(): Promise<MaintenanceState> {
   try {
     const setting = await prisma.systemSetting.findUnique({ where: { key: 'site_profile' } })
     const profile = safeJsonParse(setting?.value, null)
-    const enabled = Boolean(profile?.featureToggles?.maintenanceMode)
-    const secretKey = String(profile?.featureToggles?.maintenanceSecretKey || '')
-    const displayMode = String(profile?.featureToggles?.maintenanceDisplayMode || 'full')
+    const toggles = profile?.featureToggles || {}
+    const expired = isMaintenanceExpired(toggles)
+    const enabled = Boolean(toggles.maintenanceMode) && !expired
+    const secretKey = String(toggles.maintenanceSecretKey || '')
+    const displayMode = String(toggles.maintenanceDisplayMode || 'full')
+    if (expired) persistMaintenanceAutoOff()
     cachedMaintenanceState = { enabled, secretKey, displayMode, lastChecked: now }
     return cachedMaintenanceState
   } catch {

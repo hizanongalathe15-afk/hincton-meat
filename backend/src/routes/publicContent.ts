@@ -5,6 +5,7 @@ import path from 'path'
 import fs from 'fs'
 import { z } from 'zod'
 import { DEFAULT_SITE_THEME, mergeTheme } from '../constants/siteAppearance'
+import { isMaintenanceExpired } from '../middleware/maintenanceMode'
 
 const router = express.Router()
 
@@ -264,7 +265,7 @@ router.get('/maintenance-status', async (_req, res) => {
     const setting = await prisma.systemSetting.findUnique({ where: { key: 'site_profile' } })
     const profile = setting ? parseJsonValue(setting.value, defaultSiteProfile) : defaultSiteProfile
     const toggles = (profile.featureToggles || {}) as Record<string, any>
-    const enabled = Boolean(toggles.maintenanceMode)
+    const enabled = Boolean(toggles.maintenanceMode) && !isMaintenanceExpired(toggles)
     res.json({
       enabled,
       displayMode: toggles.maintenanceDisplayMode || 'full',

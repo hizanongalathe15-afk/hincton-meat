@@ -153,6 +153,8 @@ export const defaultSiteProfile: SiteProfile = {
     maintenanceMode: false,
     maintenanceSecretKey: '',
     maintenanceDisplayMode: 'full',
+    maintenanceAutoOffMinutes: 30,
+    maintenanceStartedAt: '',
     maintenanceHeadline: "We'll Be Right Back!",
     maintenanceMessage: "We're currently making some exciting upgrades to improve your shopping experience. Our team is working hard to get things back online.",
     maintenanceEstimatedTime: '~15 minutes',
