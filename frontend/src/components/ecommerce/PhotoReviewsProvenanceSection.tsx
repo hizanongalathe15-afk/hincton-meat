@@ -48,11 +48,11 @@ const cardVariants = {
   visible: { opacity: 1, y: 0, scale: 1 },
 }
 
-export const PhotoReviewsProvenanceSection: React.FC = () => {
+export const PhotoReviewsProvenanceSection: React.FC<{ preloadedReviews?: any[] | null }> = ({ preloadedReviews }) => {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<'reviews' | 'provenance'>('reviews')
-  const [reviews, setReviews] = useState<PhotoReview[]>([])
-  const [loading, setLoading] = useState(true)
+  const [reviews, setReviews] = useState<PhotoReview[]>(preloadedReviews || [])
+  const [loading, setLoading] = useState(!preloadedReviews)
   const [modalOpen, setModalOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [reviewDish, setReviewDish] = useState('')
@@ -77,8 +77,14 @@ export const PhotoReviewsProvenanceSection: React.FC = () => {
   }, [])
 
   useEffect(() => {
+    // Skip fetch if we already have preloaded data
+    if (preloadedReviews) {
+      setReviews(preloadedReviews)
+      setLoading(false)
+      return
+    }
     loadReviews()
-  }, [loadReviews])
+  }, [loadReviews, preloadedReviews])
 
   useEffect(() => {
     return () => {

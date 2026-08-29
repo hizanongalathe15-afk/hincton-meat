@@ -30,13 +30,30 @@ interface GuideCategory {
   cuts: CutInfo[]
 }
 
-export const MeatCutsGuide: React.FC = () => {
-  const [categories, setCategories] = useState<GuideCategory[]>([])
-  const [loading, setLoading] = useState(true)
-  const [activeCategoryKey, setActiveCategoryKey] = useState<string | null>(null)
-  const [selectedCutId, setSelectedCutId] = useState<string | null>(null)
+export const MeatCutsGuide: React.FC<{ preloadedCategories?: any[] | null }> = ({ preloadedCategories }) => {
+  const [categories, setCategories] = useState<GuideCategory[]>(preloadedCategories || [])
+  const [loading, setLoading] = useState(!preloadedCategories)
+  const [activeCategoryKey, setActiveCategoryKey] = useState<string | null>(
+    preloadedCategories && preloadedCategories.length > 0 ? preloadedCategories[0].key : null
+  )
+  const [selectedCutId, setSelectedCutId] = useState<string | null>(
+    preloadedCategories && preloadedCategories.length > 0 ? preloadedCategories[0].cuts?.[0]?.id ?? null : null
+  )
 
   useEffect(() => {
+    // Skip fetch if we already have preloaded data
+    if (preloadedCategories && preloadedCategories.length > 0) {
+      setCategories(preloadedCategories)
+      setActiveCategoryKey(preloadedCategories[0].key)
+      setSelectedCutId(preloadedCategories[0].cuts?.[0]?.id ?? null)
+      setLoading(false)
+      return
+    }
+    if (preloadedCategories) {
+      // Preloaded but empty
+      setLoading(false)
+      return
+    }
     meatGuideApi
       .getGuide()
       .then((data) => {
@@ -51,7 +68,7 @@ export const MeatCutsGuide: React.FC = () => {
         toast.error('Could not load the meat cuts guide')
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [preloadedCategories])
 
   const currentCategory = categories.find((c) => c.key === activeCategoryKey) || categories[0]
   const currentCut =

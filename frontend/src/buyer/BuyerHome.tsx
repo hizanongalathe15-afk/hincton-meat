@@ -11,7 +11,7 @@ import SplitLayoutContainer from '../components/Layout/SplitLayoutContainer'
 import SmartwatchCompactView from '../components/Layout/SmartwatchCompactView'
 import { useLayoutSplit } from '../contexts/LayoutSplitContext'
 import { Product } from '../types/index'
-import { productsApi as api, trackingApi } from '../services/buyerApi'
+import { productsApi as api, trackingApi, photoReviewsApi, meatGuideApi } from '../services/buyerApi'
 import { resolveMediaUrl } from '../services/api'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useSiteContent } from '../contexts/SiteContentContext'
@@ -95,6 +95,8 @@ const BuyerHome = ({
   const reduceMotion = useReducedMotion()
   const topProductScrollerRef = useRef<HTMLDivElement>(null)
   const bottomProductScrollerRef = useRef<HTMLDivElement>(null)
+  const [preloadedReviews, setPreloadedReviews] = useState<any[] | null>(null)
+  const [preloadedGuideCategories, setPreloadedGuideCategories] = useState<any[] | null>(null)
 
   const localizedFallbackCategories = useMemo(
     () =>
@@ -113,10 +115,12 @@ const BuyerHome = ({
     const fetchData = async () => {
       try {
         // Fetch featured products and all products with retry safety
-        const [productsData, allProductsData, categoriesData] = await Promise.all([
+        const [productsData, allProductsData, categoriesData, reviewsData, guideData] = await Promise.all([
           api.getFeaturedProducts().catch(() => ({ products: [] })),
           api.getProducts({ limit: 12 }).catch(() => ({ products: [] })),
           api.getCategories().catch(() => ({ categories: [] })),
+          photoReviewsApi.list(12).catch(() => ({ reviews: [] })),
+          meatGuideApi.getGuide().catch(() => ({ categories: [] })),
         ])
 
         if (cancelled) return
@@ -168,6 +172,10 @@ const BuyerHome = ({
         }))
         
         setCategories(transformedCategories.length ? transformedCategories : localizedFallbackCategories)
+
+        // Preload photo reviews & meat guide so those sections render instantly
+        setPreloadedReviews(reviewsData.reviews || [])
+        setPreloadedGuideCategories(guideData.categories || [])
       } catch (error) {
         // Retain default products & fallback categories gracefully
         setCategories(localizedFallbackCategories)
@@ -390,10 +398,10 @@ const BuyerHome = ({
       </motion.section>
 
         {/* What Our Customers Cooked Photo Reviews & Farmer Provenance */}
-        <PhotoReviewsProvenanceSection />
+        <PhotoReviewsProvenanceSection preloadedReviews={preloadedReviews} />
 
         {/* Master Butcher Meat Cuts Guide */}
-        <MeatCutsGuide />
+        <MeatCutsGuide preloadedCategories={preloadedGuideCategories} />
 
         {/* Culinary Inspiration & 1-Click Recipe Butcher Packs */}
         <ButcherRecipes onAddToCart={onAddToCart} />
