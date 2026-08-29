@@ -188,14 +188,14 @@ export const PhotoReviewsProvenanceSection: React.FC<{ preloadedReviews?: any[] 
       {/* Header & Toggle */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-xs font-black uppercase tracking-wider mb-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--site-ad,#fff1f2)] dark:bg-emerald-950/60 text-[var(--site-primary,#dc2626)] dark:text-emerald-300 text-xs font-black uppercase tracking-wider mb-2">
             <ShieldCheck className="h-3.5 w-3.5" />
             <span>Real Kitchens · 6:00 AM Certified Provenance</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-black text-stone-900 dark:text-white tracking-tight">
-            What Our Customers Cooked & Farm Provenance
+          <h2 className="text-3xl sm:text-4xl font-black text-[var(--site-text,#1c1917)] dark:text-white tracking-tight">
+            What Our Customers Cooked & <span className="text-[var(--site-primary,#dc2626)]">Farm Provenance</span>
           </h2>
-          <p className="text-sm text-stone-600 dark:text-stone-300 mt-2 max-w-2xl">
+          <p className="text-sm text-[var(--site-muted,#78716c)] dark:text-stone-300 mt-2 max-w-2xl">
             See real culinary creations from our Nairobi home chefs and trace our direct ethical sourcing from Kenyan highland pastures.
           </p>
         </div>
