@@ -87,11 +87,11 @@
 
   .hero-orbit-card--top { top: 18%; right: 11%; }
   .hero-orbit-card--bottom { bottom: 15%; right: 18%; }
-  .hero-orbit-dot { width: .55rem; height: .55rem; border-radius: 999px; background: #f06b58; box-shadow: 0 0 18px #f06b58; }
+  .hero-orbit-dot { width: .55rem; height: .55rem; border-radius: 999px; background: var(--site-primary, #f06b58); box-shadow: 0 0 18px var(--site-primary, #f06b58); }
 
   .hero-primary-button, .hero-secondary-button { display: inline-flex; align-items: center; justify-content: center; gap: .65rem; border-radius: 999px; padding: .9rem 1.45rem; font-size: .95rem; font-weight: 700; transition: transform .3s ease, background-color .3s ease, border-color .3s ease; }
-  .hero-primary-button { background: #d44a38; color: white; box-shadow: 0 12px 32px rgba(212,74,56,.28); }
-  .hero-primary-button:hover { transform: translateY(-2px); background: #ed614d; }
+  .hero-primary-button { background: var(--site-primary, #d44a38); color: var(--site-buttonText, white); box-shadow: 0 12px 32px rgba(212,74,56,.28); }
+  .hero-primary-button:hover { transform: translateY(-2px); filter: brightness(1.1); }
   .hero-secondary-button { border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.07); color: white; backdrop-filter: blur(10px); }
   .hero-secondary-button:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.65); background: rgba(255,255,255,.15); }
 

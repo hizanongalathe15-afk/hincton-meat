@@ -84,7 +84,6 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     if (typeof document === 'undefined') return
-    if (locale === 'en') return
 
     const originals = translationOriginalsRef.current
     const attrOriginals = translationAttrOriginalsRef.current
@@ -100,8 +99,12 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const original = originals.get(node) || node.nodeValue || ''
       if (!original.trim()) return
       originals.set(node, original)
-      const translated = translateLiteral(original, locale)
-      if (translated !== node.nodeValue) node.nodeValue = original.replace(original.trim(), translated)
+      if (locale === 'en') {
+        if (node.nodeValue !== original) node.nodeValue = original
+      } else {
+        const translated = translateLiteral(original, locale)
+        if (translated !== node.nodeValue) node.nodeValue = original.replace(original.trim(), translated)
+      }
     }
 
     const translateElementAttrs = (element: Element) => {
@@ -113,8 +116,12 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (!current) return
         const original = originalAttrs[attr] || current
         originalAttrs[attr] = original
-        const translated = translateLiteral(original, locale)
-        if (translated !== current) element.setAttribute(attr, translated)
+        if (locale === 'en') {
+          if (element.getAttribute(attr) !== original) element.setAttribute(attr, original)
+        } else {
+          const translated = translateLiteral(original, locale)
+          if (translated !== current) element.setAttribute(attr, translated)
+        }
         changed = true
       })
       if (changed) attrOriginals.set(element, originalAttrs)

@@ -66,7 +66,7 @@ const HeroSection = ({ onSearch }: HeroSectionProps) => {
           </motion.div>
           <motion.h1 {...rise(0.12)} className="max-w-3xl text-balance text-5xl font-semibold leading-[.94] tracking-[-0.06em] sm:text-6xl md:text-7xl lg:text-8xl">
             {t('hero.title.main')}
-            <span className="block text-[#f06b58]">{t('hero.title.highlight')}</span>
+            <span className="block text-[var(--site-primary,#f06b58)]">{t('hero.title.highlight')}</span>
           </motion.h1>
           <motion.p {...rise(0.24)} className="mt-7 max-w-2xl text-base leading-7 text-white/78 sm:text-lg sm:leading-8">
             {companyProfile}
@@ -77,7 +77,7 @@ const HeroSection = ({ onSearch }: HeroSectionProps) => {
             </Link>
             <Link to="/web-profile" className="hero-secondary-button">{t('hero.cta.viewProfile')}</Link>
           </motion.div>
-          <motion.p {...rise(0.48)} className="mt-12 border-l border-[#f06b58] pl-4 text-sm font-medium italic text-white/80 sm:text-base">“{brandMantra}”</motion.p>
+          <motion.p {...rise(0.48)} className="mt-12 border-l border-[var(--site-primary,#f06b58)] pl-4 text-sm font-medium italic text-white/80 sm:text-base">“{brandMantra}”</motion.p>
         </div>
       </div>
     </section>
